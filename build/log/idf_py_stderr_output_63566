@@ -1,0 +1,4 @@
+IDF_PATH: '/home/jim/.platformio/packages/framework-espidf'.
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository: /home/jim/.platformio/packages/framework-espidf/components/openthread/openthread/../../../.git/modules/components/openthread/openthread

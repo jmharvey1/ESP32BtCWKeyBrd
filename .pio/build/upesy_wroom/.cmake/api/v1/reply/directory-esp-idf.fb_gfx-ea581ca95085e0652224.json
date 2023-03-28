@@ -1,0 +1,14 @@
+{
+	"backtraceGraph" : 
+	{
+		"commands" : [],
+		"files" : [],
+		"nodes" : []
+	},
+	"installers" : [],
+	"paths" : 
+	{
+		"build" : "esp-idf/fb_gfx",
+		"source" : "/home/jim/.platformio/packages/framework-espidf/components/fb_gfx"
+	}
+}

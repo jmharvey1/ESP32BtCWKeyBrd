@@ -1,0 +1,30 @@
+{
+    "name": "Print",
+    "version": "1.0.0",
+    "description": "This library supports arduino style calls in espidf",
+    "repository":
+    {
+      "type": "git",
+      "url": "https://github.com/??/units.git"
+      
+    },
+    "build" : {
+      "includeDir" : "include"
+    },
+    "export" : {
+        "exclude" : [
+          "unitTests",
+          ".github",
+          ".git",
+          "3rdParty"
+        ]
+    },
+    "authors":
+    [
+      {
+        "name": "Unknown"
+      }
+    ],
+    "frameworks": "*",
+    "platforms": "*"
+  }

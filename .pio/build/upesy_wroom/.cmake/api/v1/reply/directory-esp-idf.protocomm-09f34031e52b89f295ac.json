@@ -1,0 +1,14 @@
+{
+	"backtraceGraph" : 
+	{
+		"commands" : [],
+		"files" : [],
+		"nodes" : []
+	},
+	"installers" : [],
+	"paths" : 
+	{
+		"build" : "esp-idf/protocomm",
+		"source" : "/home/jim/.platformio/packages/framework-espidf/components/protocomm"
+	}
+}

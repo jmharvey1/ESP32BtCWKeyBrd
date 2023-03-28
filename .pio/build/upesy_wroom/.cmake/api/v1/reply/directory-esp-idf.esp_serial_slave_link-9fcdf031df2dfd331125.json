@@ -1,0 +1,14 @@
+{
+	"backtraceGraph" : 
+	{
+		"commands" : [],
+		"files" : [],
+		"nodes" : []
+	},
+	"installers" : [],
+	"paths" : 
+	{
+		"build" : "esp-idf/esp_serial_slave_link",
+		"source" : "/home/jim/.platformio/packages/framework-espidf/components/esp_serial_slave_link"
+	}
+}

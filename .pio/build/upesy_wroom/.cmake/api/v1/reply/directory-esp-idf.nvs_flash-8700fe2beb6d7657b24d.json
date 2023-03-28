@@ -1,0 +1,14 @@
+{
+	"backtraceGraph" : 
+	{
+		"commands" : [],
+		"files" : [],
+		"nodes" : []
+	},
+	"installers" : [],
+	"paths" : 
+	{
+		"build" : "esp-idf/nvs_flash",
+		"source" : "/home/jim/.platformio/packages/framework-espidf/components/nvs_flash"
+	}
+}

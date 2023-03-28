@@ -1,0 +1,22 @@
+#######################################
+# Syntax Coloring Map Print
+#######################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+
+Print	KEYWORD1
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+begin	KEYWORD2
+end	KEYWORD2
+getWriteError	KEYWORD2
+clearWriteError	KEYWORD2
+write	KEYWORD2
+printf	KEYWORD2
+print	KEYWORD2
+println	KEYWORD2
+

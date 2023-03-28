@@ -1,0 +1,24 @@
+after copying files over,
+run menuconfig,
+& under Component config -> FreeRTos -> Kernel, enable configENABLE_BACKWARD_COMPATIBILITY
+under component config -> bluetooth, check bluetooth
+select/check Host Bluedroid-dual mode, & hid host
+Controller (Enabled),
+under Bluedriod options, check clasic bluetooth, & Classic BT hid
+check Secure Simple Pairing, Bluetooth Low Energy
+check IncludeGATT server module(GATTS)
+check Enable BLE mult-connections. 
+Leave all other selections to their default setting.
+In the Dependant library 'TFT_eSPI', the following files have been modified to work in this hybrid enviroment:
+1. User_Setup_Select.h
+2. TFT_eSPI.h
+3. TFT_eSPI.cpp
+4. TFT_config. h
+5. in the tft_eSPI.h & .cpp file, added new method  uint8_t getTextSize(void).
+You can use MELD to see the differences. 
+But probably easier to just copy these files from an already working project, with the same enviroment as this project
+in the user_setup_select.h file, select the appropriate configuration for the display you're using. For SPI displays:
+        #include <User_Setups/Setup42_ILI9341_ESP32.h>           // Setup file for ESP32 and SPI ILI9341 240x320
+or
+        #include <User_Setups/Setup21_ILI9488.h>           // Setup file for ESP32 and ILI9488 SPI bus TFT        
+On TFTMsgBox.h, commnent or uncomment the "#define HiRes" (found @~ line 17) to match the resolution of the display being used.

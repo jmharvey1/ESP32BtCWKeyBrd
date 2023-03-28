@@ -1,0 +1,14 @@
+{
+	"backtraceGraph" : 
+	{
+		"commands" : [],
+		"files" : [],
+		"nodes" : []
+	},
+	"installers" : [],
+	"paths" : 
+	{
+		"build" : "esp-idf/esp32-camera",
+		"source" : "/home/jim/.platformio/packages/framework-espidf/components/esp32-camera"
+	}
+}

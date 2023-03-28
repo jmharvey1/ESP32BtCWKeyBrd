@@ -1,0 +1,14 @@
+{
+	"backtraceGraph" : 
+	{
+		"commands" : [],
+		"files" : [],
+		"nodes" : []
+	},
+	"installers" : [],
+	"paths" : 
+	{
+		"build" : "esp-idf/tcpip_adapter",
+		"source" : "/home/jim/.platformio/packages/framework-espidf/components/tcpip_adapter"
+	}
+}

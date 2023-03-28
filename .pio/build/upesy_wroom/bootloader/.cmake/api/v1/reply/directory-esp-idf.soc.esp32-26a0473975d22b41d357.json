@@ -1,0 +1,14 @@
+{
+	"backtraceGraph" : 
+	{
+		"commands" : [],
+		"files" : [],
+		"nodes" : []
+	},
+	"installers" : [],
+	"paths" : 
+	{
+		"build" : "esp-idf/soc/esp32",
+		"source" : "/home/jim/.platformio/packages/framework-espidf/components/soc/esp32"
+	}
+}
