@@ -44,3 +44,5 @@ Note: For me, using Linux Mint, the ESPhome-Flasher's 'Browse' button did NOT wo
 in the 'Firmware' cell.
   
 A 2nd tip: Connect the ESP32 to your computer BEFORE launching the ESPhome-Flasher. 
+___
+A PCB for this project can be ordered from a board manufacturer like JCLPCB using the gerber files found [Here](https://github.com/jmharvey1/ESP32BtCWKeyBrd/).
