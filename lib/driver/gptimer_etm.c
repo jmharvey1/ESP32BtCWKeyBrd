@@ -12,8 +12,8 @@
 #include "esp_log.h"
 #include "esp_check.h"
 #include "esp_heap_caps.h"
-//#include "driver/gptimer.h"
-#include "gptimer.h"
+#include <driver/gptimer.h>//JMH added for Windows 10 version
+//#include "gptimer.h"//JMH removed for Windows 10 version
 #include "gptimer_etm.h" //JMH added to support 'gptimer_etm_event_config_t'
 #include "gptimer_priv.h"
 #include "hal/timer_ll.h"

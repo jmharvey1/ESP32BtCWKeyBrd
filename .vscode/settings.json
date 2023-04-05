@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "memory": "cpp",
+        "esp_heap_caps.h": "c"
+    },
+    "cmake.configureOnOpen": false
+}

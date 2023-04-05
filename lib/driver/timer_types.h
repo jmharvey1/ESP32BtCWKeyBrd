@@ -7,7 +7,8 @@
 #pragma once
 
 //#include "soc/clk_tree_defs.h"
-#include "clk_tree_defs.h"
+//#include "clk_tree_defs.h"
+#include "soc/clk_tree_defs.h"// JMH Added for Windows 10 version
 
 #ifdef __cplusplus
 extern "C" {
@@ -18,14 +19,14 @@ extern "C" {
  * @note User should select the clock source based on the power and resolution requirement
  */
 typedef soc_periph_gptimer_clk_src_t gptimer_clock_source_t;
-
-/**
- * @brief GPTimer count direction
- */
-typedef enum {
-    GPTIMER_COUNT_DOWN, /*!< Decrease count value */
-    GPTIMER_COUNT_UP,   /*!< Increase count value */
-} gptimer_count_direction_t;
+// JMH Removed for Windows 10 version
+// /**
+//  * @brief GPTimer count direction
+//  */
+// typedef enum {
+//     GPTIMER_COUNT_DOWN, /*!< Decrease count value */
+//     GPTIMER_COUNT_UP,   /*!< Increase count value */
+// } gptimer_count_direction_t;
 
 /**
  * @brief GPTimer specific tasks that supported by the ETM module

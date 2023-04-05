@@ -54,7 +54,8 @@ typedef struct apb_change_cb_s {
 
 
 static apb_change_t * apb_change_callbacks = NULL;
-static xSemaphoreHandle apb_change_lock = NULL;
+//static xSemaphoreHandle apb_change_lock = NULL; // JMH removed for Windows 10 version
+static SemaphoreHandle_t apb_change_lock = NULL; //JMH added for Winows 10 version
 
 static void initApbChangeCallback(){
     static volatile bool initialized = false;

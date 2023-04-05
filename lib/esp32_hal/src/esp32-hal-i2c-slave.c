@@ -43,8 +43,7 @@
 #include "esp32-hal-log.h"
 #include "esp32-hal-i2c-slave.h"
 
-///home/jim/.platformio/packages/framework-espidf/components/hal/include/hal
-//#include "i2c_types_JMH.h"
+#include "i2c_types_JMH.h" //JMH added back in for Windows 10 version; this file is found at lib/esp32_hal/src
  
 
 
@@ -77,16 +76,19 @@ typedef struct i2c_slave_struct_t {
     void * arg;
     intr_handle_t intr_handle;
     TaskHandle_t task_handle;
-    xQueueHandle event_queue;
+//    xQueueHandle event_queue;//JMH removed to support Windows 10 version
+    QueueHandle_t event_queue;//JMH added to support Windows 10 version
 #if I2C_SLAVE_USE_RX_QUEUE
     xQueueHandle rx_queue;
 #else
     RingbufHandle_t rx_ring_buf;
 #endif
-    xQueueHandle tx_queue;
+//    xQueueHandle tx_queue;;//JMH removed to support Windows 10 version
+    QueueHandle_t tx_queue;//JMH added to support Windows 10 version
     uint32_t rx_data_count;
 #if !CONFIG_DISABLE_HAL_LOCKS
-    xSemaphoreHandle lock;
+//    xSemaphoreHandle lock;;//JMH removed to support Windows 10 version
+    SemaphoreHandle_t lock;//JMH added to support Windows 10 version
 #endif
 } i2c_slave_struct_t;
 
@@ -416,7 +418,8 @@ size_t i2cSlaveWrite(uint8_t num, const uint8_t *buf, uint32_t len, uint32_t tim
             to_queue = len;
         }
         for (size_t i = 0; i < to_queue; i++) {
-            if (xQueueSend(i2c->tx_queue, &buf[i], timeout_ms / portTICK_RATE_MS) != pdTRUE) {
+            if (xQueueSend(i2c->tx_queue, &buf[i], timeout_ms / portTICK_PERIOD_MS) != pdTRUE) {//JHM changed from portTICK_RATE_MS to portTICK_PERIOD_MS for Windows 10 version
+            //if (xQueueSend(i2c->tx_queue, &buf[i], timeout_ms / portTICK_RATE_MS) != pdTRUE) {
                 xQueueReset(i2c->tx_queue);
                 to_queue = 0;
                 break;

@@ -102,7 +102,8 @@ struct rmt_obj_s
 /**
  * Internal variables for channel descriptors
  */
-static xSemaphoreHandle g_rmt_objlocks[MAX_CHANNELS] = {
+//static xSemaphoreHandle g_rmt_objlocks[MAX_CHANNELS] = {//JMH removed to support Windows 10 version
+static SemaphoreHandle_t g_rmt_objlocks[MAX_CHANNELS] = {//JMH added to support Windows 10 version
     NULL, NULL, NULL, NULL, 
 #if MAX_CHANNELS > 4
     NULL, NULL, NULL, NULL
@@ -125,7 +126,8 @@ static rmt_obj_t g_rmt_objects[MAX_CHANNELS] = {
 /**
  * Internal variables for driver data
  */
-static xSemaphoreHandle g_rmt_block_lock = NULL;
+//static xSemaphoreHandle g_rmt_block_lock = NULL;//JMH removed to support Windows 10 version
+static SemaphoreHandle_t g_rmt_block_lock = NULL;//JMH added to support Windows 10 version
 
 /**
  * Internal method (private) declarations

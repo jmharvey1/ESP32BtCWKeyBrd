@@ -689,8 +689,8 @@ void BTKeyboard::bt_gap_event_handler(esp_bt_gap_cb_event_t event, esp_bt_gap_cb
     break;
   }
   case ESP_BT_GAP_KEY_NOTIF_EVT:
-    ESP_LOGV(TAG, "BT GAP KEY_NOTIF passkey:%d", param->key_notif.passkey); // JMH changed %d to %lu
-    //ESP_LOGV(TAG, "BT GAP KEY_NOTIF passkey:%lu", param->key_notif.passkey); // JMH changed %d to %lu
+    //ESP_LOGV(TAG, "BT GAP KEY_NOTIF passkey:%d", param->key_notif.passkey); // JMH changed %lu to %d 
+    ESP_LOGV(TAG, "BT GAP KEY_NOTIF passkey:%lu", param->key_notif.passkey); // JMH changed for WINDOWS 10 version
     //   if(pDFault->DeBug){
     //   sprintf(msgbuf, "BT GAP KEY_NOTIF passkey:%lu", param->key_notif.passkey);
     //   pmsgbx->dispMsg(msgbuf,TFT_WHITE);
@@ -902,7 +902,8 @@ void BTKeyboard::ble_gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap
     case ESP_GAP_BLE_PASSKEY_NOTIF_EVT: // ESP_IO_CAP_OUT
       // The app will receive this evt when the IO has Output capability and the peer device IO has Input capability.
       // Show the passkey number to the user to input it in the peer device.
-      ESP_LOGV(TAG, "BLE GAP PASSKEY_NOTIF passkey:%d", param->ble_security.key_notif.passkey); // JMH changed %d to %lu
+      //ESP_LOGV(TAG, "BLE GAP PASSKEY_NOTIF passkey:%d", param->ble_security.key_notif.passkey); // JMH changed %d to %lu
+      ESP_LOGV(TAG, "BLE GAP PASSKEY_NOTIF passkey:%lu", param->ble_security.key_notif.passkey); // JMH changed %d to %lu for Windows 10 Version
       // if(pDFault->DeBug){
       //    sprintf(msgbuf, "BLE GAP PASSKEY_NOTIF passkey:%lu", param->ble_security.key_notif.passkey);
       //    pmsgbx->dispMsg(msgbuf,TFT_WHITE);
@@ -914,7 +915,8 @@ void BTKeyboard::ble_gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap
     case ESP_GAP_BLE_NC_REQ_EVT: // ESP_IO_CAP_IO
       // The app will receive this event when the IO has DisplayYesNO capability and the peer device IO also has DisplayYesNo capability.
       // show the passkey number to the user to confirm it with the number displayed by peer device.
-      ESP_LOGV(TAG, "BLE GAP NC_REQ passkey:%d", param->ble_security.key_notif.passkey); // JMH changed %d to %lu
+      //ESP_LOGV(TAG, "BLE GAP NC_REQ passkey:%d", param->ble_security.key_notif.passkey); // JMH changed %d to %lu
+      ESP_LOGV(TAG, "BLE GAP NC_REQ passkey:%lu", param->ble_security.key_notif.passkey); // JMH changed %d to %lu for Windows 10 version
       // if(pDFault->DeBug){
       // sprintf(msgbuf, "BLE GAP NC_REQ passkey:%lu", param->ble_security.key_notif.passkey);
       // pmsgbx->dispMsg(msgbuf,TFT_WHITE);

@@ -16,8 +16,8 @@
 #include "freertos/semphr.h"
 #include "freertos/queue.h"
 //#include "driver/timer.h"
-//#include "driver/gptimer.h"
-#include "gptimer.h"
+#include <driver/gptimer.h>//JMH added for Windows 10 version
+//#include "gptimer.h"//JMH removed for Windows 10 version
 #include "esp_system.h"
 #include "esp32-hal-delay.h" //included to support the arduino function 'delay(int ms)'
 struct DF_t

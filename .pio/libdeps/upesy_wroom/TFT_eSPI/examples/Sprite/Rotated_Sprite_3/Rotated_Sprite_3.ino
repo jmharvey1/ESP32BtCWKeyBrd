@@ -37,7 +37,7 @@
 #include <FS.h>
 
 #ifdef ESP32
-#include "SPIFFS.h" // Needed for ESP32 only
+#include "SPIFFSJMH.h" // Needed for ESP32 only
 #endif
 
 // https://github.com/Bodmer/TFT_eSPI

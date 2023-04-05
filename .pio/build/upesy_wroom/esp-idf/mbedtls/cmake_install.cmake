@@ -1,8 +1,8 @@
-# Install script for directory: /home/jim/.platformio/packages/framework-espidf/components/mbedtls
+# Install script for directory: C:/Users/james/.platformio/packages/framework-espidf/components/mbedtls
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
-  set(CMAKE_INSTALL_PREFIX "/usr/local")
+  set(CMAKE_INSTALL_PREFIX "C:/Program Files (x86)/ESP32BtCWKeyBrd")
 endif()
 string(REGEX REPLACE "/$" "" CMAKE_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
 
@@ -32,14 +32,8 @@ if(NOT DEFINED CMAKE_CROSSCOMPILING)
   set(CMAKE_CROSSCOMPILING "TRUE")
 endif()
 
-# Set default install directory permissions.
-if(NOT DEFINED CMAKE_OBJDUMP)
-  set(CMAKE_OBJDUMP "/home/jim/.platformio/packages/toolchain-xtensa-esp32@8.4.0+2021r2-patch5/bin/xtensa-esp32-elf-objdump")
-endif()
-
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
-  # Include the install script for each subdirectory.
-  include("/home/jim/Documents/PlatformIO/Projects/ESP32BtCWKeyBrd/.pio/build/upesy_wroom/esp-idf/mbedtls/mbedtls/cmake_install.cmake")
-
+  # Include the install script for the subdirectory.
+  include("C:/Users/james/Documents/GitHub/ESP32BtCWKeyBrd/.pio/build/upesy_wroom/esp-idf/mbedtls/mbedtls/cmake_install.cmake")
 endif()
 

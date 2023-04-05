@@ -26,7 +26,7 @@
 #include "hal/i2c_hal.h"
 #include "hal/i2c_ll.h"
 #include "driver/i2c.h"
-//#include "i2c_types_JMH.h"
+#include "i2c_types_JMH.h" //JMH added back in for Windows 10 version; this file is found at lib/esp32_hal/src
 
 typedef volatile struct {
     bool initialized;
@@ -151,7 +151,7 @@ esp_err_t i2cWrite(uint8_t i2c_num, uint16_t address, const uint8_t* buff, size_
     }
     
     //short implementation does not support zero size writes (example when scanning) PR in IDF?
-    //ret =  i2c_master_write_to_device((i2c_port_t)i2c_num, address, buff, size, timeOutMillis / portTICK_RATE_MS);
+    //ret =  i2c_master_write_to_device((i2c_port_t)i2c_num, address, buff, size, timeOutMillis / portTICK_PERIOD_MS);
 
     ret = ESP_OK;
     uint8_t cmd_buff[I2C_LINK_RECOMMENDED_SIZE(1)] = { 0 };
@@ -174,7 +174,7 @@ esp_err_t i2cWrite(uint8_t i2c_num, uint16_t address, const uint8_t* buff, size_
     if (ret != ESP_OK) {
         goto end;
     }
-    ret = i2c_master_cmd_begin((i2c_port_t)i2c_num, cmd, timeOutMillis / portTICK_RATE_MS);
+    ret = i2c_master_cmd_begin((i2c_port_t)i2c_num, cmd, timeOutMillis / portTICK_PERIOD_MS);//JHM changed from portTICK_RATE_MS to portTICK_PERIOD_MS for Windows 10 version
 
 end:
     if(cmd != NULL){
@@ -202,7 +202,7 @@ esp_err_t i2cRead(uint8_t i2c_num, uint16_t address, uint8_t* buff, size_t size,
     if(!bus[i2c_num].initialized){
         log_e("bus is not initialized");
     } else {
-        ret = i2c_master_read_from_device((i2c_port_t)i2c_num, address, buff, size, timeOutMillis / portTICK_RATE_MS);
+        ret = i2c_master_read_from_device((i2c_port_t)i2c_num, address, buff, size, timeOutMillis / portTICK_PERIOD_MS);//JHM changed from portTICK_RATE_MS to portTICK_PERIOD_MS for Windows 10 version
         if(ret == ESP_OK){
             *readCount = size;
         } else {
@@ -231,7 +231,7 @@ esp_err_t i2cWriteReadNonStop(uint8_t i2c_num, uint16_t address, const uint8_t* 
     if(!bus[i2c_num].initialized){
         log_e("bus is not initialized");
     } else {
-        ret = i2c_master_write_read_device((i2c_port_t)i2c_num, address, wbuff, wsize, rbuff, rsize, timeOutMillis / portTICK_RATE_MS);
+        ret = i2c_master_write_read_device((i2c_port_t)i2c_num, address, wbuff, wsize, rbuff, rsize, timeOutMillis / portTICK_PERIOD_MS);//JHM changed from portTICK_RATE_MS to portTICK_PERIOD_MS for Windows 10 version
         if(ret == ESP_OK){
             *readCount = rsize;
         } else {
@@ -318,9 +318,9 @@ esp_err_t i2cSetClock(uint8_t i2c_num, uint32_t frequency){
         i2c_hal_context_t hal;
         hal.dev = I2C_LL_GET_HW(i2c_num);
         //void i2c_hal_set_bus_timing(i2c_hal_context_t *hal, int scl_freq, i2c_clock_source_t src_clk, int source_freq)
-        //i2c_hal_set_bus_timing(&(hal), frequency, src_clk, (int)frequency);
+        i2c_hal_set_bus_timing(&(hal), frequency, src_clk, (int)frequency);//JMH restored for Windows 10 version
         //void i2c_hal_set_bus_timing(i2c_hal_context_t *hal, int scl_freq, i2c_sclk_t src_clk)
-        i2c_hal_set_bus_timing(&(hal), frequency, src_clk);
+        //i2c_hal_set_bus_timing(&(hal), frequency, src_clk);//JMH removed/replaced for Windows 10 version
         bus[i2c_num].frequency = frequency;
         //Clock Stretching Timeout: 20b:esp32, 5b:esp32-c3, 24b:esp32-s2
         i2c_set_timeout((i2c_port_t)i2c_num, I2C_LL_MAX_TIMEOUT);

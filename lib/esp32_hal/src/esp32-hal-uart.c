@@ -36,7 +36,8 @@ static int s_uart_debug_nr = 0;
 struct uart_struct_t {
 
 #if !CONFIG_DISABLE_HAL_LOCKS
-    xSemaphoreHandle lock;
+//    xSemaphoreHandle lock;// JMH commented out for Windows 10 version
+    SemaphoreHandle_t lock;// JMH added back for Windows 10 version
 #endif
 
     uint8_t num;
@@ -380,7 +381,7 @@ uint8_t uartRead(uart_t* uart)
       c = uart->peek_byte;
     } else {
 
-        int len = uart_read_bytes(uart->num, &c, 1, 20 / portTICK_RATE_MS);
+        int len = uart_read_bytes(uart->num, &c, 1, 20 / portTICK_PERIOD_MS);//JHM changed from portTICK_RATE_MS to portTICK_PERIOD_MS for Windows 10 version
         if (len <= 0) { // includes negative return from IDF in case of error
             c  = 0;
         }
@@ -402,7 +403,7 @@ uint8_t uartPeek(uart_t* uart)
     if (uart->has_peek) {
       c = uart->peek_byte;
     } else {
-        int len = uart_read_bytes(uart->num, &c, 1, 20 / portTICK_RATE_MS);
+        int len = uart_read_bytes(uart->num, &c, 1, 20 / portTICK_PERIOD_MS);//JHM changed from portTICK_RATE_MS to portTICK_PERIOD_MS for Windows 10 version
         if (len <= 0) { // includes negative return from IDF in case of error
             c  = 0;
         } else {
@@ -471,9 +472,9 @@ sclk_freq – Frequency of the clock source of UART, in Hz.
 
 Returns:
 None*/
-    //uart_ll_set_baudrate(UART_LL_GET_HW(uart->num), _get_effective_baudrate(baud_rate), APB_CLK_FREQ); //JMH added APB_CLK_FREQ to support espidf
+    uart_ll_set_baudrate(UART_LL_GET_HW(uart->num), _get_effective_baudrate(baud_rate), APB_CLK_FREQ); //JMH added  for Windows 10 version
     //static inline void uart_ll_set_baudrate(uart_dev_t *hw, uint32_t baud)
-    uart_ll_set_baudrate(UART_LL_GET_HW(uart->num), _get_effective_baudrate(baud_rate));
+    //uart_ll_set_baudrate(UART_LL_GET_HW(uart->num), _get_effective_baudrate(baud_rate));//JMH removed for Windows 10 version
     UART_MUTEX_UNLOCK();
 }
 
@@ -484,10 +485,9 @@ uint32_t uartGetBaudRate(uart_t* uart)
     }
 
     UART_MUTEX_LOCK();
-    //uint32_t baud_rate = uart_ll_get_baudrate(UART_LL_GET_HW(uart->num), APB_CLK_FREQ); //JMH added APB_CLK_FREQ to support espidf
+    uint32_t baud_rate = uart_ll_get_baudrate(UART_LL_GET_HW(uart->num), APB_CLK_FREQ); //JMH added  for Windows 10 version
     //static inline void uart_ll_set_baudrate(uart_dev_t *hw, uint32_t baud)
-    uint32_t baud_rate = uart_ll_get_baudrate(UART_LL_GET_HW(uart->num));
-    UART_MUTEX_UNLOCK();
+    //uint32_t baud_rate = uart_ll_get_baudrate(UART_LL_GET_HW(uart->num));//JMH removed for Windows 10 version
     return baud_rate;
 }
 

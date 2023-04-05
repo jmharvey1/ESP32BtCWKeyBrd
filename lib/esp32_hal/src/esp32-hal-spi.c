@@ -58,7 +58,8 @@
 struct spi_struct_t {
     spi_dev_t * dev;
 #if !CONFIG_DISABLE_HAL_LOCKS
-    xSemaphoreHandle lock;
+    //xSemaphoreHandle lock;//JMH removed to support Windows 10 version
+    SemaphoreHandle_t lock;//JMH added to support Windows 10 version
 #endif
     uint8_t num;
 };
