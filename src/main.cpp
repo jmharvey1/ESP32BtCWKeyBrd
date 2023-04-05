@@ -4,6 +4,7 @@
 /*20230310 added logitech K380 configure function keys command */
 /*20230317 added Memory F3 & F4 function keys */
 /*20230328 moved to GitHub*/
+/*20230405 reconfigued project files to run both on Linux & Windows 10*/
 #include "sdkconfig.h" //added for timer support
 #include "globals.hpp"
 #include "main.h"
@@ -44,7 +45,7 @@ DF_t DFault;
 int DeBug = 1; // Debug factory default setting; 0 => Debug "OFF"; 1 => Debug "ON"
 char StrdTxt[20] = {'\0'};
 /*Factory Default Settings*/
-char RevDate[9] = "20230328";
+char RevDate[9] = "20230405";
 char MyCall[10] = {'K', 'W', '4', 'K', 'D'};
 char MemF2[80] = "VVV VVV TEST DE KW4KD";
 char MemF3[80] = "CQ CQ CQ DE KW4KD KW4KD";

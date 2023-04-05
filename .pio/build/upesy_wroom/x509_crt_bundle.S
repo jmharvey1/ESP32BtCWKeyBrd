@@ -1,4 +1,4 @@
-/* * Data converted from C:\Users\james\Documents\GitHub\ESP32BtCWKeyBrd\.pio\build\upesy_wroom\x509_crt_bundle
+/* * Data converted from /home/jim/Documents/PlatformIO/Projects/ESP32BtCWKeyBrd/.pio/build/upesy_wroom/x509_crt_bundle
  */
 .data
 .section .rodata.embedded

@@ -2,34 +2,34 @@
 	"sources" : 
 	[
 		{
-			"file" : "C:/Users/james/Documents/GitHub/ESP32BtCWKeyBrd/.pio/build/upesy_wroom/CMakeFiles/bootloader"
+			"file" : "/home/jim/Documents/PlatformIO/Projects/ESP32BtCWKeyBrd/.pio/build/upesy_wroom/CMakeFiles/bootloader"
 		},
 		{
-			"file" : "C:/Users/james/Documents/GitHub/ESP32BtCWKeyBrd/.pio/build/upesy_wroom/CMakeFiles/bootloader.rule"
+			"file" : "/home/jim/Documents/PlatformIO/Projects/ESP32BtCWKeyBrd/.pio/build/upesy_wroom/CMakeFiles/bootloader.rule"
 		},
 		{
-			"file" : "C:/Users/james/Documents/GitHub/ESP32BtCWKeyBrd/.pio/build/upesy_wroom/CMakeFiles/bootloader-complete.rule"
+			"file" : "/home/jim/Documents/PlatformIO/Projects/ESP32BtCWKeyBrd/.pio/build/upesy_wroom/CMakeFiles/bootloader-complete.rule"
 		},
 		{
-			"file" : "C:/Users/james/Documents/GitHub/ESP32BtCWKeyBrd/.pio/build/upesy_wroom/bootloader-prefix/src/bootloader-stamp/bootloader-install.rule"
+			"file" : "/home/jim/Documents/PlatformIO/Projects/ESP32BtCWKeyBrd/.pio/build/upesy_wroom/bootloader-prefix/src/bootloader-stamp/bootloader-install.rule"
 		},
 		{
-			"file" : "C:/Users/james/Documents/GitHub/ESP32BtCWKeyBrd/.pio/build/upesy_wroom/bootloader-prefix/src/bootloader-stamp/bootloader-mkdir.rule"
+			"file" : "/home/jim/Documents/PlatformIO/Projects/ESP32BtCWKeyBrd/.pio/build/upesy_wroom/bootloader-prefix/src/bootloader-stamp/bootloader-mkdir.rule"
 		},
 		{
-			"file" : "C:/Users/james/Documents/GitHub/ESP32BtCWKeyBrd/.pio/build/upesy_wroom/bootloader-prefix/src/bootloader-stamp/bootloader-download.rule"
+			"file" : "/home/jim/Documents/PlatformIO/Projects/ESP32BtCWKeyBrd/.pio/build/upesy_wroom/bootloader-prefix/src/bootloader-stamp/bootloader-download.rule"
 		},
 		{
-			"file" : "C:/Users/james/Documents/GitHub/ESP32BtCWKeyBrd/.pio/build/upesy_wroom/bootloader-prefix/src/bootloader-stamp/bootloader-update.rule"
+			"file" : "/home/jim/Documents/PlatformIO/Projects/ESP32BtCWKeyBrd/.pio/build/upesy_wroom/bootloader-prefix/src/bootloader-stamp/bootloader-update.rule"
 		},
 		{
-			"file" : "C:/Users/james/Documents/GitHub/ESP32BtCWKeyBrd/.pio/build/upesy_wroom/bootloader-prefix/src/bootloader-stamp/bootloader-patch.rule"
+			"file" : "/home/jim/Documents/PlatformIO/Projects/ESP32BtCWKeyBrd/.pio/build/upesy_wroom/bootloader-prefix/src/bootloader-stamp/bootloader-patch.rule"
 		},
 		{
-			"file" : "C:/Users/james/Documents/GitHub/ESP32BtCWKeyBrd/.pio/build/upesy_wroom/bootloader-prefix/src/bootloader-stamp/bootloader-configure.rule"
+			"file" : "/home/jim/Documents/PlatformIO/Projects/ESP32BtCWKeyBrd/.pio/build/upesy_wroom/bootloader-prefix/src/bootloader-stamp/bootloader-configure.rule"
 		},
 		{
-			"file" : "C:/Users/james/Documents/GitHub/ESP32BtCWKeyBrd/.pio/build/upesy_wroom/bootloader-prefix/src/bootloader-stamp/bootloader-build.rule"
+			"file" : "/home/jim/Documents/PlatformIO/Projects/ESP32BtCWKeyBrd/.pio/build/upesy_wroom/bootloader-prefix/src/bootloader-stamp/bootloader-build.rule"
 		}
 	],
 	"target" : 

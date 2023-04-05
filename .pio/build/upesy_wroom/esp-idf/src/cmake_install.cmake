@@ -1,8 +1,8 @@
-# Install script for directory: C:/Users/james/Documents/GitHub/ESP32BtCWKeyBrd/src
+# Install script for directory: /home/jim/Documents/PlatformIO/Projects/ESP32BtCWKeyBrd/src
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
-  set(CMAKE_INSTALL_PREFIX "C:/Program Files (x86)/ESP32BtCWKeyBrd")
+  set(CMAKE_INSTALL_PREFIX "/usr/local")
 endif()
 string(REGEX REPLACE "/$" "" CMAKE_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
 

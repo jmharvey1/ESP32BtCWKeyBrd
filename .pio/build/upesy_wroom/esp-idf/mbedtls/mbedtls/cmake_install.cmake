@@ -1,8 +1,8 @@
-# Install script for directory: C:/Users/james/.platformio/packages/framework-espidf/components/mbedtls/mbedtls
+# Install script for directory: /home/jim/.platformio/packages/framework-espidf/components/mbedtls/mbedtls
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
-  set(CMAKE_INSTALL_PREFIX "C:/Program Files (x86)/ESP32BtCWKeyBrd")
+  set(CMAKE_INSTALL_PREFIX "/usr/local")
 endif()
 string(REGEX REPLACE "/$" "" CMAKE_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
 
@@ -34,9 +34,9 @@ endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for each subdirectory.
-  include("C:/Users/james/Documents/GitHub/ESP32BtCWKeyBrd/.pio/build/upesy_wroom/esp-idf/mbedtls/mbedtls/include/cmake_install.cmake")
-  include("C:/Users/james/Documents/GitHub/ESP32BtCWKeyBrd/.pio/build/upesy_wroom/esp-idf/mbedtls/mbedtls/3rdparty/cmake_install.cmake")
-  include("C:/Users/james/Documents/GitHub/ESP32BtCWKeyBrd/.pio/build/upesy_wroom/esp-idf/mbedtls/mbedtls/library/cmake_install.cmake")
+  include("/home/jim/Documents/PlatformIO/Projects/ESP32BtCWKeyBrd/.pio/build/upesy_wroom/esp-idf/mbedtls/mbedtls/include/cmake_install.cmake")
+  include("/home/jim/Documents/PlatformIO/Projects/ESP32BtCWKeyBrd/.pio/build/upesy_wroom/esp-idf/mbedtls/mbedtls/3rdparty/cmake_install.cmake")
+  include("/home/jim/Documents/PlatformIO/Projects/ESP32BtCWKeyBrd/.pio/build/upesy_wroom/esp-idf/mbedtls/mbedtls/library/cmake_install.cmake")
 
 endif()
 

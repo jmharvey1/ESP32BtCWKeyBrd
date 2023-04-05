@@ -1,8 +1,8 @@
-# Install script for directory: C:/Users/james/.platformio/packages/framework-espidf/components/spi_flash
+# Install script for directory: /home/jim/.platformio/packages/framework-espidf/components/spi_flash
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
-  set(CMAKE_INSTALL_PREFIX "C:/Program Files (x86)/bootloader")
+  set(CMAKE_INSTALL_PREFIX "/usr/local")
 endif()
 string(REGEX REPLACE "/$" "" CMAKE_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
 
