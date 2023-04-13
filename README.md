@@ -9,6 +9,9 @@ This ham radio project uses a generic Bluetooth Keyboard to send Morse Code (cw)
 <img src="https://github.com/jmharvey1/ESP32BtCWKeyBrd/blob/main/MiscFiles/IMG_5733.JPG"  width="40%" height="40%">
 </p>
   
+    For additional info, see YouTube video:
+    https://youtu.be/Hb9m60LtSJw
+    
 ---
 Main Hardware needed to replicate this project:
   

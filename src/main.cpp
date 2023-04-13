@@ -31,7 +31,7 @@ TFT_eSPI tft = TFT_eSPI(); // Invoke TFT Display library
 /*timer interrupt support*/
 #include "esp_timer.h"
 esp_timer_handle_t DotClk_hndl;
-esp_timer_handle_t DsplTmr_hndl;
+//esp_timer_handle_t DsplTmr_hndl;
 TimerHandle_t DisplayTmr;
 /* END timer interrupt support          */
 /**blackpill tftmsgbox spport*/
@@ -300,7 +300,6 @@ void DsplTmr_callback(TimerHandle_t  xtimer)
   uint8_t state;
   BaseType_t TaskWoke;
   tftmsgbx.dispMsg2();
-  //if(EnDsplInt)tftmsgbx.dispMsg2(); // update display
   while(xQueueReceiveFromISR(state_que,(void *)&state, &TaskWoke) ==pdTRUE) tftmsgbx.IntrCrsr(state);
   
 }
