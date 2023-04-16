@@ -12,7 +12,6 @@ This ham radio project uses a generic Bluetooth Keyboard to send Morse Code (cw)
 <p align="center">  
 <iframe width="420" height="315"
 src="https://youtu.be/Hb9m60LtSJw">
-</iframe>
 </p>
 
 
