@@ -3,6 +3,7 @@
  *
  *  Created on: Oct 5, 2021
  *      Author: jim
+ * 20230418 expanded send buffer from 160 to 400 charater (4 line to 10 dispaly lines)
  */
 	/*
 	 * Given:
@@ -75,7 +76,7 @@ private:
 	unsigned int uSec;
 	unsigned int SndWPM;
 	uint16_t Symbl;
-	char SndBuf[160];
+	char SndBuf[400];//JMH for ESP32 changed buffer size from 160 to 400 
 	void ConfigKey(bool KeyState);
 	int CalcARRval(int wpm);
 	int AdvncPntr(int pntr);
