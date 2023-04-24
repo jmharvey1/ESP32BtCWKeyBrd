@@ -15,8 +15,8 @@ Special Functions:
 1. cntrl+T	Generates continuous key down state. Press “cntrl+T” again (or another key) to stop.
 2. Enter [pressed by itself] sends the "My Call" memory entry. (see settings screen)
 3. “delete” Back space, to delete unsent buffered code.
-4. Right Arrow		Alternate action; Allows text to be typed, and not sent. Press again, and normal sending resumes. (In hold mode, lower left box is yellow)
-5. Left Arrow		Store text (When active, lower left box is White). Up to 20 characters (no spaces) can be stored to be sent later. (Space bar, auto exit F1 store mode, or press F1 again to stop store) 
+4. Right Arrow	Same as F12.
+5. Left Arrow Same as F1.  
 6. Lshift+Enter” Send "Left Arrow" stored text plus Your call sign.
 7. Cntrl+Enter” Send "Left Arrow" stored text.
 8. "Esc"   Abort/dump outgoing text 	
