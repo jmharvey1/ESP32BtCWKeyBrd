@@ -4,6 +4,7 @@
  *  Created on: Oct 5, 2021
  *      Author: jim
  * 20220827 minor tweek to CWSNDENGN::Intr(void) code to allow F12 (SOT) to always stop key at the end of a letter
+ * 20230429 Added code to set character timing speed to a minimum of 15wpm
  */
 /*
  * Given:
@@ -107,7 +108,12 @@ int CWSNDENGN::Intr(void){
 				ConfigKey(KeyDwn);
 				if(SymblCnt == 0){
 					LtrBkFlg = true;
-					pMsgBx->setCWActv(false);
+					pMsgBx->setCWActv(false);//clear the bG cursor highlight
+					if(curWPM<15){//restore dotclock to this <15wpm timing
+						uSec = CalcARRval(curWPM);
+						ESP_ERROR_CHECK(esp_timer_stop(*DotClk));
+    					ESP_ERROR_CHECK(esp_timer_start_periodic(*DotClk, uSec));
+					}
 				}
 				return state;// processing
 			} else{ //Key Up
@@ -115,6 +121,11 @@ int CWSNDENGN::Intr(void){
 					LtrBkFlg = false;
 					TmInrvlCnt = 2; // nothing left in this letter; extend time to create a full letter break interval
 					state =2;
+					/* if(curWPM<15){//restore dotclock to this <15wpm timing
+						uSec = CalcARRval(curWPM);
+						ESP_ERROR_CHECK(esp_timer_stop(*DotClk));
+    					ESP_ERROR_CHECK(esp_timer_start_periodic(*DotClk, uSec));
+					} */
 					return state;//letter complete
 				}else if(LtrBkFlg && SpcFlg){
 					LtrBkFlg = false;
@@ -138,6 +149,11 @@ int CWSNDENGN::Intr(void){
 			if(SpcFlg){
 				SpcFlg = false;
 				state = 2;//Letter Complete (restore background)
+				if(curWPM<15){//restore dotclock to this <15wpm timing
+					uSec = CalcARRval(curWPM);
+					ESP_ERROR_CHECK(esp_timer_stop(*DotClk));
+    				ESP_ERROR_CHECK(esp_timer_start_periodic(*DotClk, uSec));
+				}
 			}
 			//			else if(state == 1) state = 2; //Nothing left to send. But just finished out a space, need to clear the display background & Go wait for the next interrupt
 			return state;
@@ -167,6 +183,11 @@ int CWSNDENGN::Intr(void){
 					Symbl = Symbl<<1;
 					SymblCnt--;
 				}
+				if(curWPM<15){// set/force dotclock to send character with 15wpm timing
+					uSec = CalcARRval(15);
+					ESP_ERROR_CHECK(esp_timer_stop(*DotClk));
+    				ESP_ERROR_CHECK(esp_timer_start_periodic(*DotClk, uSec));
+				}
 			}
 		}
 	}
@@ -178,7 +199,14 @@ int CWSNDENGN::Intr(void){
 	else TmInrvlCnt = 1; // its a Dit
 	ConfigKey(KeyDwn);
 	pMsgBx->setCWActv(true);
-	if(state!=5) state = 4;//start letter
+	if(state!=5){
+		state = 4;//start letter
+		if(curWPM<15){//set/force dotclock to send character with 15wpm timing
+			uSec = CalcARRval(15);
+			ESP_ERROR_CHECK(esp_timer_stop(*DotClk));
+    		ESP_ERROR_CHECK(esp_timer_start_periodic(*DotClk, uSec));
+		}
+	}
 	return state;
 };
 /* */
@@ -311,7 +339,6 @@ void CWSNDENGN::ShwWPM(int wpm)
 	curWPM = wpm;
 	SndWPM = curWPM;
 	uSec = CalcARRval(curWPM);
-	/*TODO need to rework the following commented out section*/
 	ESP_ERROR_CHECK(esp_timer_stop(*DotClk));
     ESP_ERROR_CHECK(esp_timer_start_periodic(*DotClk, uSec));
 
