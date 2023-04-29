@@ -54,5 +54,5 @@ A PCB for this project can be ordered from a board manufacturer, like [JLCPCB](h
   
 A .PDF schematic for the PCB version of this project is [Here](https://github.com/jmharvey1/ESP32BtCWKeyBrd/blob/main/MiscFiles/ESP32-BT-CW-KeyBrd_Schematic.pdf)
   
-If you have access to 3D printer, the [MiscFiles](https://https://github.com/jmharvey1/ESP32BtCWKeyBrd/tree/main/MiscFiles)
+If you have access to 3D printer, the [MiscFiles](https://github.com/jmharvey1/ESP32BtCWKeyBrd/tree/main/MiscFiles)
  folder contains “.stl” files for a simple case to host your completed project.
