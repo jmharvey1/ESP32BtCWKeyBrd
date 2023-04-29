@@ -52,4 +52,7 @@ A 2nd tip: Connect the ESP32 to your computer BEFORE launching the ESPhome-Flash
 ___
 A PCB for this project can be ordered from a board manufacturer, like [JLCPCB](https://jlcpcb.com/), using the gerber files found [Here](https://github.com/jmharvey1/ESP32BtCWKeyBrd/blob/main/MiscFiles/ESP32-BT-CW-KeyBrd_2023-03-16.zip).
   
-A .PDF schematic for the PCB version of this project is [Here](https://github.com/jmharvey1/ESP32BtCWKeyBrd/blob/main/MiscFiles/ESP32-BT-CW-KeyBrd_Schematic.pdf) 
+A .PDF schematic for the PCB version of this project is [Here](https://github.com/jmharvey1/ESP32BtCWKeyBrd/blob/main/MiscFiles/ESP32-BT-CW-KeyBrd_Schematic.pdf)
+  
+If you have access to 3D printer, the [MiscFiles](https://https://github.com/jmharvey1/ESP32BtCWKeyBrd/tree/main/MiscFiles)
+ folder contains “.stl” files for a simple case to host your completed project.
