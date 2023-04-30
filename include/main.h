@@ -26,6 +26,7 @@ struct DF_t
 	char MemF2[80];
 	char MemF3[80];
 	char MemF4[80];
+	char MemF5[80];
 	int WPM;
 	int DeBug;
 };

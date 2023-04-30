@@ -45,7 +45,7 @@ extern bool SetScrnActv;
 extern volatile unsigned long lastDit1;
 
 void setuploop(TFT_eSPI *tft_ptr, CWSNDENGN *cwsnd_ptr, TFTMsgBox *msgbx_ptr, BTKeyboard *keyboard_ptr, DF_t *Dft_ptr); //Added for buttons support
-void GatherCurSettings(struct BtnParams Mycallsettings, struct BtnParams MemF2settings, struct BtnParams MemF3settings, struct BtnParams MemF4settings,  struct BtnParams WPMsettings, struct BtnParams DBugsettings);
+void GatherCurSettings(struct BtnParams Mycallsettings, struct BtnParams MemF2settings, struct BtnParams MemF3settings, struct BtnParams MemF4settings, struct BtnParams MemF5settings,  struct BtnParams WPMsettings, struct BtnParams DBugsettings);
 void ShwData(int MsgX, int MsgY, char* TxtMsg); //Added for buttons support
 void BldBtn(int BtnNo, BtnParams Btns[]); //Added for buttons support
 bool BtnActive(int BtnNo, BtnParams Btns[], int px, int py); //Added for buttons support

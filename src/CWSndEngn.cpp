@@ -5,6 +5,7 @@
  *      Author: jim
  * 20220827 minor tweek to CWSNDENGN::Intr(void) code to allow F12 (SOT) to always stop key at the end of a letter
  * 20230429 Added code to set character timing speed to a minimum of 15wpm
+ * 20230430 fixed crash issue related to changing speed while buffered code is being sent. 
  */
 /*
  * Given:
@@ -45,9 +46,8 @@
 #include "DcodeCW.h"
 #include "esp_timer.h"
 #include "sdkconfig.h" //added for timer support
-//#include "main.h"
-//#include "KeyBoardR01.h"
-//#include "STM32F411def.h"
+
+
 CWSNDENGN::CWSNDENGN(esp_timer_handle_t *Timr_Hndl, TFT_eSPI *tft_ptr, TFTMsgBox *MsgBx_ptr){
 	DotClk = Timr_Hndl;
 	pMsgBx = MsgBx_ptr;
@@ -65,7 +65,7 @@ CWSNDENGN::CWSNDENGN(esp_timer_handle_t *Timr_Hndl, TFT_eSPI *tft_ptr, TFTMsgBox
 	SOTFlg = true;
 	StrTxtFlg = false;
 	LstNtrySpcFlg =false;
-	RfrshSpd = false;
+	RfrshSpd = true;
 	ConfigKey(KeyDwn);
 	uSec = 80000;
 	SndWPM = 20;
@@ -91,6 +91,14 @@ bool CWSNDENGN::LstNtrySpc(void){
 		5 End Space & Start Next Character(Kill old BG HiLite & Hilite Next Position)
  */
 int CWSNDENGN::Intr(void){
+	//20230430 moved changing dot clock timing to here to ensure timing changes are inserted at the begining of a new timing interval 
+	if(SndWPM != curWPM){
+		//if(curWPM == 0 ) curWPM = SndWPM; 
+		curWPM = SndWPM;
+		uSec = CalcARRval(curWPM);
+		ESP_ERROR_CHECK(esp_timer_stop(*DotClk));
+    	ESP_ERROR_CHECK(esp_timer_start_periodic(*DotClk, uSec));
+	}
 	if(!ActvFlg || (!SOTFlg && !SymblCnt && !KeyDwn)){ //added "&& !SymblCnt" to make F12 stop at letter end
 		intcntr = 0;
 		TmInrvlCnt = 0;
@@ -336,13 +344,13 @@ void CWSNDENGN::ShwWPM(int wpm)
 	int Hght = 30;
 	if(wpm == curWPM && !RfrshSpd) return;
 	RfrshSpd = false;
-	curWPM = wpm;
+	/*curWPM = wpm;
 	SndWPM = curWPM;
 	uSec = CalcARRval(curWPM);
 	ESP_ERROR_CHECK(esp_timer_stop(*DotClk));
-    ESP_ERROR_CHECK(esp_timer_start_periodic(*DotClk, uSec));
+    ESP_ERROR_CHECK(esp_timer_start_periodic(*DotClk, uSec)); */
 
-	sprintf(buf, "%d WPM", curWPM);
+	sprintf(buf, "%d WPM", wpm);
 	ptft->setTextColor(TFT_WHITE);
 	ptft->fillRect(Xpos, Ypos, Wdth, Hght, TFT_BLACK); //erase old wpm value
 	ptft->setCursor(Xpos, Ypos);

@@ -18,26 +18,7 @@
 #include "esp32-hal-delay.h"
 #include "main.h"
 
-// #include "KeyBoardR01.h"
-// #include "TxtNtryBox.h"
-// #include "TFT_eSPI.h" // Graphics and font library for ILI9341 driver chip
-// #include "STM32F411def.h"
-// #include "Arduino.h"
-// #include "SerialClass.h"
-// #include "MCUFRIEND_kbv.h"
-// #include "Adafruit_GFX.h"
-// #include "TouchScreen_kbv.h"
-// #include "UTFTGLUE.h"              //use GLUE class and constructor
 
-// #define BLACK   0x0000
-// #define BLUE    0x001F
-// #define RED     0xF800
-// #define GREEN   0x07E0
-// #define CYAN    0x07FF
-// #define MAGENTA 0xF81F
-// #define YELLOW  0xFFE0
-// #define WHITE   0xFFFF
-// #define LED_NO    1
 
 uint16_t KBntry; // used by SetUpScrn.cpp to handle Keyboard entries while user is operating in settings mode
 // int px = 0; //mapped 'x' display touch value
@@ -70,7 +51,7 @@ int btnWdthL = 2 * btnWdthS;
 
 char BtnCaptn[14];
 
-const int paramCnt = 8; // Total number of parameters/settings that can be edited on this screen
+const int paramCnt = 9; // Total number of parameters/settings that can be edited on this screen
 
 BtnParams SetUpBtns[paramCnt]; // currently the Setup screen has 8 buttons
 
@@ -79,6 +60,7 @@ bool SetScrnActv;
 
 /* create an array of eight ntry box class objects; i.e. the user number of settings that can be configured in this application*/
 TxtNtryBox NtryBoxGrp[]{
+	TxtNtryBox(&DotClk_hndl, &tft),
 	TxtNtryBox(&DotClk_hndl, &tft),
 	TxtNtryBox(&DotClk_hndl, &tft),
 	TxtNtryBox(&DotClk_hndl, &tft),
@@ -199,7 +181,24 @@ void setuploop(TFT_eSPI *tft_ptr, CWSNDENGN *cwsnd_ptr, TFTMsgBox *msgbx_ptr, BT
 	MemF4Bxsettings.IsNumbr = false;
 	MemF4Bxsettings.BxIndx = MemF4Indx;
 	NtryBoxGrp[MemF4Bxsettings.BxIndx].InitBox(MemF4Bxsettings);
-	NtryBoxGrp[MemF4Bxsettings.BxIndx].SetValue(pDFault->MemF4, sizeof(pDFault->MemF4));		
+	NtryBoxGrp[MemF4Bxsettings.BxIndx].SetValue(pDFault->MemF4, sizeof(pDFault->MemF4));
+
+	const char MemF5BtnCaptn[11] = {'M', 'e', 'm', 'o', 'r', 'y', ' ', 'F', '5', ':'};
+	const char *MF5CaptnPtr = MemF5BtnCaptn;
+	struct BtnParams MemF5Bxsettings;
+	curRow += 2 * (fontH + 6);
+	const int MemF5Indx = 5;
+	MemF5Bxsettings.BtnXpos = 0;	  // Button X position
+	MemF5Bxsettings.BtnWdth = 80;	  // Button Width
+	MemF5Bxsettings.BtnYpos = curRow; // Button X position
+	MemF5Bxsettings.BtnHght = 15;	  // Button Height
+	MemF5Bxsettings.Captn = MF5CaptnPtr;
+	MemF5Bxsettings.BtnClr = TFT_GREEN;
+	MemF5Bxsettings.TxtClr = TFT_WHITE;
+	MemF5Bxsettings.IsNumbr = false;
+	MemF5Bxsettings.BxIndx = MemF5Indx;
+	NtryBoxGrp[MemF5Bxsettings.BxIndx].InitBox(MemF5Bxsettings);
+	NtryBoxGrp[MemF5Bxsettings.BxIndx].SetValue(pDFault->MemF5, sizeof(pDFault->MemF5));		
 
 	const char DBugOFFBtnCaptn[10] = {'D', 'E', 'B', 'U', 'G', ' ', 'O', 'F', 'F'};
 	const char DBugONBtnCaptn[10] = {'D', 'E', 'B', 'U', 'G', ' ', 'O', 'N'};
@@ -209,7 +208,7 @@ void setuploop(TFT_eSPI *tft_ptr, CWSNDENGN *cwsnd_ptr, TFTMsgBox *msgbx_ptr, BT
 	struct BtnParams DBugBxsettings;
 	curRow += 2 * (fontH + 6);
 	int BtnWdth = 125;
-	const int DbugIndx = 5;
+	const int DbugIndx = 6;
 	DBugBxsettings.BtnXpos = 0 * BtnWdth; // Button X position
 	DBugBxsettings.BtnWdth = BtnWdth;	  // Button Width
 	DBugBxsettings.BtnYpos = curRow;	  // Button X position
@@ -230,7 +229,7 @@ void setuploop(TFT_eSPI *tft_ptr, CWSNDENGN *cwsnd_ptr, TFTMsgBox *msgbx_ptr, BT
 	const char *SaveCaptnPtr = SaveBtnCaptn;
 	struct BtnParams SaveBxsettings;
 	curRow += fontH + 24;
-	const int SaveIndx = 6;
+	const int SaveIndx = 7;
 	SaveBxsettings.BtnXpos = 0 * BtnWdth; // Button X position
 	SaveBxsettings.BtnWdth = BtnWdth;	  // Button Width
 	SaveBxsettings.BtnYpos = curRow;	  // Button X position
@@ -246,7 +245,7 @@ void setuploop(TFT_eSPI *tft_ptr, CWSNDENGN *cwsnd_ptr, TFTMsgBox *msgbx_ptr, BT
 	const char ExitBtnCaptn[5] = {'E', 'X', 'I', 'T'};
 	const char *ExitCaptnPtr = ExitBtnCaptn;
 	struct BtnParams ExitBxsettings;
-	const int ExitIndx =  7;
+	const int ExitIndx =  8;
 	ExitBxsettings.BtnXpos = 1 * BtnWdth; // Button X position
 	ExitBxsettings.BtnWdth = BtnWdth;	  // Button Width
 	ExitBxsettings.BtnYpos = curRow;	  // Button X position
@@ -379,7 +378,7 @@ void setuploop(TFT_eSPI *tft_ptr, CWSNDENGN *cwsnd_ptr, TFTMsgBox *msgbx_ptr, BT
 					uint8_t oldSZ = tft_ptr->textsize;
 					NtryBoxGrp[paramPtr].ShwBGColor(TFT_BLUE);
 					tft_ptr->setTextSize(CurFntSz);
-					GatherCurSettings(MycallBxsettings, MemF2Bxsettings, MemF3Bxsettings, MemF4Bxsettings, WPMBxsettings, DBugBxsettings);
+					GatherCurSettings(MycallBxsettings, MemF2Bxsettings, MemF3Bxsettings, MemF4Bxsettings, MemF5Bxsettings, WPMBxsettings, DBugBxsettings);
 					SaveUsrVals();
 					delay(500);
 					tft_ptr->setTextSize(oldSZ);
@@ -475,7 +474,7 @@ void setuploop(TFT_eSPI *tft_ptr, CWSNDENGN *cwsnd_ptr, TFTMsgBox *msgbx_ptr, BT
 		}
 	} // End While Loop
 	tft_ptr->setTextSize(CurFntSz);
-	GatherCurSettings(MycallBxsettings, MemF2Bxsettings, MemF3Bxsettings, MemF4Bxsettings, WPMBxsettings, DBugBxsettings);
+	GatherCurSettings(MycallBxsettings, MemF2Bxsettings, MemF3Bxsettings, MemF4Bxsettings, MemF5Bxsettings, WPMBxsettings, DBugBxsettings);
 
 	return;
 } // end of SetUp Loop
@@ -485,6 +484,7 @@ void GatherCurSettings(struct BtnParams Mycallsettings,
 	 struct BtnParams MemF2settings,
 	 struct BtnParams MemF3settings,
 	 struct BtnParams MemF4settings,
+	 struct BtnParams MemF5settings,
 	 struct BtnParams WPMsettings,
 	 struct BtnParams DBugsettings)
 {
@@ -544,6 +544,25 @@ void GatherCurSettings(struct BtnParams Mycallsettings,
 		{
 			value[i] = 0;
 			pDFault->MemF4[i] = 0;
+		}
+	}
+
+	/* Collect current F5Mem value from Parameters/setting Screen */
+	value = NtryBoxGrp[MemF5settings.BxIndx].GetValue();
+	len = NtryBoxGrp[MemF5settings.BxIndx].GetValLen();
+	//int i;
+	zeroFlg = false;
+	/*Xfer current MemF5 setting to main 'default' & zero/null out all residual characters beyond the current cursor position*/
+	for (i = 0; i < len; i++)
+	{
+		if (value[i] == 0)
+			zeroFlg = true;
+		else
+			pDFault->MemF5[i] = value[i];
+		if (zeroFlg)
+		{
+			value[i] = 0;
+			pDFault->MemF5[i] = 0;
 		}
 	}
 
@@ -690,6 +709,29 @@ void SaveUsrVals(void)
 		}
 	}
 	Rstat = Write_NVS_Str("MemF4", mem);
+	if (Rstat != 1)
+		GudFlg = false;
+
+	/*Set up to save MemF5*/
+	zeroFlg = false;
+	for (i = 0; i < sizeof(mem); i++)
+	{
+		if (zeroFlg)
+		{
+			mem[i] = 0;
+		}
+		else
+		{
+			if (pDFault->MemF5[i] == 0)
+			{
+				zeroFlg = true;
+				mem[i] = 0;
+			}
+			else
+				mem[i] = pDFault->MemF5[i];
+		}
+	}
+	Rstat = Write_NVS_Str("MemF5", mem);
 	if (Rstat != 1)
 		GudFlg = false;
 

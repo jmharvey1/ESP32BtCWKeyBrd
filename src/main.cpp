@@ -7,6 +7,7 @@
 /*20230405 reconfigued project files to run both on Linux & Windows 10*/
 /*20230418 expanded send buffer from 160 to 400 charater (4 line to 10 dispaly lines)*/
 /*20230429 Added code to CWSendEngn.cpp set character timing speed to a minimum of 15wpm*/
+/*20230430 fixed crash issue related to changing speed while buffered code is being sent.*/
 #include "sdkconfig.h" //added for timer support
 #include "globals.hpp"
 #include "main.h"
@@ -47,11 +48,12 @@ DF_t DFault;
 int DeBug = 1; // Debug factory default setting; 0 => Debug "OFF"; 1 => Debug "ON"
 char StrdTxt[20] = {'\0'};
 /*Factory Default Settings*/
-char RevDate[9] = "20230429";
+char RevDate[9] = "20230430";
 char MyCall[10] = {'K', 'W', '4', 'K', 'D'};
 char MemF2[80] = "VVV VVV TEST DE KW4KD";
 char MemF3[80] = "CQ CQ CQ DE KW4KD KW4KD";
 char MemF4[80] = "TU 73 ES GL";
+char MemF5[80] = "RST 5NN";
 esp_err_t ret;
 char Title[120];
 bool setupFlg = false;
@@ -212,6 +214,7 @@ void app_main()
     sprintf(DFault.MemF2, "%s", MemF2);
     sprintf(DFault.MemF3, "%s", MemF3);
     sprintf(DFault.MemF4, "%s", MemF4);
+    sprintf(DFault.MemF5, "%s", MemF5);
     DFault.DeBug = DeBug;
     DFault.WPM = CWsndengn.GetWPM();
     sprintf(Title, "\n        No stored USER params Found\n   Using FACTORY values until params are\n   'Saved' via the Settings Screen\n");
@@ -223,6 +226,7 @@ void app_main()
     Rstat = Read_NVS_Str("MemF2", DFault.MemF2);
     Rstat = Read_NVS_Str("MemF3", DFault.MemF3);
     Rstat = Read_NVS_Str("MemF4", DFault.MemF4);
+    Rstat = Read_NVS_Str("MemF5", DFault.MemF5);
     Rstat = Read_NVS_Val("DeBug", DFault.DeBug);
     Rstat = Read_NVS_Val("WPM", DFault.WPM);
   }
@@ -438,6 +442,13 @@ void ProcsKeyEntry(uint8_t keyVal)
     if (CWsndengn.IsActv() && !CWsndengn.LstNtrySpc())
       CWsndengn.AddNewChar(&SpcChr);
     CWsndengn.LdMsg(DFault.MemF4, sizeof(DFault.MemF4));
+    return;
+  }
+  else if (keyVal == 0x85)
+  { // F4 key (Send MemF3)
+    if (CWsndengn.IsActv() && !CWsndengn.LstNtrySpc())
+      CWsndengn.AddNewChar(&SpcChr);
+    CWsndengn.LdMsg(DFault.MemF5, sizeof(DFault.MemF5));
     return;
   }
   else if (keyVal == 0x95)
