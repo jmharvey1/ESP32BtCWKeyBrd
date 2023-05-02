@@ -5,7 +5,8 @@
  *      Author: jim
  * 20220827 minor tweek to CWSNDENGN::Intr(void) code to allow F12 (SOT) to always stop key at the end of a letter
  * 20230429 Added code to set character timing speed to a minimum of 15wpm
- * 20230430 fixed crash issue related to changing speed while buffered code is being sent. 
+ * 20230430 fixed crash issue related to changing speed while buffered code is being sent.
+ * 20230502 reworked WPM screen refresh code & updates to dotclk timing interval to avoid TFT display crashes. 
  */
 /*
  * Given:
@@ -46,6 +47,7 @@
 #include "DcodeCW.h"
 #include "esp_timer.h"
 #include "sdkconfig.h" //added for timer support
+#include <esp_log.h>
 
 
 CWSNDENGN::CWSNDENGN(esp_timer_handle_t *Timr_Hndl, TFT_eSPI *tft_ptr, TFTMsgBox *MsgBx_ptr){
@@ -91,17 +93,19 @@ bool CWSNDENGN::LstNtrySpc(void){
 		5 End Space & Start Next Character(Kill old BG HiLite & Hilite Next Position)
  */
 int CWSNDENGN::Intr(void){
+	//static constexpr char const * Tag = "DotClk-Int";
+	//bool UpdateTiming = false;
 	//20230430 moved changing dot clock timing to here to ensure timing changes are inserted at the begining of a new timing interval 
-	if(SndWPM != curWPM){
-		//if(curWPM == 0 ) curWPM = SndWPM; 
-		curWPM = SndWPM;
-		uSec = CalcARRval(curWPM);
-		ESP_ERROR_CHECK(esp_timer_stop(*DotClk));
-    	ESP_ERROR_CHECK(esp_timer_start_periodic(*DotClk, uSec));
-	}
-	if(!ActvFlg || (!SOTFlg && !SymblCnt && !KeyDwn)){ //added "&& !SymblCnt" to make F12 stop at letter end
+	
+	if(!ActvFlg || (!SOTFlg && !SymblCnt && !KeyDwn)){ //added "&& !!SymblCnt" to make F12 stop at letter end
 		intcntr = 0;
 		TmInrvlCnt = 0;
+		if(SndWPM != curWPM){
+			ShwWPM(SndWPM);
+			curWPM = SndWPM;
+			uSec = CalcARRval(curWPM);
+			ESP_ERROR_CHECK(esp_timer_restart(*DotClk, uSec));
+		}
 		return 0;//no activity
 	}
 	state = 1;// processing
@@ -117,11 +121,18 @@ int CWSNDENGN::Intr(void){
 				if(SymblCnt == 0){
 					LtrBkFlg = true;
 					pMsgBx->setCWActv(false);//clear the bG cursor highlight
+					bool chngSpd = false;
+					if(SndWPM != curWPM){
+						ShwWPM(SndWPM);
+						curWPM = SndWPM;
+						uSec = CalcARRval(curWPM);
+						chngSpd = true;
+					}
 					if(curWPM<15){//restore dotclock to this <15wpm timing
 						uSec = CalcARRval(curWPM);
-						ESP_ERROR_CHECK(esp_timer_stop(*DotClk));
-    					ESP_ERROR_CHECK(esp_timer_start_periodic(*DotClk, uSec));
+						chngSpd = true;
 					}
+					if(chngSpd) ESP_ERROR_CHECK(esp_timer_restart(*DotClk, uSec));
 				}
 				return state;// processing
 			} else{ //Key Up
@@ -129,11 +140,6 @@ int CWSNDENGN::Intr(void){
 					LtrBkFlg = false;
 					TmInrvlCnt = 2; // nothing left in this letter; extend time to create a full letter break interval
 					state =2;
-					/* if(curWPM<15){//restore dotclock to this <15wpm timing
-						uSec = CalcARRval(curWPM);
-						ESP_ERROR_CHECK(esp_timer_stop(*DotClk));
-    					ESP_ERROR_CHECK(esp_timer_start_periodic(*DotClk, uSec));
-					} */
 					return state;//letter complete
 				}else if(LtrBkFlg && SpcFlg){
 					LtrBkFlg = false;
@@ -144,7 +150,7 @@ int CWSNDENGN::Intr(void){
 				else if(!LtrBkFlg && SpcFlg){
 					state =5;//need to both restore old space & set next space background
 				}
-				else ;//(Done with last symbol & "follow on" interval; Check for more to send; Goto SymblCnt >0)
+				//else ;//(Done with last symbol & "follow on" interval; Check for more to send; Goto SymblCnt >0)
 			}
 		}
 
@@ -158,12 +164,19 @@ int CWSNDENGN::Intr(void){
 				SpcFlg = false;
 				state = 2;//Letter Complete (restore background)
 				if(curWPM<15){//restore dotclock to this <15wpm timing
+					if(SndWPM != curWPM){
+						ShwWPM(SndWPM);
+						curWPM = SndWPM;
+					}
 					uSec = CalcARRval(curWPM);
-					ESP_ERROR_CHECK(esp_timer_stop(*DotClk));
-    				ESP_ERROR_CHECK(esp_timer_start_periodic(*DotClk, uSec));
+					ESP_ERROR_CHECK(esp_timer_restart(*DotClk, uSec));
+				} else if(SndWPM != curWPM){
+					ShwWPM(SndWPM);
+					curWPM = SndWPM;
+					uSec = CalcARRval(curWPM);
+					ESP_ERROR_CHECK(esp_timer_restart(*DotClk, uSec));
 				}
 			}
-			//			else if(state == 1) state = 2; //Nothing left to send. But just finished out a space, need to clear the display background & Go wait for the next interrupt
 			return state;
 		}
 		else{ // Yes, another character is waiting to be sent. Go get it
@@ -191,10 +204,13 @@ int CWSNDENGN::Intr(void){
 					Symbl = Symbl<<1;
 					SymblCnt--;
 				}
+				if(SndWPM != curWPM){
+					ShwWPM(SndWPM);
+					curWPM = SndWPM;
+				}	
 				if(curWPM<15){// set/force dotclock to send character with 15wpm timing
 					uSec = CalcARRval(15);
-					ESP_ERROR_CHECK(esp_timer_stop(*DotClk));
-    				ESP_ERROR_CHECK(esp_timer_start_periodic(*DotClk, uSec));
+					ESP_ERROR_CHECK(esp_timer_restart(*DotClk, uSec));
 				}
 			}
 		}
@@ -209,14 +225,10 @@ int CWSNDENGN::Intr(void){
 	pMsgBx->setCWActv(true);
 	if(state!=5){
 		state = 4;//start letter
-		if(curWPM<15){//set/force dotclock to send character with 15wpm timing
-			uSec = CalcARRval(15);
-			ESP_ERROR_CHECK(esp_timer_stop(*DotClk));
-    		ESP_ERROR_CHECK(esp_timer_start_periodic(*DotClk, uSec));
-		}
 	}
 	return state;
 };
+
 /* */
 void CWSNDENGN::LdMsg(char *Msg, size_t len){
 	for(unsigned int i = 0; i<len; i++){
@@ -307,13 +319,8 @@ void CWSNDENGN::IncWPM(void){
 		SndWPM = 55;
 		return;
 	}
-	ShwWPM(SndWPM);
-	// uSec = CalcARRval(SndWPM);
-	// //__HAL_TIM_SET_AUTORELOAD(pDotClk, ARReg);
-	// //__HAL_TIM_SET_COUNTER(pDotClk, 0);
-	// /* To start the timer which is running, need to stop it first */
-    // ESP_ERROR_CHECK(esp_timer_stop(*DotClk));
-    // ESP_ERROR_CHECK(esp_timer_start_periodic(*DotClk, uSec));
+	//ShwWPM(SndWPM);
+
 };
 void CWSNDENGN::DecWPM(void){
 	SndWPM -= 1;
@@ -321,16 +328,10 @@ void CWSNDENGN::DecWPM(void){
 		SndWPM = 5;
 		return;
 	}
-	ShwWPM(SndWPM);
-	// uSec = CalcARRval(SndWPM);
-	// //__HAL_TIM_SET_AUTORELOAD(pDotClk, ARReg);
-	// //__HAL_TIM_SET_COUNTER(pDotClk, 0);
-	// ESP_ERROR_CHECK(esp_timer_stop(*DotClk));
-    // ESP_ERROR_CHECK(esp_timer_start_periodic(*DotClk, uSec));
+	//ShwWPM(SndWPM);
 };
 int CWSNDENGN::CalcARRval(int wpm){
 	int NuVal = 1200000/wpm;
-	//ShwWPM(wpm);
 	return NuVal;
 };
 
@@ -344,12 +345,6 @@ void CWSNDENGN::ShwWPM(int wpm)
 	int Hght = 30;
 	if(wpm == curWPM && !RfrshSpd) return;
 	RfrshSpd = false;
-	/*curWPM = wpm;
-	SndWPM = curWPM;
-	uSec = CalcARRval(curWPM);
-	ESP_ERROR_CHECK(esp_timer_stop(*DotClk));
-    ESP_ERROR_CHECK(esp_timer_start_periodic(*DotClk, uSec)); */
-
 	sprintf(buf, "%d WPM", wpm);
 	ptft->setTextColor(TFT_WHITE);
 	ptft->fillRect(Xpos, Ypos, Wdth, Hght, TFT_BLACK); //erase old wpm value
@@ -390,7 +385,7 @@ void CWSNDENGN::SOTmode(void)
 		// pMsgBx->dispMsg(buf, TFT_YELLOW);
 		/*something is going on, so wait for the current character to complete*/
 		bool BGHilite = pMsgBx->getBGHilite();
-		int cnt = 0;
+		//int cnt = 0;
 		//printf("Cnt %d\n",cnt);
 		//while ((SymblCnt != 0) || KeyDwn || (state != 2) || BGHilite) // if any of the conditions are true, we're in the middle of sending a Morse character
 		while (BGHilite)
@@ -452,8 +447,6 @@ void  CWSNDENGN::SetWPM(int newWPM){
 	}
 	curWPM = SndWPM;
 	uSec = CalcARRval(SndWPM);
-	//__HAL_TIM_SET_AUTORELOAD(pDotClk, ARReg);
-	//__HAL_TIM_SET_COUNTER(pDotClk, 0);
 	ESP_ERROR_CHECK(esp_timer_stop(*DotClk));
     ESP_ERROR_CHECK(esp_timer_start_periodic(*DotClk, uSec));
 

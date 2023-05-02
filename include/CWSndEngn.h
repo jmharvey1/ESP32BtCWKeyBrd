@@ -4,6 +4,7 @@
  *  Created on: Oct 5, 2021
  *      Author: jim
  * 20230418 expanded send buffer from 160 to 400 charater (4 line to 10 dispaly lines)
+ * 20230502 changed RfrshSpd flag to public as partof the code changes to avoid TFT display crashes when dotclktiming is changed while buffered text is being sent.
  */
 	/*
 	 * Given:
@@ -66,7 +67,7 @@ private:
 	bool StrTxtFlg;
 	bool TuneFlg;
 	bool LstNtrySpcFlg;
-	bool RfrshSpd;
+	
 	int curWPM;
 	int state;
 	int SymblCnt;
@@ -84,6 +85,7 @@ private:
 	uint16_t ChrToSymb(char* CurChr);
 
 public:
+	bool RfrshSpd;
 	CWSNDENGN(esp_timer_handle_t *Timr_Hndl, TFT_eSPI *tft_ptr, TFTMsgBox *pMsgBx_ptr);
 	bool IsActv(void);
 	bool LstNtrySpc(void);

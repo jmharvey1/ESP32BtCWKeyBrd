@@ -8,6 +8,7 @@
 /*20230418 expanded send buffer from 160 to 400 charater (4 line to 10 dispaly lines)*/
 /*20230429 Added code to CWSendEngn.cpp set character timing speed to a minimum of 15wpm*/
 /*20230430 fixed crash issue related to changing speed while buffered code is being sent.*/
+/*20230502 reworked WPM screen refresh & dotclk updated to timing period to avoid TFT display crashes.*/
 #include "sdkconfig.h" //added for timer support
 #include "globals.hpp"
 #include "main.h"
@@ -48,7 +49,7 @@ DF_t DFault;
 int DeBug = 1; // Debug factory default setting; 0 => Debug "OFF"; 1 => Debug "ON"
 char StrdTxt[20] = {'\0'};
 /*Factory Default Settings*/
-char RevDate[9] = "20230430";
+char RevDate[9] = "20230502";
 char MyCall[10] = {'K', 'W', '4', 'K', 'D'};
 char MemF2[80] = "VVV VVV TEST DE KW4KD";
 char MemF3[80] = "CQ CQ CQ DE KW4KD KW4KD";
@@ -230,6 +231,7 @@ void app_main()
     Rstat = Read_NVS_Val("DeBug", DFault.DeBug);
     Rstat = Read_NVS_Val("WPM", DFault.WPM);
   }
+  CWsndengn.RfrshSpd = true;
   CWsndengn.ShwWPM(DFault.WPM); //calling this method does both recalc/set the dotclock & show the WPM
 //  KB_timer_event_t evt;
 //  bool wait4event = true;
