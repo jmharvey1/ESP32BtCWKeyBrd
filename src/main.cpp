@@ -9,6 +9,7 @@
 /*20230429 Added code to CWSendEngn.cpp set character timing speed to a minimum of 15wpm*/
 /*20230430 fixed crash issue related to changing speed while buffered code is being sent.*/
 /*20230502 reworked WPM screen refresh & dotclk updated to timing period to avoid TFT display crashes.*/
+/*20230503 Added code to bt_keyboard.cpp test for 'del' key presses an convert to hex code 0x2A*/
 #include "sdkconfig.h" //added for timer support
 #include "globals.hpp"
 #include "main.h"
@@ -49,7 +50,7 @@ DF_t DFault;
 int DeBug = 1; // Debug factory default setting; 0 => Debug "OFF"; 1 => Debug "ON"
 char StrdTxt[20] = {'\0'};
 /*Factory Default Settings*/
-char RevDate[9] = "20230502";
+char RevDate[9] = "20230503";
 char MyCall[10] = {'K', 'W', '4', 'K', 'D'};
 char MemF2[80] = "VVV VVV TEST DE KW4KD";
 char MemF3[80] = "CQ CQ CQ DE KW4KD KW4KD";

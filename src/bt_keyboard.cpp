@@ -19,6 +19,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+/*20230503 JMH Numerous mods to adapt the original code to work with thw ESP32 BT CW Keyboard applications*/
 
 #define __BT_KEYBOARD__ 1
 #include "bt_keyboard.hpp"
@@ -1581,11 +1582,11 @@ char BTKeyboard::wait_for_ascii_char(bool forever)
 
     char ch = inf.keys[k];
     /*JMH: uncomment the following to expose key entry values*/
-    // char buf[20];
-    // if((inf.keys[0] != (uint8_t)0) || (inf.keys[1] != (uint8_t)0) || (inf.keys[0] != (uint8_t)0) || ((uint8_t)inf.modifier != (uint8_t)0)){
-    //   sprintf(buf, "%d; %d; %d; %d\n", inf.keys[0], inf.keys[1], inf.keys[2], (uint8_t)inf.modifier);
-    //   pmsgbx->dispMsg(buf, TFT_GOLD);
-    // }
+    /* char buf[20];
+    if((inf.keys[0] != (uint8_t)0) || (inf.keys[1] != (uint8_t)0) || (inf.keys[0] != (uint8_t)0) || ((uint8_t)inf.modifier != (uint8_t)0)){
+      sprintf(buf, "%d; %d; %d; %d\n", inf.keys[0], inf.keys[1], inf.keys[2], (uint8_t)inf.modifier);
+      pmsgbx->dispMsg(buf, TFT_GOLD);
+    } */
     /* special test for TAB */
     if (inf.keys[0] == 43 && ((uint8_t)inf.modifier == 0))
     {
@@ -1610,6 +1611,11 @@ char BTKeyboard::wait_for_ascii_char(bool forever)
     if (((uint8_t)inf.modifier == 1) && (inf.keys[1] == 22 || inf.keys[0] == 0x16))
     {
       return last_ch = 0x9C;
+    }
+    /* special test for 'del' */
+    if (inf.keys[0] == 76 && ((uint8_t)inf.modifier == 0))
+    {
+      return last_ch = 0x2A;
     }
     if (ch >= 4)
     {
