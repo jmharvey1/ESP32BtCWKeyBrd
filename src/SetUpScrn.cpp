@@ -8,6 +8,7 @@
 /*
  * 20220824 Fixed error in "Save" to EEPROM process to ensure all current settings actually saved
  / 20230313 added line of code to ensure text entries behave as WYSWYG entries;when it comes going from the settings screen back to the 'main' keyboard screen
+ / 20230507 Reversed bavior of "Up" & "Down" Arrow keys
  */
 
 
@@ -277,14 +278,14 @@ void setuploop(TFT_eSPI *tft_ptr, CWSNDENGN *cwsnd_ptr, TFTMsgBox *msgbx_ptr, BT
 		{ // Arrow UP
 			KBntry = 0;
 			NtryBoxGrp[paramPtr].KillCsr();
-			paramPtr++;
+			paramPtr--;
 			FocusChngd = true;
 		}
 		else if (KBntry == 0x97)
 		{ // Arrow DOWN
 			KBntry = 0;
 			NtryBoxGrp[paramPtr].KillCsr();
-			paramPtr--;
+			paramPtr++;
 			FocusChngd = true;
 		}
 		if (paramPtr ==  paramCnt)

@@ -20,6 +20,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 /*20230503 JMH Numerous mods to adapt the original code to work with thw ESP32 BT CW Keyboard applications*/
+/*20230507 JMH reversed 'TAB & TAB+Shift Assignments to make settings screen selection move in a 'Logical' order*/
 
 #define __BT_KEYBOARD__ 1
 #include "bt_keyboard.hpp"
@@ -1590,12 +1591,12 @@ char BTKeyboard::wait_for_ascii_char(bool forever)
     /* special test for TAB */
     if (inf.keys[0] == 43 && ((uint8_t)inf.modifier == 0))
     {
-      return last_ch = 0x98; // replace with up arrow
+      return last_ch = 0x97; // replace with up arrow
     }
     /* special test for Shift+TAB */
     if (inf.keys[0] == 43 && ((uint8_t)inf.modifier == 2))
     {
-      return last_ch = 0x97; // replace with down arrow
+      return last_ch = 0x98; // replace with down arrow
     }
     /* special test for ctr+Enter */
     if ((inf.keys[1] == 0x28 || inf.keys[0] == 0x28) && ((uint8_t)inf.modifier == 1))

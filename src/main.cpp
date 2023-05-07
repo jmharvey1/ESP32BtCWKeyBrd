@@ -10,6 +10,7 @@
 /*20230430 fixed crash issue related to changing speed while buffered code is being sent.*/
 /*20230502 reworked WPM screen refresh & dotclk updated to timing period to avoid TFT display crashes.*/
 /*20230503 Added code to bt_keyboard.cpp test for 'del' key presses an convert to hex code 0x2A*/
+/*20230507 Reversed bavior of "Up" & "Down" Arrow keys & corrected dotclock startup timing to actually match the User stored WPM setting*/
 #include "sdkconfig.h" //added for timer support
 #include "globals.hpp"
 #include "main.h"
@@ -50,7 +51,7 @@ DF_t DFault;
 int DeBug = 1; // Debug factory default setting; 0 => Debug "OFF"; 1 => Debug "ON"
 char StrdTxt[20] = {'\0'};
 /*Factory Default Settings*/
-char RevDate[9] = "20230503";
+char RevDate[9] = "20230507";
 char MyCall[10] = {'K', 'W', '4', 'K', 'D'};
 char MemF2[80] = "VVV VVV TEST DE KW4KD";
 char MemF3[80] = "CQ CQ CQ DE KW4KD KW4KD";
@@ -233,7 +234,8 @@ void app_main()
     Rstat = Read_NVS_Val("WPM", DFault.WPM);
   }
   CWsndengn.RfrshSpd = true;
-  CWsndengn.ShwWPM(DFault.WPM); //calling this method does both recalc/set the dotclock & show the WPM
+  CWsndengn.ShwWPM(DFault.WPM); //calling this method does NOT recalc/set the dotclock & show the WPM
+  CWsndengn.SetWPM(DFault.WPM); //20230507 Added this seperate method call after changing how the dot clocktiming gets updated
 //  KB_timer_event_t evt;
 //  bool wait4event = true;
 //  int cnt = 0;
