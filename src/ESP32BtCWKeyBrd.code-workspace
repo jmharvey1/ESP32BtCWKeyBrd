@@ -1,0 +1,17 @@
+{
+	"folders": [
+		{
+			"path": ".."
+		},
+		{
+			"name": "ESP32-CW_Decoder-and-BT_Keyboard",
+			"path": "../../ESP32-CW_Decoder-and-BT_Keyboard"
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"memory": "cpp",
+			"esp_heap_caps.h": "c"
+		}
+	}
+}
