@@ -18,6 +18,8 @@
 #include "SetUpScrn.h"
 #include "esp32-hal-delay.h"
 #include "main.h"
+//#include "Goertzel.h"
+#include "DcodeCW.h"
 
 
 
@@ -742,6 +744,26 @@ void SaveUsrVals(void)
 		GudFlg = false;
 	/*Save WPM Setting*/	
 	Rstat = Write_NVS_Val("WPM", pDFault->WPM);
+	if (Rstat != 1)
+		GudFlg = false;
+	/* Save current Decoder ModeCnt value */
+	Rstat = Write_NVS_Val("ModeCnt", pDFault->ModeCnt);
+	if (Rstat != 1)
+		GudFlg = false;
+    /* Save current Decoder AutoTune value */
+	Rstat = Write_NVS_Val("AutoTune", (int)pDFault->AutoTune);
+	if (Rstat != 1)
+		GudFlg = false;
+	
+	/* Save current Decoder TARGET_FREQUENCYC value; Note pDFault->TRGT_FREQ was last updated in DcodeCW.showSpeed(void)  */
+	Rstat = Write_NVS_Val("TRGT_FREQ", pDFault->TRGT_FREQ);
+	if (Rstat != 1)
+		GudFlg = false;
+	/* Save current Grtzl_Gain value; Note this is an unsigned factional (1.0 or smaller) float value. But NVS library can't handle floats,
+	so 1st contvert to unsigned 64bit int    */
+	//uint64_t intGainVal = uint64_t(10000000 * pDFault->Grtzl_Gain);
+	int intGainVal = (int)(10000000 * pDFault->Grtzl_Gain);
+    Rstat = Write_NVS_Val("Grtzl_Gain", intGainVal);
 	if (Rstat != 1)
 		GudFlg = false;
 	if (GudFlg)

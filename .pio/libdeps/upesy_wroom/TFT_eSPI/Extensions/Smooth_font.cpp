@@ -565,7 +565,7 @@ void TFT_eSPI::showFont(uint32_t td)
       if (cursorY + gFont.maxAscent + gFont.descent >= height()) {
         cursorX = -gdX[i];
         cursorY = 0;
-        delay(timeDelay);
+        vTaskDelay(timeDelay);//delay(timeDelay);
         timeDelay = td;
         fillScreen(textbgcolor);
       }
@@ -577,6 +577,6 @@ void TFT_eSPI::showFont(uint32_t td)
     yield();
   }
 
-  delay(timeDelay);
+  vTaskDelay(timeDelay);//delay(timeDelay);
   fillScreen(textbgcolor);
 }

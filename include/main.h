@@ -29,6 +29,10 @@ struct DF_t
 	char MemF5[80];
 	int WPM;
 	int DeBug;
+	int ModeCnt;
+	int TRGT_FREQ;
+	bool AutoTune;
+	float Grtzl_Gain;
 };
 
 // typedef struct {
@@ -51,14 +55,12 @@ extern int DeBug; // factory default setting; 0 => Debug "OFF"; 1 => Debug "ON"
 extern char StrdTxt[20];
 extern char MyCall[10];
 extern char MemF2[80];
-//uint8_t global_var;
+
 extern COREDUMP_DRAM_ATTR uint8_t global_var;
 uint8_t Read_NVS_Str(const char *key, char *value);
 template <class T>
 uint8_t Read_NVS_Val(const char *key, T &value);
 uint8_t Write_NVS_Str(const char *key, char *value);
-// template <class T>
-// uint8_t Write_NVS_Val(const char *key, T &value);
 uint8_t Write_NVS_Val(const char *key,  int value);
 
 #endif /* INC_MAIN_H_ */

@@ -14,7 +14,7 @@ In the Dependant library 'TFT_eSPI', the following files have been modified to w
 2. TFT_eSPI.h
 3. TFT_eSPI.cpp
 4. TFT_config. h
-5. in the tft_eSPI.h & .cpp file, added new method  uint8_t getTextSize(void).
+5. processors/TFT_eSPI32.h, ine 138, modified line to read "#include "SPIFFSJMH.h".
 You can use MELD to see the differences. 
 But probably easier to just copy these files from an already working project, with the same enviroment as this project
 in the user_setup_select.h file, select the appropriate configuration for the display you're using. For SPI displays:

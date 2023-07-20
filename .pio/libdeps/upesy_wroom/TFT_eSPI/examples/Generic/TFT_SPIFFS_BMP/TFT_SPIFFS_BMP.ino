@@ -20,7 +20,7 @@
 #include <FS.h>
 
 #ifdef ESP32
-  #include "SPIFFSJMH.h"  // For ESP32 only
+  #include "SPIFFS.h"  // For ESP32 only
 #endif
 
 // Call up the TFT library

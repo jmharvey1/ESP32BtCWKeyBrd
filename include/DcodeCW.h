@@ -12,8 +12,27 @@
 // The 1st table contains the 'decode' value , & the 2nd table contains the letter /character at the same index row
 // so the process is use the first table to find a row match for the decode value, then use the row number
 // in the 2nd table to translate it to the actual character(s) needed to be displayed.
+#include <stdio.h>
+#include "TFTMsgBox.h"
+#include "main.h"
+extern uint8_t GudSig;
+extern float SqlchLvl;
+extern float CurNoise;
+extern float TARGET_FREQUENCYC;
+extern volatile unsigned long avgDit;
+extern volatile unsigned long avgDeadSpace;
+extern float curRatio;
+extern SemaphoreHandle_t  mutex;
+extern volatile unsigned long noSigStrt;
+extern volatile unsigned long wordBrk;
+extern bool AutoTune;
+extern int ModeCnt;
+extern int ltrCmplt;
 
-#define ARSIZE 44
+extern unsigned long SmpIntrl;
+extern struct DF_t DFault;
+//extern unsigned long EvntStart;
+#define ARSIZE 43
 static unsigned int CodeVal1[ARSIZE]={
   5,
   24,
@@ -57,8 +76,7 @@ static unsigned int CodeVal1[ARSIZE]={
   255,
   115,
   94,
-  85,
-  90
+  85
 };
 
 const char DicTbl1[ARSIZE][2]=
@@ -105,138 +123,137 @@ const char DicTbl1[ARSIZE][2]=
     " ",
     ",",
     "'",
-    ".",
-	"@"
-};
+    "."
+    };
 //Multi character decode values/table(s)
 #define ARSIZE2 125
-//  static unsigned int CodeVal2[ARSIZE2]={
-//   19,
-//   21,
-//   28,
-//   /*31,*/
-//   34,
-//   38,
-//   40,
-//   41,
-//   42,
-//   44,
-//   45,
-//   46,
-//   52,
-//   54,
-//   55,
-//   57,
-//   58,
-//   59,
-//   61,
-//   64,
-//   69,
-//   70,
-//   72,
-//   74,
-//   78,
-//   80,
-//   81,
-//   82,
-//   84,
-//   86,
-//   88,
-//   89,
-//   90,
-//   91,
-//   96,
-//   105,
-//   106,
-//   110,
-//   113,
-//   114,
-//   116,
-//   118,
-//   120,
-//   121,
-//   122,
-//   /*123,*/
-//   124,
-//   125,
-//   126,
-//   127,
-//   138,
-//   145,
-//   146,
-//   148,
-//   150,
-//   156,
-//   162,
-//   176,
-//   178,
-//   180,
-//   185,
-//   191,
-//   202,
-//   209,
-//   211,
-//   212,
-//   213,
-//   216,
-//   218,
-//   232,
-//   234,
-//   240,
-//   241,
-//   242,
-//   243,
-//   244,
-//   246,
-//   248,
-//   249,
-//   251,
-//   283,
-//   296,
-//   324,
-//   328,
-//   360,
-//   362,
-//   364,
-//   416,
-//   429,
-//   442,
-//   443,
-//   468,
-//   482,
-//   486,
-//   492,
-//   493,
-//   494,
-//   500,
-//   502,
-//   510,
-//   596,
-//   708,
-//   716,
-//   731,
-//   790,
-//   832,
-//   842,
-//   862,
-//   899,
-//   922,
-//   938,
-//   968,
-//   970,
-//   974,
-//   1348,
-//   1451,
-//   1480,
-//   1785,
-//   1795,
-//   1940,
-//   1942,
-//   6134,
-//   6580,
-//   14752,
-//   99990
-// };
+ static unsigned int CodeVal2[ARSIZE2]={
+  19,
+  21,
+  28,
+  /*31,*/
+  34,
+  38,
+  40,
+  41,
+  42,
+  44,
+  45,
+  46,
+  52,
+  54,
+  55,
+  57,
+  58,
+  59,
+  61,
+  64,
+  69,
+  70,
+  72,
+  74,
+  78,
+  80,
+  81,
+  82,
+  84,
+  86,
+  88,
+  89,
+  90,
+  91,
+  96,
+  105,
+  106,
+  110,
+  113,
+  114,
+  116,
+  118,
+  120,
+  121,
+  122,
+  /*123,*/
+  124,
+  125,
+  126,
+  127,
+  138,
+  145,
+  146,
+  148,
+  150,
+  156,
+  162,
+  176,
+  178,
+  180,
+  185,
+  191,
+  202,
+  209,
+  211,
+  212,
+  213,
+  216,
+  218,
+  232,
+  234,
+  240,
+  241,
+  242,
+  243,
+  244,
+  246,
+  248,
+  249,
+  251,
+  283,
+  296,
+  324,
+  328,
+  360,
+  362,
+  364,
+  416,
+  429,
+  442,
+  443,
+  468,
+  482,
+  486,
+  492,
+  493,
+  494,
+  500,
+  502,
+  510,
+  596,
+  708,
+  716,
+  731,
+  790,
+  832,
+  842,
+  862,
+  899,
+  922,
+  938,
+  968,
+  970,
+  974,
+  1348,
+  1451,
+  1480,
+  1785,
+  1795,
+  1940,
+  1942,
+  6134,
+  6580,
+  14752,
+  99990
+};
 
 const char DicTbl2[ARSIZE2][6]={
   "UT",
@@ -369,8 +386,8 @@ const char DicTbl2[ARSIZE2][6]={
 
 
 ////////////////////////////////////////////////////////////////////////////
-void StartDecoder(void);
-void KeyEvntSR(void);
+void StartDecoder(TFTMsgBox *pttftmsgbx);
+void KeyEvntSR(uint8_t state, unsigned long EvntTime);// keydown state =0; Keyup state = 1
 void Dcodeloop(void);
 void WPMdefault(void);
 void ChkDeadSpace(void);
@@ -391,5 +408,6 @@ void DrawButton2(void);
 void ModeBtn(void);
 void showSpeed(void);
 void SftReset(void);
+void CLrDCdValBuf(void);
 
 #endif /* INC_DCODECW_H_ */

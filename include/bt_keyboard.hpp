@@ -41,7 +41,7 @@
 #include "TFTMsgBox.h"
 #include "main.h"
 
-
+extern SemaphoreHandle_t mutex;
 class BTKeyboard
 {
   public:
@@ -184,7 +184,7 @@ class BTKeyboard
       pairing_handler(nullptr),
       caps_lock(false)
     {
-      pmsgbx = msgbx_ptr;
+      pmsgbx = msgbx_ptr;//used mainly for error & debug reporting + scan/pairing reorting
       pDFault = Dft_ptr;
     }
 

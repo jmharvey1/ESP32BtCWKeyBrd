@@ -3,6 +3,7 @@
  *
  *  Created on: Oct 7, 2021
  *      Author: jim
+ * 20230617 To support advanced DcodeCW "Bug" processes, reworked dispMsg2(void) to handle ASCII chacacter 0x8 "Backspace" symbol
  */
 #include "TFTMsgBox.h"
 // #include "Arduino.h"//needed to support "delay()" function call
@@ -24,9 +25,12 @@ TFTMsgBox::TFTMsgBox(TFT_eSPI *tft_ptr, char *StrdTxt)
 	BlkState = false;
 	SOTFlg = true;
 	StrTxtFlg = false;
+	ToneFlg = false;
+	SpdFlg = false;
 	Bump = false;
 	PgScrld = false;
 	BGHilite = false;
+	ToneColor = 0;
 };
 
 void TFTMsgBox::InitDsplay(void)
@@ -108,6 +112,7 @@ void TFTMsgBox::KBentry(char Ascii)
 void TFTMsgBox::dispMsg(char Msgbuf[50], uint16_t Color)
 {
 	int msgpntr = 0;
+	
 	/* Add the contents of the Msgbuf to ringbuffer */
 
 	while (Msgbuf[msgpntr] != 0)
@@ -122,45 +127,66 @@ void TFTMsgBox::dispMsg(char Msgbuf[50], uint16_t Color)
 		if (RingbufPntr1 == RingBufSz)
 			RingbufPntr1 = 0;
 		msgpntr++;
+		/*Added the following lines to maintain sync of the keyboard cursor as new characters are added to the screen via the CW decoder process*/
+		if(Color == TFT_GREENYELLOW){
+			if(CursorPntr < cnt+1) CursorPntr = cnt+1;
+			// char buf[30];
+			// sprintf(buf, "CrsrPntr: %d; cnt: %d\r\n", CursorPntr, cnt);
+			// printf(buf);
+		}
 	}
-	/* Restore interrupts from MAX3421 */
-	//	CPUCTLval = Usb.regRd(rCPUCTL);
-	//	CPUCTLval = CPUCTLval | 0x01;
-	//	Usb.regWr(rCPUCTL, CPUCTLval); //enable interrupt pin
 };
 /* timer interrupt driven method. drives the Ringbuffer pointer to ensure that
- * character(s) sent to TFT Display actually get printed (when time permits)
+ * character(s) sent to TFT Display actually get printed (when time permits)X WPM & RX Tone Strenght/color 
  */
 void TFTMsgBox::dispMsg2(void)
 {
-	char buf[2];
+	//char buf[2];
+	// char PrntBuf[20];
 	/*For debugging */
 	// buf[1] = 0;
 	// if(RingbufPntr2 != RingbufPntr1) printf( "**");
+	if (ToneFlg)
+	{
+		ToneFlg = false;
+		int Wdth = 15;
+		int Hght = 15;
+		ptft->fillRect(StusBxX - 15, StusBxY + 10, Wdth, Hght, ToneColor);
+	}
+	if (SpdFlg)
+	{
+		SpdFlg = false;
+		dispStat(SpdBuf, SpdClr);
+	}
 	while (RingbufPntr2 != RingbufPntr1)
 	{
 		/*test if this next entry is going to generate a scroll page event
 		& are we in the middle of sending a letter; if true, skip this update.
-		This was done to fix an issue with the esp32 & not being able to give the dotclock ISR 
+		This was done to fix an issue with the esp32 & not being able to give the dotclock ISR
 		priority over the display ISR */
-		if(CWActv && (((cnt+1) - offset) * fontW >= displayW) && (curRow + 1 == row) ){
+		if (CWActv && (((cnt + 1) - offset) * fontW >= displayW) && (curRow + 1 == row))
+		{
 			// char buf[50];
 			// sprintf(buf, "currow: %d; row: %d", curRow, row);
 			// dispStat(buf, TFT_GREENYELLOW);//update status line
 			// setSOTFlg(false);//changes status square to yellow
 			break;
-		} 
+		}
 		ptft->setCursor(cursorX, cursorY);
 		char curChar = RingbufChar[RingbufPntr2];
-
-		/*For debugging */
-		// buf[0] = RingbufChar[RingbufPntr2];
+		if(curChar == 0x8 ) // test for "Backspace", AKA delete ASCII symbol
+		{
+			Delete(1);
+		}
+		else if (curChar == 10){// test for "line feed" character
 		
-		// if(curChar !=0 ) printf( "%s", buf);
+			DisplCrLf();
+			// printf("cnt:%d; \n", cnt);
 		
-		uint16_t Color = RingbufClr[RingbufPntr2];
-		if (curChar != 10)
-		{ // test for "line feed" character
+		}
+		else // at this point, whatever is left shoud be regular text
+		{
+			uint16_t Color = RingbufClr[RingbufPntr2]; 
 			ptft->setTextColor(RingbufClr[RingbufPntr2]);
 			// sprintf(buf, "%s",curChar);
 			// printf(buf);
@@ -173,7 +199,7 @@ void TFTMsgBox::dispMsg2(void)
 				PgbufColor[cnt - CPL] = Color;
 			}
 			cnt++;
-			//printf("cnt:%d; ", cnt);
+			// printf("cnt:%d; ", cnt);
 			if ((cnt - offset) * fontW >= displayW)
 			{
 				curRow++;
@@ -191,11 +217,7 @@ void TFTMsgBox::dispMsg2(void)
 				cursorX = (cnt - offset) * fontW;
 			}
 		}
-		else
-		{
-			DisplCrLf();
-			//printf("cnt:%d; \n", cnt);
-		}
+		
 		RingbufPntr2++;
 		if (RingbufPntr2 == RingBufSz)
 			RingbufPntr2 = 0;
@@ -346,7 +368,7 @@ void TFTMsgBox::scrollpg()
 		ptft->fillRect(cursorX, cursorY, displayW, (fontH), TFT_BLACK); // erase current page of text
 		ptft->setCursor(cursorX, cursorY);
 	}
-	/* And if needed, move the CursorPntr up on line*/
+	/* And if needed, move the CursorPntr up one line*/
 	if (CursorPntr - CPL > 0)
 		CursorPntr = CursorPntr - CPL;
 	// char temp[50];
@@ -506,6 +528,15 @@ void TFTMsgBox::dispStat(char Msgbuf[50], uint16_t Color)
 	}
 };
 
+void TFTMsgBox::showSpeed(char Msgbuf[50], uint16_t Color)
+{
+	SpdClr = Color;
+	SpdFlg = true;
+	sprintf(SpdBuf, "%s", Msgbuf);
+	// printf(SpdBuf);
+	// printf("\n\r");
+	
+};
 void TFTMsgBox::setSOTFlg(bool flg)
 {
 	SOTFlg = flg;
@@ -513,15 +544,15 @@ void TFTMsgBox::setSOTFlg(bool flg)
 	uint16_t color;
 	int Xpos = StusBxX;
 	int Ypos = StusBxY;
-	int Wdth = 30;
-	int Hght = 30;
+	int Wdth = 15;
+	int Hght = 15;
 	if (SOTFlg && !StrTxtFlg)
 		color = TFT_GREEN;
 	else if (SOTFlg && StrTxtFlg)
 		color = TFT_WHITE;
 	else
 		color = TFT_YELLOW;
-	ptft->fillRect(Xpos, Ypos, Wdth, Hght, color);
+	ptft->fillRect(StusBxX+10, StusBxY + 10, Wdth, Hght, color);
 };
 void TFTMsgBox::setStrTxtFlg(bool flg)
 {
@@ -530,8 +561,8 @@ void TFTMsgBox::setStrTxtFlg(bool flg)
 	uint16_t color;
 	int Xpos = StusBxX;
 	int Ypos = StusBxY;
-	int Wdth = 30;
-	int Hght = 30;
+	int Wdth = 15;
+	int Hght = 15;
 	if (!StrTxtFlg && SOTFlg)
 		color = TFT_GREEN;
 	else if (!StrTxtFlg && !SOTFlg)
@@ -542,7 +573,7 @@ void TFTMsgBox::setStrTxtFlg(bool flg)
 		pStrdTxt[0] = 0;
 		txtpos = 0;
 	}
-	ptft->fillRect(Xpos, Ypos, Wdth, Hght, color);
+	ptft->fillRect(StusBxX+10, StusBxY + 10, Wdth, Hght, color);
 };
 void TFTMsgBox::SaveSettings(void)
 {
@@ -591,4 +622,42 @@ void TFTMsgBox::setCWActv(bool flg){
 bool TFTMsgBox::getBGHilite(void){
 	return BGHilite;
 };
-
+/*This sets up to activate the tone statusbox the next time  TFTMsgBox::dispMsg2(void) method fires via DsplTmr_callback routine*/
+void TFTMsgBox::ShwTone(uint16_t color)
+{
+	// char PrntBuf[20];
+	ToneFlg = true;
+	ToneColor = color;
+	// sprintf(PrntBuf, "ToneColor:%d\n\r", (int)ToneColor);
+	// printf(PrntBuf);
+	// int Xpos = StusBxX-15;
+	// int Ypos = StusBxY;
+	// int Wdth = 30;
+	// int Hght = 30;
+	// if(RingbufPntr1 != RingbufPntr2 ) return;
+	// ptft->fillRect(Xpos, Ypos, Wdth, Hght, color);
+};
+/* This method was created to support DcodeCW.cpp; When called Deletes last character posted to screen*/
+// void TFTMsgBox::DelLastNtry(void)
+// {
+// 	// first,buzz thru the pgbuf array until we find the the last charater (delete the last character in the pgbuf)
+// 	int TmpPntr = 0;
+// 	while (Pgbuf[TmpPntr] != 0)
+// 		TmpPntr++;
+// 	if (TmpPntr > 0)
+// 		Pgbuf[TmpPntr - 1] = 0; // delete last character in the array by replacing it with a "0"
+// 	cnt--;
+// 	xoffset = cnt;
+// 	curRow = 0;
+// 	while (xoffset >= CPL)
+// 	{
+// 		xoffset -= CPL;
+// 		curRow++;
+// 	}
+// 	cursorX = xoffset * (fontW);
+// 	cursorY = curRow * (fontH + 10);
+// 	if (xoffset == (CPL - 1))
+// 		offset = offset - CPL; // we just jump back to last letter in the previous line, So we need setup to properly calculate what display row we will be on, come the next character
+// 	// tft.fillRect(cursorX, cursorY, fontW+4, (fontH + 10), BLACK); //black out/erase last displayed character
+// 	// tft.setCursor(cursorX, cursorY);
+// };

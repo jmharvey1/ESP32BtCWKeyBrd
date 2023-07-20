@@ -1,10 +1,10 @@
 ﻿
-# ESP32 Bluetooth CW Keyboard
+# ESP32 Bluetooth CW Keyboard & Decoder
 ___
 
 A VS Code/PlatformIO project, Using ESPIDF's framework.
   
-This ham radio project uses a generic Bluetooth Keyboard to send Morse Code (cw).
+This ham radio project uses a generic Bluetooth Keyboard to send Morse Code (cw), and now using the audio out of RX can decode CW too.
 <p align="center">  
 <img src="https://github.com/jmharvey1/ESP32BtCWKeyBrd/blob/main/MiscFiles/IMG_5733.JPG"  width="40%" height="40%">
 </p>

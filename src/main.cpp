@@ -1,6 +1,7 @@
-// Copyright (c) 2020 Guy Turcotte
-//
-// MIT License. Look at file licenses.txt for details.
+/* BT-Keyboard code (bt_keyboard.cpp) based on source code with the same file name &
+   Copyright (c) 2020 by Guy Turcotte
+   MIT License. Look at file licenses.txt for details.
+*/
 /*20230310 added logitech K380 configure function keys command */
 /*20230317 added Memory F3 & F4 function keys */
 /*20230328 moved to GitHub*/
@@ -11,6 +12,20 @@
 /*20230502 reworked WPM screen refresh & dotclk updated to timing period to avoid TFT display crashes.*/
 /*20230503 Added code to bt_keyboard.cpp test for 'del' key presses an convert to hex code 0x2A*/
 /*20230507 Reversed bavior of "Up" & "Down" Arrow keys & corrected dotclock startup timing to actually match the User stored WPM setting*/
+/*20230607 DcoderCW.cpp CLrDCdValBuf() added other buffers & codevals to reset to stop decode artifacts of what the CWgen code was making during user send */
+/*20230608 Enabled AutoTune indecoder default configuration */
+/*20230609 Added code to the KEYISR (DcodeCW.cpp) to improve recovery/WPM tracking from slow to fast CW */
+/*20230610 Remove '@'from the decoder dictionary */
+/*20230615 reworked Goertzel.cpp & DcodeCW.cpp to better track the incoming WPM speed of the received station plus slight improvement in decoding CW @ > 35WPM As well at lower SNRs */
+/*20230616 Added decoder mode & autotune to NVS eeprom; reworked startup (app_main) sequence to reduce crashes during 1st time pairing process */
+/*20230617 To support advanced DcodeCW "Bug" processes, reworked dispMsg2(void) to handle ASCII chacacter 0x8 "Backspace" symbol*/
+/*20230624 Minor tweaks to tone detect code & installed mutexs in bletooth callback to try to better manage SPI resource calls*/
+/*20230701  Reworked Goertzel tone detection & added adjustable glitch detection; Also reworked Goertzel sample count code */
+/*20230707 Added shortcuts (left/right Ctrl+g) user cntrolled gain setting; and reworked Glitch detection*/
+/*20230708 reworked Glitch detection by adding a front end average keydown section to the tone detect routine; it now sets the glitch inteval*/
+/* 20230711 minor tweaks to concatenate processes (DcodeCW.cpp) to imporve delete character managment */
+/*20230719 added "noreturn" patch to crash handler code and removed printf() calls originally in IRAM_ATTR DotClk_ISR(void *arg)*/
+/* 20230715 minor tweaks */
 #include "sdkconfig.h" //added for timer support
 #include "globals.hpp"
 #include "main.h"
@@ -22,27 +37,42 @@
 #include "esp_event.h"
 #include "driver/gpio.h"
 #include "rom/ets_sys.h"
-
+///////////////////////////////
+//#include "esp_core_dump.h"
 //////////////////////////////
 #include "TFT_eSPI.h" // Graphics and font library for ILI9341 driver chip
 #include <SPI.h>
 #include <Stream.h>
 #include "SetUpScrn.h" //added to support references to the setttings screen; used to configure CW keyboard user perferences
 #include "TxtNtryBox.h"
-// #define KEY GPIO_NUM_13    // LED connected to GPIO2
-#define TFT_GREY 0x5AEB    // New colour
+/*helper ADC files*/
+#include "freertos/task.h"
+#include "freertos/semphr.h"
+#include "esp_adc/adc_continuous.h"
+#include "Goertzel.h"
+#include "DcodeCW.h"
+/**blackpill tftmsgbox spport*/
+#include "TFTMsgBox.h"
+#include "CWSndEngn.h"
+/* the following defines were taken from "hal/adc_hal.h" 
+ and are here for help in finding the true ADC sample rate based on a given declared sample frequency*/
+#define ADC_LL_CLKM_DIV_NUM_DEFAULT       15
+#define ADC_LL_CLKM_DIV_B_DEFAULT         1
+#define ADC_LL_CLKM_DIV_A_DEFAULT         0
+#define ADC_LL_DEFAULT_CONV_LIMIT_EN      0
+
+
+#define TFT_GREY 0x5AEB // New colour
 
 TFT_eSPI tft = TFT_eSPI(); // Invoke TFT Display library
 //////////////////////////////
 /*timer interrupt support*/
 #include "esp_timer.h"
 esp_timer_handle_t DotClk_hndl;
-//esp_timer_handle_t DsplTmr_hndl;
+// esp_timer_handle_t DsplTmr_hndl;
 TimerHandle_t DisplayTmr;
 /* END timer interrupt support          */
-/**blackpill tftmsgbox spport*/
-#include "TFTMsgBox.h"
-#include "CWSndEngn.h"
+
 /*Debug & backtrace analysis*/
 uint8_t global_var;
 /*To make these variables available to other files/section of this App, Moved the following to main.h*/
@@ -51,7 +81,7 @@ DF_t DFault;
 int DeBug = 1; // Debug factory default setting; 0 => Debug "OFF"; 1 => Debug "ON"
 char StrdTxt[20] = {'\0'};
 /*Factory Default Settings*/
-char RevDate[9] = "20230507";
+char RevDate[9] = "20230719";
 char MyCall[10] = {'K', 'W', '4', 'K', 'D'};
 char MemF2[80] = "VVV VVV TEST DE KW4KD";
 char MemF3[80] = "CQ CQ CQ DE KW4KD KW4KD";
@@ -61,17 +91,336 @@ esp_err_t ret;
 char Title[120];
 bool setupFlg = false;
 bool EnDsplInt = true;
+bool clrbuf = false;
+bool PlotFlg = false;
+bool UrTurn = true;
+bool WokeFlg = false;
+bool QuequeFulFlg = false;
 volatile int DotClkstate = 0;
 volatile int CurHiWtrMrk = 0;
 static const uint8_t state_que_len = 50;
 static QueueHandle_t state_que;
+//static const uint8_t Sampl_que_len = 6 * Goertzel_SAMPLE_CNT;
+//static QueueHandle_t Sampl_que;
+
+SemaphoreHandle_t mutex;
+//SemaphoreHandle_t ADC_smpl_mutex;
+/* the following 2 entries are for diagnostic capture of raw DMA ADC data*/
+// int Smpl_buf[6 * Goertzel_SAMPLE_CNT];
+// int Smpl_Cntr = 0;
+int MutexbsyCnt = 0;
+unsigned long SmpIntrl = 0;
+unsigned long LstNw = 0;
+unsigned long EvntStart = 0;
+float Grtzl_Gain = 1.0;
+/*the following 4 lines are needed when you want to synthesize an input tone of known freq & Magnitude*/
+// float LclToneAngle = 0;
+// float synthFreq = 750;
+// int dwelCnt = 0;
+// float AnglInc = 2*PI*synthFreq/SAMPLING_RATE;
+
+/*Global ADC variables */
+// #define Goertzel_SAMPLE_CNT   384 // @750Hz tone input & 48Khz sample rate = 64 samples per cycle & 6 cycle sample duration. i.e. 8ms
+// #define EXAMPLE_ADC_CONV_MODE           ADC_CONV_SINGLE_UNIT_1
+// #define EXAMPLE_ADC_USE_OUTPUT_TYPE1    1
+// #define EXAMPLE_ADC_OUTPUT_TYPE         ADC_DIGI_OUTPUT_FORMAT_TYPE1
+static adc_channel_t channel[1] = {ADC_CHANNEL_6};
+adc_continuous_handle_t adc_handle = NULL;
+static TaskHandle_t GoertzelTaskHandle;
+static TaskHandle_t CWDecodeTaskHandle = NULL;
+static const char *TAG1 = "ADC_Config";
+uint32_t ret_num = 0;
+uint8_t result[Goertzel_SAMPLE_CNT * SOC_ADC_DIGI_RESULT_BYTES] = {0};
+uint32_t CB_CNtr = 0;
 TaskHandle_t HKdotclkHndl;
+
 TFTMsgBox tftmsgbx(&tft, StrdTxt);
 CWSNDENGN CWsndengn(&DotClk_hndl, &tft, &tftmsgbx);
 /*                           */
 
 BTKeyboard bt_keyboard(&tftmsgbx, &DFault);
 TxtNtryBox txtntrybox(&DotClk_hndl, &tft);
+/* coredump crash test code */
+/* typedef struct{
+  int a;
+  char *s;
+} data_t;
+
+void show_data(data_t *data){
+  if(strlen(data->s) >10){
+    printf("String too long");
+    return;
+  }
+  printf("here's your string %s", data->s);
+} */
+
+/*ADC callback event; Fires when ADC buffer is full & ready for processing*/
+bool IRAM_ATTR s_conv_done_cb(adc_continuous_handle_t handle, const adc_continuous_evt_data_t *edata, void *user_data)
+{
+  BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+  // Notify GoertzelTaskHandle that the buffer is full.
+
+  /* At this point GoertzelTaskHandle should not be NULL as a ADC conversion completed. */
+  configASSERT(GoertzelTaskHandle != NULL);
+  vTaskNotifyGiveFromISR(GoertzelTaskHandle, &xHigherPriorityTaskWoken); // start Goertzel Task
+  portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+  // CB_CNtr++;
+  // if(CB_CNtr>=(125*4)){//should report once/second @ samplerate = 48Khz
+
+  //   vTaskNotifyGiveFromISR(GoertzelTaskHandle, &xHigherPriorityTaskWoken); //start Goertzel Task
+  //   portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+  //   CB_CNtr = 0;
+  // }
+  /* If xHigherPriorityTaskWoken is now set to pdTRUE then a context switch
+  should be performed to ensure the interrupt returns directly to the highest
+  priority task.  The macro used for this purpose is dependent on the port in
+  use and may be called portEND_SWITCHING_ISR(). */
+  // portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+  return (xHigherPriorityTaskWoken == pdTRUE);
+}
+/*Code needed  to setup & initialize DMA ADC process */
+static void continuous_adc_init(adc_channel_t *channel, uint8_t channel_num, adc_continuous_handle_t *out_handle)
+{
+  adc_continuous_handle_t handle = NULL;
+
+  adc_continuous_handle_cfg_t adc_config = {
+      .max_store_buf_size = (SOC_ADC_DIGI_RESULT_BYTES * Goertzel_SAMPLE_CNT)*8, //2048,
+      .conv_frame_size = SOC_ADC_DIGI_RESULT_BYTES * Goertzel_SAMPLE_CNT, 
+  };
+  ESP_ERROR_CHECK(adc_continuous_new_handle(&adc_config, &handle));
+  uint32_t freq = 120*1000;// actually yeilds something closer to 100Khz sample rate
+  //uint32_t freq = 48*1000;
+  adc_continuous_config_t dig_cfg = {
+      .sample_freq_hz = freq,
+      .conv_mode = ADC_CONV_SINGLE_UNIT_1,
+      .format = ADC_DIGI_OUTPUT_FORMAT_TYPE1,
+  };
+  /* uint32_t interval = APB_CLK_FREQ / (ADC_LL_CLKM_DIV_NUM_DEFAULT + ADC_LL_CLKM_DIV_A_DEFAULT / ADC_LL_CLKM_DIV_B_DEFAULT + 1) / 2 / freq;
+  char buf[25];
+  sprintf(buf, "interval: %d\n", (int)interval); */
+
+  adc_digi_pattern_config_t adc_pattern[SOC_ADC_PATT_LEN_MAX] = {0};
+  dig_cfg.pattern_num = channel_num;
+  for (int i = 0; i < channel_num; i++)
+  {
+    uint8_t unit = ADC_UNIT_1;
+    uint8_t ch = channel[i] & 0x7;
+    adc_pattern[i].atten = ADC_ATTEN_DB_11; // ADC_ATTEN_DB_0;
+    adc_pattern[i].channel = ch;
+    adc_pattern[i].unit = unit;
+    adc_pattern[i].bit_width = SOC_ADC_DIGI_MAX_BITWIDTH;
+
+    ESP_LOGI(TAG1, "adc_pattern[%d].atten is :%x", i, adc_pattern[i].atten);
+    ESP_LOGI(TAG1, "adc_pattern[%d].channel is :%x", i, adc_pattern[i].channel);
+    ESP_LOGI(TAG1, "adc_pattern[%d].unit is :%x", i, adc_pattern[i].unit);
+  }
+  dig_cfg.adc_pattern = adc_pattern;
+  ESP_ERROR_CHECK(adc_continuous_config(handle, &dig_cfg));
+
+  *out_handle = handle;
+}
+
+static bool check_valid_data(const adc_digi_output_data_t *data)
+{
+  if (data->type1.channel >= SOC_ADC_CHANNEL_NUM(ADC_UNIT_1))
+  {
+    return false;
+  }
+  return true;
+}
+////////////////////////////////////////////
+void addSmpl(int k, int i, int *pCntrA)
+{
+  /*The following is for diagnostic testing; it generates a psuesdo tone input of known freq & magnitude */
+  // dwelCnt++;
+  // if (dwelCnt>20*Goertzel_SAMPLE_CNT){ //Inc psuedo tone freq by 5 hz every 20 sample groups; i.e.~ every 80ms
+  //   dwelCnt = 0;
+  //   synthFreq +=5;
+  //   if(synthFreq>950){
+  //     synthFreq = 500;
+  //   }
+  //   AnglInc = 2*PI*synthFreq/SAMPLING_RATE;
+  // }
+  // LclToneAngle += AnglInc;
+  // if(LclToneAngle >= 2*PI) LclToneAngle = LclToneAngle - 2*PI;
+  // k = (int)(800*sin(LclToneAngle));
+
+  ProcessSample(k, i);
+  /* uncomment for diagnostic testing; graph raw ADC samples*/
+  // if ((*pCntrA < (6 * Goertzel_SAMPLE_CNT)) && UrTurn)
+  // {
+  //   if ((*pCntrA == Goertzel_SAMPLE_CNT) || (*pCntrA == 2 * Goertzel_SAMPLE_CNT) || (*pCntrA == 3 * Goertzel_SAMPLE_CNT) || (*pCntrA == 4 * Goertzel_SAMPLE_CNT) || (*pCntrA == 5 * Goertzel_SAMPLE_CNT))
+  //   {
+  //     Smpl_buf[*pCntrA] = k;// use this line if no marker is needed
+  //     //Smpl_buf[*pCntrA] = 2000+(*pCntrA); // place a marker at the end of each group
+  //   }
+  //   else if(*pCntrA != 0)
+  //     Smpl_buf[*pCntrA] = k;
+  //   *pCntrA += 1;
+  // }
+  // if ((*pCntrA == (6 * Goertzel_SAMPLE_CNT)) || !UrTurn)
+  // {
+  //   UrTurn = false;
+  //   *pCntrA = 0;
+  //   //Smpl_buf[*pCntrA] = 2000; // place a marker at the the begining of the next set
+  // }
+   /* END code for diagnostic testing; graph raw ADC samples*/
+}
+
+/////////////////////////////////////////////
+/* Goertzel Task; Process ADC buffer*/
+void GoertzelHandler(void *param)
+{
+  static uint32_t thread_notification;
+  static const char *TAG2 = "ADC_Read";
+  uint16_t oldclr = 0;
+  int k;
+  int BIAS = 1844; // based reading found when no signal applied to ESP32continuous_adc_init
+  int Smpl_CntrA = 0;
+  InitGoertzel(); //make sure the Goertzel Params are setup & ready to go
+  while (1)
+  {
+    /* Sleep until we are notified of a state change by an
+     * interrupt handler. Note the first parameter is pdTRUE,
+     * which has the effect of clearing the task's notification
+     * value back to 0, making the notification value act like
+     * a binary (rather than a counting) semaphore.  */
+
+    thread_notification = ulTaskNotifyTake(pdTRUE,
+                                           portMAX_DELAY);
+
+    if (thread_notification)
+    { // Goertzel data samples ready for processing
+
+      EvntStart = pdTICKS_TO_MS(xTaskGetTickCount());
+      /* the following 2 lines are for diagnostic testing only*/
+      // SmpIntrl = EvntStart - LstNw;
+      // LstNw = EvntStart;
+      ret = adc_continuous_read(adc_handle, result, Goertzel_SAMPLE_CNT * SOC_ADC_DIGI_RESULT_BYTES, &ret_num, 0);
+      if (ret == ESP_OK)
+      {
+        ResetGoertzel();
+        /*  ESP_LOGI("TASK_ADC", "ret is %x, ret_num is %"PRIu32" bytes", ret, ret_num);*/
+
+        for (int i = 0; i < Goertzel_SAMPLE_CNT/2; i++) // for (int i = 0; i < ret_num; i += SOC_ADC_DIGI_RESULT_BYTES)
+        {
+          /*Used this approach because I found the ADC data were being returned in alternating order.
+          So by taking them a pair at a time,I could restore (& process them) in their true chronological order*/
+          int pos0 = 2*i;
+          int pos1 = pos0+1;
+          adc_digi_output_data_t *p = (adc_digi_output_data_t *)&result[pos0 * SOC_ADC_DIGI_RESULT_BYTES];
+          adc_digi_output_data_t *p1 = (adc_digi_output_data_t *)&result[pos1 * SOC_ADC_DIGI_RESULT_BYTES];
+          k = ((int)(p1->type1.data) - BIAS);
+          addSmpl(k, pos1, &Smpl_CntrA);
+          k = ((int)(p->type1.data) - BIAS);
+          addSmpl(k, pos0, &Smpl_CntrA);
+          
+        }
+        ComputeMags(EvntStart);
+        uint16_t curclr = ToneClr();
+        if (oldclr != curclr)
+        {
+          oldclr = curclr;
+          tftmsgbx.ShwTone(curclr);
+        }
+        /**
+         * Because printing is slow, so every time you call `ulTaskNotifyTake`, it will immediately return.
+         * To avoid a task watchdog timeout, add a delay here. When you replace the way you process the data,
+         * usually you don't need this delay (as this task will block for a while).
+         */
+        // vTaskDelay(1);
+        // ESP_LOGI(TAG1, "SUSPEND GoertzelHandler TASK");
+        // vTaskSuspend(GoertzelTaskHandle);
+      }
+      else if (ret == ESP_ERR_TIMEOUT)
+      {
+        // We try to read `ADC SAMPLEs/DATA` until API returns timeout, which means there's no available data
+        /*JMH - This ocassionally happens; Why I'm not sure; But seems to recover & goes on with little fuss*/
+        ESP_LOGI(TAG2, "BREAK from GoertzelHandler TASK");
+        // break; //Commented out for esp32 decoder task
+      }else{
+        ESP_LOGI(TAG2, "NO ADC Data Returned");
+      }
+    }
+  }// end while(1) loop
+  /** JMH Added this to ESP32 version to handle random crashing with error,"Task Goertzel Task should not return, Aborting now" */
+  vTaskDelete(NULL);
+}
+
+
+///////////////////////////////////////////////////////////////////////////////////
+/* CW Decoder Task; CW decoder main loop*/
+void CWDecodeTask(void *param)
+{
+  /*TODO tie to mainloop in DcodeCW.cpp*/
+  static uint32_t thread_notification;
+  static const char *TAG3 = "Decode Task";
+  char Smpl[10];
+  int sample;
+  StartDecoder(&tftmsgbx);
+  while (1)
+  {
+    /* Sleep until we are notified of a state change by an
+     * interrupt handler. Note the first parameter is pdTRUE,
+     * which has the effect of clearing the task's notification
+     * value back to 0, making the notification value act like
+     * a binary (rather than a counting) semaphore.  */
+
+    thread_notification = ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+    if (thread_notification)
+    {
+      // ESP_LOGI(TAG3, "Start CWDecode TASK");
+      // printf( "Start CWDecode TASK\n\r");
+      Dcodeloop();
+      /* uncomment for diagnostic testing; graph ADC samples; Note: companion code in addSmpl(int k, int i, int *pCntrA) needs to be uncommented too */
+      /* Pull accumulated "ADC sample" values from buffer & print to serial port*/
+      // if(!UrTurn){
+      //   /* uint32_t freq = 120*1000;//48*1000;
+      //   uint32_t interval = APB_CLK_FREQ / (ADC_LL_CLKM_DIV_NUM_DEFAULT + ADC_LL_CLKM_DIV_A_DEFAULT / ADC_LL_CLKM_DIV_B_DEFAULT+1) /4 / freq;
+      //   uint32_t Smpl_rate = 1000000/interval;
+      //   char buf[40];
+      //   sprintf(buf, "interval: %d; SmplRate: %d\n", (int)interval, (int)Smpl_rate);
+      //   printf(buf); */
+      //   for (int Smpl_CntrA = 0; Smpl_CntrA < 6 * Goertzel_SAMPLE_CNT; Smpl_CntrA++)
+      //   {
+      //     if(Smpl_buf[Smpl_CntrA] !=0){
+      //       sprintf(Smpl, "%d\n", Smpl_buf[Smpl_CntrA]);
+      //       printf(Smpl);
+            
+      //     }
+      //   }
+      //   UrTurn = true;
+      // }
+      /* END code for diagnostic testing; graph ADC samples; */
+      
+      xTaskNotifyGive(CWDecodeTaskHandle);
+      /**
+       * Because printing is slow, so every time you call `ulTaskNotifyTake`, it will immediately return.
+       * To avoid a task watchdog timeout, add a delay here. When you replace the way you process the data,
+       * usually you don't need this delay (as this task will block for a while).
+       */
+      // vTaskDelay(1);
+      // ESP_LOGI(TAG1, "SUSPEND CWDecodeTask TASK");
+      // vTaskSuspend(CWDecodeTaskHandle);
+    }
+    else if (ret == ESP_ERR_TIMEOUT)
+    {
+      ESP_LOGI(TAG3, "BREAK from CWDecodeTask TASK");
+      break;
+    }
+    if(WokeFlg){ //report void IRAM_ATTR DotClk_ISR(void *arg) result
+      WokeFlg = false;
+      printf("!!WOKE!!\n");
+    }
+    if(QuequeFulFlg){ //report void IRAM_ATTR DotClk_ISR(void *arg) result
+      QuequeFulFlg = false;
+      printf("!!state QUEUE FULL!!\n");
+    }
+  }
+}
+
+///////////////////////////////////////////////////////////////////////////////////
+
 extern "C"
 {
   void app_main();
@@ -79,32 +428,9 @@ extern "C"
 /*Template for keyboard entry handler function detailed futrther down in this file*/
 void ProcsKeyEntry(uint8_t keyVal);
 /*        Display Update timer ISR          */
-//static void DsplTmr_callback(void *arg);
-void DsplTmr_callback(TimerHandle_t  xtimer);
+void DsplTmr_callback(TimerHandle_t xtimer);
 /*        DotClk timer ISR                 */
 void IRAM_ATTR DotClk_ISR(void *arg);
-/*low priority dotclock housekeeping task*/
-//void HKcursor(void *parameter)
-// {
-//   while (1)
-//   {
-//     vTaskSuspend(NULL);
-//     //xTimerStop(DisplayTmr, portMAX_DELAY);
-//     //vTaskPrioritySet(NULL,5);
-//     //tftmsgbx.IntrCrsr(DotClkstate); // Set Display Box CW Send Cursor as needed
-//     //vTaskPrioritySet(NULL,1);
-//     //xTimerStart(DisplayTmr,0);
-//     // int HiWtrMrk = uxTaskGetStackHighWaterMark(NULL);
-//     // if (HiWtrMrk > CurHiWtrMrk)
-//     // {
-//     //   CurHiWtrMrk = HiWtrMrk;
-//     //   char temp[50];
-//     //   sprintf(temp, "STACK: %d\n", CurHiWtrMrk);
-//     //   printf(temp);
-//     // }
-//     // vTaskDelay(led_delay / portTICK_PERIOD_MS);
-//   }
-// }
 
 void pairing_handler(uint32_t pid)
 {
@@ -118,6 +444,17 @@ void pairing_handler(uint32_t pid)
 
 void app_main()
 {
+  
+  ModeCnt = 4;
+  /* coredump crash test code */
+  /*  vTaskDelay(10000/portTICK_PERIOD_MS);
+  for(int i = 25; i <0; i--){
+    printf("Crash in: %d seconds", i);
+    vTaskDelay(1000/portTICK_PERIOD_MS);
+  }
+  data_t *MyTestData = NULL;
+  show_data(MyTestData); */
+
   // Configure pin
   gpio_config_t io_conf;
   io_conf.intr_type = GPIO_INTR_DISABLE;
@@ -126,28 +463,20 @@ void app_main()
   io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
   io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
   gpio_config(&io_conf);
-  digitalWrite(KEY, Key_Up); //key 'UP' state
-/*Setup Software Display Refresh/Update timer*/
+  digitalWrite(KEY, Key_Up); // key 'UP' state
+  /*Setup Software Display Refresh/Update timer*/
   DisplayTmr = xTimerCreate(
-    "Display-Refresh-Timer",
-    33/portTICK_PERIOD_MS,
-    pdTRUE,
-    (void *)1,
-    DsplTmr_callback
-  );
+      "Display-Refresh-Timer",
+      33 / portTICK_PERIOD_MS,
+      pdTRUE,
+      (void *)1,
+      DsplTmr_callback);
   state_que = xQueueCreate(state_que_len, sizeof(uint8_t));
 
-  /*Place Dot Clock housekeeping task in RTOS*/
-  // xTaskCreatePinnedToCore(  // Use xTaskCreate() in vanilla FreeRTOS
-  //           HKcursor,      // Function to be called
-  //           "HKcursor",   // Name of task
-  //           2048,           // Stack size (bytes in ESP32, words in FreeRTOS)
-  //           NULL,           // Parameter to pass
-  //           6,              // Task priority
-  //           &HKdotclkHndl,           // Task handle
-  //           (BaseType_t)0);       // Run on one core for demo purposes (ESP32 only)
+  memset(result, 0xcc, (SOC_ADC_DIGI_RESULT_BYTES * Goertzel_SAMPLE_CNT)); // 1 byte for the channel # & 1 byte for the data
+  mutex = xSemaphoreCreateMutex();
+  // ADC_smpl_mutex = xSemaphoreCreateMutex();
 
-  
   /*setup Hardware DOT Clock timer & link to timer ISR*/
   const esp_timer_create_args_t DotClk_args = {
       .callback = &DotClk_ISR,
@@ -155,41 +484,34 @@ void app_main()
       .dispatch_method = ESP_TIMER_ISR,
       .name = "DotClck"};
 
-  /*setup Display Update timer & link to it's ISR*/
-  // const esp_timer_create_args_t DsplTmr_args = {
-  //     .callback = &DsplTmr_callback,
-  //     .arg = NULL,
-  //     .dispatch_method = ESP_TIMER_ISR,
-  //     .name = "DisplayTimer"};
+  ESP_ERROR_CHECK(esp_timer_create(&DotClk_args, &DotClk_hndl));
 
-   ESP_ERROR_CHECK(esp_timer_create(&DotClk_args, &DotClk_hndl));
+  xTaskCreate(CWDecodeTask, "CW Decode Task", 8192, NULL, 0, &CWDecodeTaskHandle);
 
-  /* The timer has been created but is not running yet */
-   //ESP_ERROR_CHECK(esp_timer_create(&DsplTmr_args, &DsplTmr_hndl));
-
-  /* The timer has been created but is not running yet */
   static const char *TAG = "TimrIntr";
+  if (CWDecodeTaskHandle == NULL)
+    ESP_LOGI(TAG, "CW Decoder Task handle FAILED");
+  /* The timer has been created but is not running yet */
+  // ESP_ERROR_CHECK(esp_timer_create(&DsplTmr_args, &DsplTmr_hndl));
+
+  /* The timer has been created but is not running yet */
+
   // intr_matrix_set(xPortGetCoreID(), ETS_TG0_T0_LEVEL_INTR_SOURCE, 27);//dotclck
-  intr_matrix_set(xPortGetCoreID(), ETS_TG0_T1_LEVEL_INTR_SOURCE, 26);//display
+  intr_matrix_set(xPortGetCoreID(), ETS_TG0_T1_LEVEL_INTR_SOURCE, 26); // display
 
   ESP_LOGI(TAG, "Start DotClk interrupt Config");
   ESP_ERROR_CHECK(esp_intr_alloc(ETS_TG0_T1_LEVEL_INTR_SOURCE, ESP_INTR_FLAG_LEVEL3, DotClk_ISR, DotClk_args.arg, NULL));
   ESP_LOGI(TAG, "End DotClk interrupt Config");
-  // ESP_LOGI(TAG, "Start Display Update timer interrupt Config");
-  // ESP_ERROR_CHECK(esp_intr_alloc(ETS_TG0_T1_LEVEL_INTR_SOURCE, ESP_INTR_FLAG_LEVEL1, DsplTmr_callback, DsplTmr_args.arg, NULL));
-  // ESP_LOGI(TAG, "End Display Update timer interrupt Config");
-
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////
   // ESP_INTR_ENABLE(27);//dotclock
-  ESP_INTR_ENABLE(26);//display
-  // KB_timer_init(TIMER_GROUP_0, TIMER_0, true, 600); //dotclock @ 20WPM or 60ms
-  // KB_timer_init(TIMER_GROUP_0, TIMER_1, true, 333); //displayRefersh @ ~30 frames/updates per second
+  ESP_INTR_ENABLE(26); // display
+  
   /* Start the timer dotclock (timer)*/
   ESP_ERROR_CHECK(esp_timer_start_periodic(DotClk_hndl, 60000)); // 20WPM or 60ms
+  
   /* Start the Display timer */
-  //ESP_ERROR_CHECK(esp_timer_start_periodic(DsplTmr_hndl, 33330)); //~30 frames/updates per second
-  xTimerStart(DisplayTmr, portMAX_DELAY);
+  xTimerStart(DisplayTmr, portMAX_DELAY); 
 
   // To test the Pairing code entry, uncomment the following line as pairing info is
   // kept in the nvs. Pairing will then be required on every boot.
@@ -205,9 +527,9 @@ void app_main()
 
   /*Initialize display and load splash screen*/
   tftmsgbx.InitDsplay();
-  sprintf(Title, "     ESP32 BT CW Keyboard (%s)\n", RevDate); // sprintf(Title, "CPU CORE: %d\n", (int)xPortGetCoreID());
+  sprintf(Title, " ESP32 CW Decoder & Keyboard (%s)\n", RevDate); // sprintf(Title, "CPU CORE: %d\n", (int)xPortGetCoreID());
   tftmsgbx.dispMsg(Title, TFT_SKYBLUE);
-  
+
   /* test/check NVS to see if user setting/param have been stored */
   uint8_t Rstat = Read_NVS_Str("MyCall", DFault.MyCall);
   if (Rstat != 1)
@@ -220,6 +542,10 @@ void app_main()
     sprintf(DFault.MemF5, "%s", MemF5);
     DFault.DeBug = DeBug;
     DFault.WPM = CWsndengn.GetWPM();
+    DFault.ModeCnt = ModeCnt;
+    DFault.AutoTune = AutoTune;
+    DFault.TRGT_FREQ = (int)TARGET_FREQUENCYC;
+    DFault.Grtzl_Gain = Grtzl_Gain;
     sprintf(Title, "\n        No stored USER params Found\n   Using FACTORY values until params are\n   'Saved' via the Settings Screen\n");
     tftmsgbx.dispMsg(Title, TFT_ORANGE);
   }
@@ -232,18 +558,26 @@ void app_main()
     Rstat = Read_NVS_Str("MemF5", DFault.MemF5);
     Rstat = Read_NVS_Val("DeBug", DFault.DeBug);
     Rstat = Read_NVS_Val("WPM", DFault.WPM);
+    Rstat = Read_NVS_Val("ModeCnt", DFault.ModeCnt);
+    Rstat = Read_NVS_Val("TRGT_FREQ", DFault.TRGT_FREQ);
+    int intGainVal; // uint64_t intGainVal;
+    Rstat = Read_NVS_Val("Grtzl_Gain", intGainVal);
+    DFault.Grtzl_Gain = (float)intGainVal / 10000000.0;
+    int strdAT;
+    Rstat = Read_NVS_Val("AutoTune", strdAT);
+    DFault.AutoTune = (bool)strdAT;
+    /*pass the decoder setting(s) back to their global counterpart(s) */
+    AutoTune = DFault.AutoTune;
+    ModeCnt = DFault.ModeCnt;
+    TARGET_FREQUENCYC = (float)DFault.TRGT_FREQ;
+    Grtzl_Gain = DFault.Grtzl_Gain;
   }
   CWsndengn.RfrshSpd = true;
-  CWsndengn.ShwWPM(DFault.WPM); //calling this method does NOT recalc/set the dotclock & show the WPM
-  CWsndengn.SetWPM(DFault.WPM); //20230507 Added this seperate method call after changing how the dot clocktiming gets updated
-//  KB_timer_event_t evt;
-//  bool wait4event = true;
-//  int cnt = 0;
-//  while(wait4event && (cnt<20)){
-//    wait4event = !xQueueReceive(s_timer_queue, &evt, portMAX_DELAY);
-//    printf("DISPLAY\n");
-//    cnt++;
-//  }
+  CWsndengn.ShwWPM(DFault.WPM); // calling this method does NOT recalc/set the dotclock & show the WPM
+  CWsndengn.SetWPM(DFault.WPM); // 20230507 Added this seperate method call after changing how the dot clocktiming gets updated
+
+  InitGoertzel();
+  vTaskDelay(100/portTICK_PERIOD_MS);
   /*start bluetooth pairing/linking process*/
   if (bt_keyboard.setup(pairing_handler))
   {                             // Must be called once
@@ -262,30 +596,83 @@ void app_main()
       delay(20);
     }
   }
+  /*initialize & start continuous DMA ADC conversion process*/
+  continuous_adc_init(channel, sizeof(channel) / sizeof(adc_channel_t), &adc_handle);
+  xTaskCreate(GoertzelHandler, "Goertzel Task", 8192, NULL, 3, &GoertzelTaskHandle);
+
+  adc_continuous_evt_cbs_t cbs = {
+      .on_conv_done = s_conv_done_cb,
+  };
+  ESP_ERROR_CHECK(adc_continuous_register_event_callbacks(adc_handle, &cbs, NULL));
+  ESP_ERROR_CHECK(adc_continuous_start(adc_handle));
+  xTaskNotifyGive(CWDecodeTaskHandle);
+
+  if (ModeCnt == 4)
+  {
+    ESP_ERROR_CHECK(adc_continuous_stop(adc_handle));
+    vTaskSuspend(GoertzelTaskHandle);
+    ESP_LOGI(TAG1, "SUSPEND GoertzelHandler TASK");
+    vTaskSuspend(CWDecodeTaskHandle);
+    ESP_LOGI(TAG1, "SUSPEND CWDecodeTaskHandle TASK");
+    vTaskDelay(20);
+  }
+  vTaskDelay(200/portTICK_PERIOD_MS);
+  // uint32_t freq = 48*1000;
+  // uint32_t interval = APB_CLK_FREQ / (ADC_LL_CLKM_DIV_NUM_DEFAULT + ADC_LL_CLKM_DIV_A_DEFAULT / ADC_LL_CLKM_DIV_B_DEFAULT + 1) / 2 / freq;
+  // char buf[35];
+  // sprintf(buf, "interval: %d\n", (int)interval);
+
   /* main CW keyboard loop*/
   while (true)
   {
 #if 1 // 0 = scan codes retrieval, 1 = augmented ASCII retrieval
+    /* note: this loop only completes when there is a key enter from the paired/connected Bluetooth Keyboard */
+
     if (setupFlg)
     /*if true, exit main loop and jump to "settings" screen */
     {
       bool IntSOTstate = CWsndengn.GetSOTflg();
-      if(IntSOTstate) CWsndengn.SOTmode();// do this to stop any outgoing txt that might currently be in progress before switching over to settings screen
-      tftmsgbx.SaveSettings();                                       // true; user has pressed Ctl+S key, & wants to configure default settings
+      if (IntSOTstate)
+        CWsndengn.SOTmode();   // do this to stop any outgoing txt that might currently be in progress before switching over to settings screen
+      tftmsgbx.SaveSettings(); // save keyboard app's current display configuration; i.e., ringbuffer pointeres, etc. So that when the user closes the setting screen the keyboard app can conitnue fro where it left off
+      /* if in decode mode 4, the adc DMA scan was never started*/
+      if (ModeCnt != 4)
+      {
+        ESP_ERROR_CHECK(adc_continuous_stop(adc_handle)); // true; user has pressed Ctl+S key, & wants to configure default settings
+        vTaskSuspend(GoertzelTaskHandle);
+        ESP_LOGI(TAG1, "SUSPEND GoertzelHandler TASK");
+        vTaskSuspend(CWDecodeTaskHandle);
+        ESP_LOGI(TAG1, "SUSPEND CWDecodeTaskHandle TASK");
+        vTaskDelay(20);
+      }
       setuploop(&tft, &CWsndengn, &tftmsgbx, &bt_keyboard, &DFault); // function defined in SetUpScrn.cpp/.h file
       tftmsgbx.ReBldDsplay();
       CWsndengn.RefreshWPM();
-      if(IntSOTstate && !CWsndengn.GetSOTflg()) CWsndengn.SOTmode(); //Send On Type was enabled when we went to 'settings' so re-enable it 
+      if (IntSOTstate && !CWsndengn.GetSOTflg())
+        CWsndengn.SOTmode(); // Send On Type was enabled when we went to 'settings' so re-enable it
+      if (ModeCnt != 4)
+      {
+        ESP_ERROR_CHECK(adc_continuous_start(adc_handle));
+        ESP_LOGI(TAG1, "RESUME CWDecodeTaskHandle TASK");
+        vTaskResume(CWDecodeTaskHandle);
+        ESP_LOGI(TAG1, "RESUME GoertzelHandler TASK");
+        vTaskResume(GoertzelTaskHandle);
+        vTaskDelay(20);
+      }
     }
-    
-    uint8_t key = bt_keyboard.wait_for_ascii_char();
-    EnDsplInt = false; //no longer need timer driven display refresh; As its now being handled in the wait for BT_keybrd entry loop "wait_for_low_event()"
-        
-    //ESP_ERROR_CHECK(esp_timer_delete(DsplTmr_hndl));
-    // uint8_t key = bt_keyboard.get_ascii_char(); // Without waiting
+    uint8_t key = 0;
+
+    key = bt_keyboard.wait_for_ascii_char();
+
+    // uint8_t key = bt_keyboard.wait_for_ascii_char();
+    EnDsplInt = false; // no longer need timer driven display refresh; As its now being handled in the wait for BT_keybrd entry loop "wait_for_low_event()"
+
     /*test key entry & process as needed*/
     if (key != 0)
+    {
       ProcsKeyEntry(key);
+    } // else vTaskResume(CWDecodeTaskHandle);
+    
 
 #else
     BTKeyboard::KeyInfo inf;
@@ -305,14 +692,52 @@ void app_main()
 } /*End Main loop*/
 
 /*Timer interrupt ISRs*/
-//static void DsplTmr_callback(void *arg)
-void DsplTmr_callback(TimerHandle_t  xtimer)
+void IRAM_ATTR DsplTmr_callback(TimerHandle_t xtimer)
+// void DsplTmr_callback(TimerHandle_t xtimer)
 {
   uint8_t state;
   BaseType_t TaskWoke;
-  tftmsgbx.dispMsg2();
-  while(xQueueReceiveFromISR(state_que,(void *)&state, &TaskWoke) ==pdTRUE) tftmsgbx.IntrCrsr(state);
-  
+
+  if (mutex != NULL)
+  {
+    /* See if we can obtain the semaphore.  If the semaphore is not
+    available wait 10 ticks to see if it becomes free. */
+    if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE) //(TickType_t)5
+    {
+      /* We were able to obtain the semaphore and can now access the
+      shared resource. */
+      tftmsgbx.dispMsg2();
+      /* Pull accumulated "state" values from que and pass on to the tftmsgbx method "IntrCrsr"*/
+      while (xQueueReceiveFromISR(state_que, (void *)&state, &TaskWoke) == pdTRUE)
+        tftmsgbx.IntrCrsr(state);
+      /* We have finished accessing the shared resource.  Release the
+      semaphore. */
+      MutexbsyCnt = 0;
+      xSemaphoreGive(mutex);
+    }
+    // else
+    // {
+    //   /* We could not obtain the semaphore and can therefore not access
+    //   the shared resource safely. */
+
+    //   MutexbsyCnt++;
+    //   if (MutexbsyCnt > 6)
+    //   {
+    //     MutexbsyCnt = 6;
+    //     tftmsgbx.dispMsg2();
+    //     /* Altrenate route; Pull accumulated "state" values from que and pass on to the tftmsgbx method "IntrCrsr"*/
+    //     while (xQueueReceiveFromISR(state_que, (void *)&state, &TaskWoke) == pdTRUE)
+    //       tftmsgbx.IntrCrsr(state);
+    //     // char ISRbuf[20] ="ISRLOCKED\r\n";
+    //     // printf(ISRbuf);
+    //   }
+    //   else
+    //   {
+    //     // char ISRbuf[20] ="NO dispMsg2\r\n";
+    //     // printf(ISRbuf);
+    //   }
+    // }
+  }
 }
 /*                                          */
 /* DotClk timer ISR                 */
@@ -320,8 +745,35 @@ void IRAM_ATTR DotClk_ISR(void *arg)
 {
   BaseType_t Woke;
   uint8_t state = CWsndengn.Intr(); // check CW send Engine & process as code as needed
-  if(xQueueSendFromISR(state_que, &state, &Woke) == pdFALSE)  printf("!!state QUEUE FULL!!");  ;
-  if(Woke == pdTRUE) printf("!!WOKE!!");
+  if (state != 0)
+  {
+    vTaskSuspend(CWDecodeTaskHandle);
+    clrbuf = true;
+    // CLrDCdValBuf(); //added this to ensure no DeCode Vals accumulate while the CWGen process is active; In other words the App doesn't decode itself
+    // vTaskSuspend(GoertzelTaskHandle);//found placing this command here prevented the whole thing from starting
+    // printf("STOP\r\n");
+  }
+  else
+  {
+    if (clrbuf)
+    {
+      clrbuf = false;
+      CLrDCdValBuf(); // added this to ensure no DeCode Vals accumulate while the CWGen process is active; In other words the App doesn't decode itself
+      vTaskResume(CWDecodeTaskHandle);
+    }
+
+    // vTaskResume(GoertzelTaskHandle);
+    // printf("Resume\r\n");
+  }
+  /*Push returned "state" values on the que */
+  if (xQueueSendFromISR(state_que, &state, &Woke) == pdFALSE)
+     QuequeFulFlg = true;
+  if (Woke == pdTRUE)
+    /*Woke == pdTRUE, if sending to the queue caused a task to unblock, 
+    and the unblocked task has a priority higher than the currently running task. 
+    If xQueueSendFromISR() sets this value to pdTRUE,
+    then a context switch should be requested before the interrupt is exited.*/
+     WokeFlg = true;
   
 }
 ///////////////////////////////////////////////////////////////////////////////////
@@ -387,7 +839,6 @@ void IRAM_ATTR DotClk_ISR(void *arg)
 //     return high_task_awoken == pdTRUE; // return whether we need to yield at the end of ISR
 // }
 
-
 ///////////////////////////////////////////////////////////////////////////////////
 /*This routine checks the current key entry; 1st looking for special key values that signify special handling
 if none are found, it hands off the key entry to be treated as a standard CW character*/
@@ -443,14 +894,14 @@ void ProcsKeyEntry(uint8_t keyVal)
     return;
   }
   else if (keyVal == 0x84)
-  { // F4 key (Send MemF3)
+  { // F4 key (Send MemF4)
     if (CWsndengn.IsActv() && !CWsndengn.LstNtrySpc())
       CWsndengn.AddNewChar(&SpcChr);
     CWsndengn.LdMsg(DFault.MemF4, sizeof(DFault.MemF4));
     return;
   }
   else if (keyVal == 0x85)
-  { // F4 key (Send MemF3)
+  { // F5 key (Send MemF5)
     if (CWsndengn.IsActv() && !CWsndengn.LstNtrySpc())
       CWsndengn.AddNewChar(&SpcChr);
     CWsndengn.LdMsg(DFault.MemF5, sizeof(DFault.MemF5));
@@ -481,6 +932,76 @@ void ProcsKeyEntry(uint8_t keyVal)
     setupFlg = !setupFlg;
     return;
   }
+  else if ((keyVal == 0x9D))
+  { // Cntrl+"F"; auto-tune/ freqLocked
+    AutoTune = !AutoTune;
+    DFault.AutoTune = AutoTune;
+    vTaskDelay(20);
+    showSpeed();
+    vTaskDelay(250);
+    return;
+  }
+  else if ((keyVal == 0x9E))
+  { // LEFT Cntrl+"D"; Decode Modef()
+    /* manual manipulation of samlpe rate setting */
+     /* SAMPLING_RATE +=100;
+     InitGoertzel();
+     showSpeed();
+     vTaskDelay(80); */
+    /*Normal setup */
+    ModeCnt++;
+    if (ModeCnt > 4)
+    {
+      ESP_LOGI(TAG1, "RESUME CWDecodeTaskHandle TASK");
+      vTaskResume(CWDecodeTaskHandle);
+      ESP_LOGI(TAG1, "RESUME GoertzelHandler TASK");
+      vTaskResume(GoertzelTaskHandle);
+      ESP_ERROR_CHECK(adc_continuous_start(adc_handle));
+      vTaskDelay(20);
+    }
+    if (ModeCnt > 3)
+      ModeCnt = 0;
+    DFault.ModeCnt = ModeCnt;
+    SetModFlgs(ModeCnt);
+    vTaskDelay(20);
+    showSpeed();
+    vTaskDelay(250);
+    return;
+  }
+  else if ((keyVal == 0xA0))
+  { // RIGHT Cntrl+"D"; Decode Modef()
+    /* manual manipulation of samlpe rate setting */
+    /* SAMPLING_RATE -=100;
+    InitGoertzel();
+    showSpeed();
+    vTaskDelay(80); */
+    /*Normal setup */
+    if (ModeCnt == 4)
+    {
+      ESP_LOGI(TAG1, "RESUME CWDecodeTaskHandle TASK");
+      vTaskResume(CWDecodeTaskHandle);
+      ESP_LOGI(TAG1, "RESUME GoertzelHandler TASK");
+      vTaskResume(GoertzelTaskHandle);
+      ESP_ERROR_CHECK(adc_continuous_start(adc_handle));
+      vTaskDelay(20);
+    }
+    ModeCnt--;
+    if (ModeCnt < 0)
+      ModeCnt = 3;
+    DFault.ModeCnt = ModeCnt;
+    SetModFlgs(ModeCnt);
+    vTaskDelay(20);
+    showSpeed();
+    vTaskDelay(250);
+    return;
+  }
+  else if ((keyVal == 0x9F))
+  { // Cntrl+"P"; CW decode ADC plot Enable/Disable
+    PlotFlg = !PlotFlg;
+    // DFault.AutoTune = AutoTune;
+    vTaskDelay(250);
+    return;
+  }
   else if ((keyVal == 0xD))
   { // "ENTER" Key send myCallSign
     if (CWsndengn.IsActv() && !CWsndengn.LstNtrySpc())
@@ -504,6 +1025,24 @@ void ProcsKeyEntry(uint8_t keyVal)
     CWsndengn.LdMsg(Title, 20);
     return;
   }
+  else if ((keyVal ==  0xA1))
+  { /* special test for Left ctr+'g' 
+    reduce Goertzel gain*/
+    Grtzl_Gain = Grtzl_Gain/2;
+    if (Grtzl_Gain < 0.00390625) Grtzl_Gain  = 0.00390625;
+    DFault.Grtzl_Gain = Grtzl_Gain;
+    return;
+  }
+else if ((keyVal ==  0xA2))
+  { /* special test for Right ctr+'g' 
+    increase Goertzel gain*/
+    Grtzl_Gain = 2* Grtzl_Gain;
+    if (Grtzl_Gain > 1.0) Grtzl_Gain  = 1.0;
+    DFault.Grtzl_Gain = Grtzl_Gain;
+    return;
+  }
+
+   
   if ((keyVal >= 97) & (keyVal <= 122))
   {
     keyVal = keyVal - 32;
@@ -532,6 +1071,7 @@ void ProcsKeyEntry(uint8_t keyVal)
     CWsndengn.AddNewChar(&SpcChr);
   CWsndengn.AddNewChar(&Ltr2Bsent);
 }
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /* the following code handles the read from & write to NVS processes needed to handle the User CW prefences/settings  */
 
@@ -668,8 +1208,7 @@ uint8_t Write_NVS_Str(const char *key, char *value)
   return stat;
 }
 /////////////////////////////////////////////////////////////
-// template <class T>
-// uint8_t Write_NVS_Val(const char *key, T& value)
+
 uint8_t Write_NVS_Val(const char *key, int value)
 /* write numeric data to NVS; If the data is "stored",return with an exit status of "1" */
 {
@@ -707,35 +1246,4 @@ uint8_t Write_NVS_Val(const char *key, int value)
   return stat;
 }
 
-// static void KB_timer_init(timer_group_t group, timer_idx_t timer, bool auto_reload, int timer_interval_sec)
-// {
-//     /* Select and initialize basic parameters of the timer */
-//     timer_config_t config; // = {
-//         config.divider = TIMER_DIVIDER;
-//         config.counter_dir = TIMER_COUNT_UP;
-//         config.counter_en = TIMER_PAUSE;
-//         config.alarm_en = TIMER_ALARM_EN;
-//         config.auto_reload = (timer_autoreload_t)auto_reload;
-//         config.intr_type = TIMER_INTR_LEVEL;
-//         config.clk_src = TIMER_SRC_CLK_APB;//GPTIMER_CLK_SRC_APB; //(80MHz)
-//     //}; 
-//     timer_init(group, timer, &config);
 
-//     /* Timer's counter will initially start from value below.
-//        Also, if auto_reload is set, this value will be automatically reload on alarm */
-//     timer_set_counter_value(group, timer, 0);
-
-//     /* Configure the alarm value and the interrupt on alarm. */
-//     timer_set_alarm_value(group, timer, timer_interval_sec * TIMER_SCALE);
-//     timer_enable_intr(group, timer);
-
-//     KB_timer_info_t timer_info; 
-//     timer_info.timer_group = group;
-//     timer_info.timer_idx = timer;
-//     timer_info.auto_reload = auto_reload;
-//     timer_info.alarm_interval = timer_interval_sec;
-//     calloc(1, sizeof(KB_timer_info_t ));
-//     if(timer ==0 ) timer_isr_callback_add(group, timer, DotClock_isr_callback, &timer_info, ESP_INTR_FLAG_LEVEL2 );
-//     else timer_isr_callback_add(group, timer, Display_isr_callback, &timer_info, ESP_INTR_FLAG_LEVEL1 );
-//     timer_start(group, timer);
-// }

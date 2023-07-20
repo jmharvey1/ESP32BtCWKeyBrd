@@ -56,7 +56,10 @@ private:
 	const int StusBxX = 10 ;
 	const int StusBxY = ScrnHght-30 ;
 	char Pgbuf[CPL*row];
+	char SpdBuf[50];
 	uint16_t PgbufColor[CPL*row];
+	uint16_t ToneColor;
+	uint16_t SpdClr;
 	int CursorPntr;
 	int cursorY;
 	int cursorX;
@@ -75,6 +78,8 @@ private:
 	bool BlkState;
 	bool SOTFlg;
 	bool StrTxtFlg;
+	bool ToneFlg;
+	bool SpdFlg;
 	bool Bump;
 	bool PgScrld; //flag to indicate whether that the 'scroll' routine has ever run; i.e initially false. but always true once the process has
 	bool CWActv;// flag controlled by CWsendEngn; lets this class know when the sendengn is between letters/characters. used to block page scrolling while in the middle of a letter
@@ -96,12 +101,15 @@ public:
 	void DisplCrLf(void);
 	void IntrCrsr(int state);
 	void dispStat(char Msgbuf[50], uint16_t Color);
+	void showSpeed(char Msgbuf[50], uint16_t Color);
 	void setSOTFlg(bool flg);
 	void setStrTxtFlg(bool flg);
 	void SaveSettings(void);
 	void ReStrSettings(void);
 	void setCWActv(bool flg);
 	bool getBGHilite(void);
+	void ShwTone(uint16_t color);
+	// void DelLastNtry(void);
 };
 
 

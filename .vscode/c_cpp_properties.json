@@ -314,13 +314,13 @@
                 "IDF_VER=\"5.0.1\"",
                 "_GNU_SOURCE",
                 "configENABLE_FREERTOS_DEBUG_OCDAWARE=1",
-                "PLATFORMIO=60107",
+                "PLATFORMIO=60109",
                 "ARDUINO_uPesy_WROOM",
                 "CORE_DEBUG_LEVEL=ESP_LOG_VERBOSE",
                 ""
             ],
-            "cStandard": "c17",
-            "cppStandard": "c++20",
+            "cStandard": "gnu17",
+            "cppStandard": "gnu++20",
             "compilerPath": "/home/jim/.platformio/packages/toolchain-xtensa-esp32/bin/xtensa-esp32-elf-gcc",
             "compilerArgs": [
                 "-mlongcalls",

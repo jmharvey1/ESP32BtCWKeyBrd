@@ -670,6 +670,7 @@ void BTKeyboard::handle_bt_device_result(esp_bt_gap_cb_param_t *param)
 
 void BTKeyboard::bt_gap_event_handler(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *param)
 {
+  printf("bt_gap_event_handler\n"); //JMH Diagnosstic testing
   switch (event)
   {
   case ESP_BT_GAP_DISC_STATE_CHANGED_EVT:
@@ -715,6 +716,7 @@ void BTKeyboard::bt_gap_event_handler(esp_bt_gap_cb_event_t event, esp_bt_gap_cb
     // }
     break;
   }
+  printf("bt_gap_event_handler EXIT\n"); //JMH Diagnosstic testing
 }
 
 void BTKeyboard::handle_ble_device_result(esp_ble_gap_cb_param_t *param)
@@ -1317,231 +1319,240 @@ void BTKeyboard::hidh_callback(void *handler_args, esp_event_base_t base, int32_
   temp[0] = 255;
   esp_hidh_event_t event = (esp_hidh_event_t)id;
   esp_hidh_event_data_t *param = (esp_hidh_event_data_t *)event_data;
-
-  switch (event)
+  if (mutex != NULL)
   {
-  case ESP_HIDH_OPEN_EVENT:
-  {
-    // { // Code for ESP-IDF 4.3.1
-    //   const uint8_t *bda = esp_hidh_dev_bda_get(param->open.dev);
-    //   ESP_LOGV(TAG, ESP_BD_ADDR_STR " OPEN: %s", ESP_BD_ADDR_HEX(bda), esp_hidh_dev_name_get(param->open.dev));
-    //   esp_hidh_dev_dump(param->open.dev, stdout);
-    //   break;
-    // }
-
-    // Code for ESP-IDF 4.4
-    if (param->open.status == ESP_OK)
+    /* See if we can obtain the semaphore.  If the semaphore is not
+    available wait 15 ticks to see if it becomes free. */
+    if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE) //(TickType_t)15
     {
-      const uint8_t *bda = esp_hidh_dev_bda_get(param->open.dev);
-      ESP_LOGI(TAG, ESP_BD_ADDR_STR " OPEN: %s", ESP_BD_ADDR_HEX(bda), esp_hidh_dev_name_get(param->open.dev));
-      /*Now go query the reports for this device/keyboard, & See if the Logictech 'F-Key' config report can be found*/
-      /*JMH added the following to ferrit out Logitech keyboards*/
-      /*Query the keyboard for reports*/
-      bool talk = false;
-      if (talk)
+      printf("hidh_callback\n"); //JMH Diagnosstic testing
+      switch (event)
       {
-        printf("\n\nSTARTING REPORT REQUEST\n");
-      }
-      bool K380Fnd = false;
-      int rptIndx = 0;
-      size_t num_reports;
-      esp_hid_report_map_t MyMap;
+      case ESP_HIDH_OPEN_EVENT:
+      {
 
-      ESP_ERROR_CHECK(esp_hidh_dev_reports_get(param->open.dev, &num_reports, &MyMap.reports));
-      MyMap.reports_len = num_reports;
-      if (talk)
-      {
-        sprintf(temp, "REPORT COUNT: %d\n", (int)num_reports);
-        printf(temp);
-      }
-      /*see esp_hid_common.h for code definitions*/
-      char typestr[10];
-      char modestr[10];
-      char usestr[14];
-      for (int i = 0; i < MyMap.reports_len; i++)
-      {
-        if ((MyMap.reports[i].report_type == 0x2) && (MyMap.reports[i].report_id == 0x10) && (MyMap.reports[i].usage == 0x40))
+        if (param->open.status == ESP_OK)
         {
-          rptIndx = i;
-          K380Fnd = true;
-        }
-
-        /* for debugging print out reports found on the current device/keyboard*/
-        /* decode the values retruned*/
-        switch (MyMap.reports[i].report_type)
-        {
-        case 1:
-        {
-          sprintf(typestr, "1 INPUT  ");
-          break;
-        }
-        case 2:
-        {
-          sprintf(typestr, "2 OUTPUT ");
-          break;
-        }
-        case 3:
-        {
-          sprintf(typestr, "3 FEATURE");
-          break;
-        }
-        }
-        switch (MyMap.reports[i].protocol_mode)
-        {
-        case 0:
-        {
-          sprintf(modestr, "0 BOOT  ");
-          break;
-        }
-        case 1:
-        {
-          sprintf(modestr, "1 REPORT");
-          break;
-        }
-        }
-        switch (MyMap.reports[i].usage)
-        {
-        case 0:
-        {
-          sprintf(usestr, " 0 GENERIC ");
-          break;
-        }
-        case 1:
-        {
-          sprintf(usestr, " 1 KEYBOARD");
-          break;
-        }
-        case 2:
-        {
-          sprintf(usestr, " 2 MOUSE   ");
-          break;
-        }
-        case 4:
-        {
-          sprintf(usestr, " 4 JOYSTICK");
-          break;
-        }
-        case 8:
-        {
-          sprintf(usestr, " 8 GAMEPAD ");
-          break;
-        }
-        case 16:
-        {
-          sprintf(usestr, "16 TABLET  ");
-          break;
-        }
-        case 32:
-        {
-          sprintf(usestr, "32 CCONTROL");
-          break;
-        }
-        case 64:
-        {
-          sprintf(usestr, "64 VENDOR  ");
-          break;
-        }
-        }
-        if (talk)
-        {
-          sprintf(temp, "| Map_Index %02x; Rpt_Id: %02x; Usage:%s; Type:%s; Mode%s; Rpt_len: %02d |\n",
-                  MyMap.reports[i].map_index,
-                  MyMap.reports[i].report_id,
-                  usestr,
-                  typestr,
-                  modestr,
-                  MyMap.reports[i].value_len);
-          printf(temp);
-        }
-      }
-
-      if (K380Fnd) // If true, we found a K380 Keyboard; Send command to reconfigure 'F' Keys
-      {
-        /*Logitech K380 Key Command*/
-        uint8_t configKBrd[] = {0xff, 0x0b, 0x1e, 0x00, 0x00, 0x00};
-        if (talk)
-        {
-          printf("K380 Key command: ");
-          for (int i = 0; i < sizeof(configKBrd); i++)
+          const uint8_t *bda = esp_hidh_dev_bda_get(param->open.dev);
+          ESP_LOGI(TAG, ESP_BD_ADDR_STR " OPEN: %s", ESP_BD_ADDR_HEX(bda), esp_hidh_dev_name_get(param->open.dev));
+          /*Now go query the reports for this device/keyboard, & See if the Logictech 'F-Key' config report can be found*/
+          /*JMH added the following to ferrit out Logitech keyboards*/
+          /*Query the keyboard for reports*/
+          bool talk = false;
+          if (talk)
           {
-            sprintf(temp, "0x%02x:", configKBrd[i]); //
+            printf("\n\nSTARTING REPORT REQUEST\n");
+          }
+          bool K380Fnd = false;
+          int rptIndx = 0;
+          size_t num_reports;
+          esp_hid_report_map_t MyMap;
+
+          ESP_ERROR_CHECK(esp_hidh_dev_reports_get(param->open.dev, &num_reports, &MyMap.reports));
+          MyMap.reports_len = num_reports;
+          if (talk)
+          {
+            sprintf(temp, "REPORT COUNT: %d\n", (int)num_reports);
             printf(temp);
           }
-          printf("\n\n");
+          /*see esp_hid_common.h for code definitions*/
+          char typestr[10];
+          char modestr[10];
+          char usestr[14];
+          for (int i = 0; i < MyMap.reports_len; i++)
+          {
+            if ((MyMap.reports[i].report_type == 0x2) && (MyMap.reports[i].report_id == 0x10) && (MyMap.reports[i].usage == 0x40))
+            {
+              rptIndx = i;
+              K380Fnd = true;
+            }
+
+            /* for debugging print out reports found on the current device/keyboard*/
+            /* decode the values retruned*/
+            switch (MyMap.reports[i].report_type)
+            {
+            case 1:
+            {
+              sprintf(typestr, "1 INPUT  ");
+              break;
+            }
+            case 2:
+            {
+              sprintf(typestr, "2 OUTPUT ");
+              break;
+            }
+            case 3:
+            {
+              sprintf(typestr, "3 FEATURE");
+              break;
+            }
+            }
+            switch (MyMap.reports[i].protocol_mode)
+            {
+            case 0:
+            {
+              sprintf(modestr, "0 BOOT  ");
+              break;
+            }
+            case 1:
+            {
+              sprintf(modestr, "1 REPORT");
+              break;
+            }
+            }
+            switch (MyMap.reports[i].usage)
+            {
+            case 0:
+            {
+              sprintf(usestr, " 0 GENERIC ");
+              break;
+            }
+            case 1:
+            {
+              sprintf(usestr, " 1 KEYBOARD");
+              break;
+            }
+            case 2:
+            {
+              sprintf(usestr, " 2 MOUSE   ");
+              break;
+            }
+            case 4:
+            {
+              sprintf(usestr, " 4 JOYSTICK");
+              break;
+            }
+            case 8:
+            {
+              sprintf(usestr, " 8 GAMEPAD ");
+              break;
+            }
+            case 16:
+            {
+              sprintf(usestr, "16 TABLET  ");
+              break;
+            }
+            case 32:
+            {
+              sprintf(usestr, "32 CCONTROL");
+              break;
+            }
+            case 64:
+            {
+              sprintf(usestr, "64 VENDOR  ");
+              break;
+            }
+            }
+            if (talk)
+            {
+              sprintf(temp, "| Map_Index %02x; Rpt_Id: %02x; Usage:%s; Type:%s; Mode%s; Rpt_len: %02d |\n",
+                      MyMap.reports[i].map_index,
+                      MyMap.reports[i].report_id,
+                      usestr,
+                      typestr,
+                      modestr,
+                      MyMap.reports[i].value_len);
+              printf(temp);
+            }
+          }
+
+          if (K380Fnd) // If true, we found a K380 Keyboard; Send command to reconfigure 'F' Keys
+          {
+            /*Logitech K380 Key Command*/
+            uint8_t configKBrd[] = {0xff, 0x0b, 0x1e, 0x00, 0x00, 0x00};
+            if (talk)
+            {
+              printf("K380 Key command: ");
+              for (int i = 0; i < sizeof(configKBrd); i++)
+              {
+                sprintf(temp, "0x%02x:", configKBrd[i]); //
+                printf(temp);
+              }
+              printf("\n\n");
+            }
+            ESP_ERROR_CHECK(esp_hidh_dev_output_set(param->open.dev, MyMap.reports[rptIndx].map_index, MyMap.reports[rptIndx].report_id, configKBrd, sizeof(configKBrd)));
+            sprintf(temp, "K380 Found-Configured F-keys");
+            // bt_keyboard->pmsgbx->dispMsg(temp, TFT_BLUE);
+          }
+          else
+            sprintf(temp, "OPEN: %02x:%02x:%02x:%02x:%02x:%02x", ESP_BD_ADDR_HEX(bda));
+          clr = TFT_GREEN;
+          OpnEvntFlg = true;
         }
-        ESP_ERROR_CHECK(esp_hidh_dev_output_set(param->open.dev, MyMap.reports[rptIndx].map_index, MyMap.reports[rptIndx].report_id, configKBrd, sizeof(configKBrd)));
-        sprintf(temp, "K380 Found-Configured F-keys");
-        //bt_keyboard->pmsgbx->dispMsg(temp, TFT_BLUE); 
-      }else sprintf(temp, "OPEN: %02x:%02x:%02x:%02x:%02x:%02x", ESP_BD_ADDR_HEX(bda));
-      clr = TFT_GREEN;
-      OpnEvntFlg = true;
+        else
+        {
+          ESP_LOGE(TAG, " OPEN failed!");
+        }
+        break;
+      }
+      case ESP_HIDH_BATTERY_EVENT:
+      {
+        const uint8_t *bda = esp_hidh_dev_bda_get(param->battery.dev);
+        ESP_LOGV(TAG, ESP_BD_ADDR_STR " BATTERY: %d%%", ESP_BD_ADDR_HEX(bda), param->battery.level);
+        sprintf(temp, " BATTERY: %02x:%02x:%02x:%02x:%02x:%02x; %s", ESP_BD_ADDR_HEX(bda), esp_hidh_dev_name_get(param->open.dev));
+        clr = TFT_YELLOW;
+        bt_keyboard->set_battery_level(param->battery.level);
+        break;
+      }
+      case ESP_HIDH_INPUT_EVENT:
+      {
+        const uint8_t *bda = esp_hidh_dev_bda_get(param->input.dev);
+        ESP_LOGV("INPUT_EVENT", ESP_BD_ADDR_STR " INPUT: %8s, MAP: %2u, ID: %3u, Len: %d, Data:",
+                 ESP_BD_ADDR_HEX(bda),
+                 esp_hid_usage_str(param->input.usage),
+                 param->input.map_index,
+                 param->input.report_id,
+                 param->input.length);
+        ESP_LOG_BUFFER_HEX_LEVEL(TAG, param->input.data, param->input.length, ESP_LOG_DEBUG);
+        bt_keyboard->push_key(param->input.data, param->input.length);
+        break;
+      }
+      case ESP_HIDH_FEATURE_EVENT:
+      {
+        const uint8_t *bda = esp_hidh_dev_bda_get(param->feature.dev);
+        ESP_LOGV("FEATURE_EVENT", ESP_BD_ADDR_STR " FEATURE: %8s MAP: %2u, ID: %3u, Len: %d",
+                 ESP_BD_ADDR_HEX(bda),
+                 esp_hid_usage_str(param->feature.usage),
+                 param->feature.map_index,
+                 param->feature.report_id,
+                 param->feature.length);
+        ESP_LOG_BUFFER_HEX_LEVEL("FEATURE_EVENT", param->feature.data, param->feature.length, ESP_LOG_DEBUG);
+        sprintf(temp, " FEATURE: %02x:%02x:%02x:%02x:%02x:%02x, MAP: %s, ID: %3u\n",
+                ESP_BD_ADDR_HEX(bda),
+                esp_hid_usage_str(param->feature.usage),
+                param->feature.report_id); //,
+                                           //(int)param->feature.length);
+        bt_keyboard->pmsgbx->dispMsg(temp, TFT_ORANGE);
+        temp[0] = 255;
+        break;
+      }
+      case ESP_HIDH_CLOSE_EVENT:
+      {
+        const uint8_t *bda = esp_hidh_dev_bda_get(param->close.dev);
+        ESP_LOGV(TAG, ESP_BD_ADDR_STR " CLOSE: %s", ESP_BD_ADDR_HEX(bda), esp_hidh_dev_name_get(param->close.dev));
+        sprintf(temp, " CLOSE: %02x:%02x:%02x:%02x:%02x:%02x", ESP_BD_ADDR_HEX(bda));
+        clr = TFT_RED;
+        break;
+      }
+      default:
+        ESP_LOGV(TAG, "**** UnHandled EVENT: %d\n", event);
+        sprintf(temp, "UNHANDLED EVENT: %d\n", event);
+        break;
+      }
+      if (temp[0] != 255)
+      {
+        // vTaskDelay(20);
+        bt_keyboard->pmsgbx->dispStat(temp, clr); // tftmsgbx.dispStat(Title, TFT_GREEN);
+      }
+       printf("hidh_callback EXIT\n"); //JMH Diagnosstic testing
+      xSemaphoreGive(mutex);
     }
-    else
-    {
-      ESP_LOGE(TAG, " OPEN failed!");
-    }
-    break;
   }
-  case ESP_HIDH_BATTERY_EVENT:
-  {
-    const uint8_t *bda = esp_hidh_dev_bda_get(param->battery.dev);
-    ESP_LOGV(TAG, ESP_BD_ADDR_STR " BATTERY: %d%%", ESP_BD_ADDR_HEX(bda), param->battery.level);
-    sprintf(temp, " BATTERY: %02x:%02x:%02x:%02x:%02x:%02x; %s", ESP_BD_ADDR_HEX(bda), esp_hidh_dev_name_get(param->open.dev));
-    clr = TFT_YELLOW;
-    bt_keyboard->set_battery_level(param->battery.level);
-    break;
-  }
-  case ESP_HIDH_INPUT_EVENT:
-  {
-    const uint8_t *bda = esp_hidh_dev_bda_get(param->input.dev);
-    ESP_LOGV("INPUT_EVENT", ESP_BD_ADDR_STR " INPUT: %8s, MAP: %2u, ID: %3u, Len: %d, Data:",
-             ESP_BD_ADDR_HEX(bda),
-             esp_hid_usage_str(param->input.usage),
-             param->input.map_index,
-             param->input.report_id,
-             param->input.length);
-    ESP_LOG_BUFFER_HEX_LEVEL(TAG, param->input.data, param->input.length, ESP_LOG_DEBUG);
-    bt_keyboard->push_key(param->input.data, param->input.length);
-    break;
-  }
-  case ESP_HIDH_FEATURE_EVENT:
-  {
-    const uint8_t *bda = esp_hidh_dev_bda_get(param->feature.dev);
-    ESP_LOGV("FEATURE_EVENT", ESP_BD_ADDR_STR " FEATURE: %8s MAP: %2u, ID: %3u, Len: %d",
-             ESP_BD_ADDR_HEX(bda),
-             esp_hid_usage_str(param->feature.usage),
-             param->feature.map_index,
-             param->feature.report_id,
-             param->feature.length);
-    ESP_LOG_BUFFER_HEX_LEVEL("FEATURE_EVENT", param->feature.data, param->feature.length, ESP_LOG_DEBUG);
-    sprintf(temp, " FEATURE: %02x:%02x:%02x:%02x:%02x:%02x, MAP: %s, ID: %3u\n",
-            ESP_BD_ADDR_HEX(bda),
-            esp_hid_usage_str(param->feature.usage),
-            param->feature.report_id); //,
-                                       //(int)param->feature.length);
-    bt_keyboard->pmsgbx->dispMsg(temp, TFT_ORANGE);
-    temp[0] = 255;
-    break;
-  }
-  case ESP_HIDH_CLOSE_EVENT:
-  {
-    const uint8_t *bda = esp_hidh_dev_bda_get(param->close.dev);
-    ESP_LOGV(TAG, ESP_BD_ADDR_STR " CLOSE: %s", ESP_BD_ADDR_HEX(bda), esp_hidh_dev_name_get(param->close.dev));
-    sprintf(temp, " CLOSE: %02x:%02x:%02x:%02x:%02x:%02x", ESP_BD_ADDR_HEX(bda));
-    clr = TFT_RED;
-    break;
-  }
-  default:
-    ESP_LOGV(TAG, "**** UnHandled EVENT: %d\n", event);
-    sprintf(temp, "UNHANDLED EVENT: %d\n", event);
-    break;
-  }
-  if (temp[0] != 255)
-    bt_keyboard->pmsgbx->dispStat(temp, clr); // tftmsgbx.dispStat(Title, TFT_GREEN);
 }
 
 void BTKeyboard::push_key(uint8_t *keys, uint8_t size)
 {
+  
   KeyInfo inf;
   inf.modifier = (KeyModifier)keys[0];
 
@@ -1599,19 +1610,49 @@ char BTKeyboard::wait_for_ascii_char(bool forever)
       return last_ch = 0x98; // replace with down arrow
     }
     /* special test for ctr+Enter */
-    if ((inf.keys[1] == 0x28 || inf.keys[0] == 0x28) && ((uint8_t)inf.modifier == 1))
+    if ((inf.keys[1] == 0x28 || inf.keys[0] == 0x28) && ((uint8_t)inf.modifier == 1|| (uint8_t)inf.modifier == 16))
     {
       return last_ch = 0x9A;
     }
     /* special test for ctr+'T' */
-    if (((uint8_t)inf.modifier == 1) && (inf.keys[1] == 23 || inf.keys[0] == 0x17))
+    if (((uint8_t)inf.modifier == 1|| (uint8_t)inf.modifier == 16) && (inf.keys[1] == 23 || inf.keys[0] == 0x17))
     {
       return last_ch = 0x9B;
     }
     /* special test for ctr+'S' */
-    if (((uint8_t)inf.modifier == 1) && (inf.keys[1] == 22 || inf.keys[0] == 0x16))
+    if (((uint8_t)inf.modifier == 1|| (uint8_t)inf.modifier == 16) && (inf.keys[1] == 22 || inf.keys[0] == 0x16))
     {
       return last_ch = 0x9C;
+    }
+    /* special test for ctr+'f' */
+    if (((uint8_t)inf.modifier == 1|| (uint8_t)inf.modifier == 16) && (inf.keys[0] == 9))
+    {
+      return last_ch = 0x9D;
+    }
+    /* special test for Left ctr+'d' */
+    if (((uint8_t)inf.modifier == 1) && (inf.keys[0] == 7))
+    {
+      return last_ch = 0x9E;
+    }
+     /* special test for Left ctr+'g' */
+    if (((uint8_t)inf.modifier == 1) && (inf.keys[0] == 10))
+    {
+      return last_ch = 0xA1;
+    }
+    /* special test for Right ctr+'g' */
+    if (((uint8_t)inf.modifier == 16) && (inf.keys[0] == 10))
+    {
+      return last_ch = 0xA2;
+    }
+    /* special test for ctr+'p' */
+    if (((uint8_t)inf.modifier == 1|| (uint8_t)inf.modifier == 16) && (inf.keys[0] == 19))
+    {
+      return last_ch = 0x9F;
+    }
+    /* special test for Right ctr+'d' */
+    if (((uint8_t)inf.modifier == 16) && (inf.keys[0] == 7))
+    {
+      return last_ch = 0xA0;
     }
     /* special test for 'del' */
     if (inf.keys[0] == 76 && ((uint8_t)inf.modifier == 0))
