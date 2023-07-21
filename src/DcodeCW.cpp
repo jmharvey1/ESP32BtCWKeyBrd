@@ -311,12 +311,7 @@ void KeyEvntSR(uint8_t state, unsigned long EvntTime)
 	else
 	{
 		blocked = true;
-		// 	/* We could not obtain the semaphore and can therefore not access
-		// 	the shared resource safely. */
-		// 	char BTbuf[30] = "KeyEvntSR Blocked \r\n";
-		// 	printf(BTbuf);
-		// 	return;
-		// }
+		
 		if (state == LOW && XspctLo)
 		{					   // key-down event
 			start1 = EvntTime; // HAL_GetTick();//used/saved in case recovery is needed
@@ -383,17 +378,13 @@ void KeyEvntSR(uint8_t state, unsigned long EvntTime)
 					{
 						CodeValBuf[BPtr] = 99999;
 						/* restore old space interval values */
-						// unsigned long LstSpcTm = SpaceStk[Bitpos];
 						unsigned long LstSpcTm = SpaceStk[0];
 						Bitpos = 0;
-						// while((SpcIntrvl[Bitpos] != 0) && (Bitpos !=0) && (Bitpos <16 )){
 						while ((SpcIntrvl[Bitpos] != 0) && (Bitpos < 16))
 						{
 							SpaceStk[Bitpos] = SpcIntrvl[Bitpos];
 							++Bitpos;
 						}
-						// SpaceStk[Bitpos] = 7777;
-						//++Bitpos;
 						SpaceStk[Bitpos] = LstSpcTm;
 						//++Bitpos;
 						if (Bitpos > 15)
@@ -409,19 +400,14 @@ void KeyEvntSR(uint8_t state, unsigned long EvntTime)
 						{
 							DeCodeVal = DCVStrd[1];
 							/* restore old space interval values */
-							// unsigned long LstSpcTm = SpaceStk[Bitpos];
 							unsigned long LstSpcTm = SpaceStk[0];
 							Bitpos = 0;
-							// while((SpcIntrvl[Bitpos] != 0) && (Bitpos !=0) && (Bitpos <16 )){
 							while ((SpcIntrvl2[Bitpos] != 0) && (Bitpos < 16))
 							{
 								SpaceStk[Bitpos] = SpcIntrvl2[Bitpos];
 								++Bitpos;
 							}
-							// SpaceStk[Bitpos] = 9999;
-							//++Bitpos;
 							SpaceStk[Bitpos] = LstSpcTm;
-							//++Bitpos;
 							if (Bitpos > 15)
 								Bitpos = 15;
 							dletechar = true;
@@ -444,9 +430,6 @@ void KeyEvntSR(uint8_t state, unsigned long EvntTime)
 					}
 					else
 					{ // abort letter break process
-						//++Bitpos;
-						// SpaceStk[Bitpos] = 3333;
-						//++Bitpos;
 						if (Bitpos > 15)
 							Bitpos = 15;
 						if (Bug3 && SCD && Test)
@@ -495,14 +478,12 @@ void KeyEvntSR(uint8_t state, unsigned long EvntTime)
 			{
 				wordBrkFlg = false;
 				thisWordBrk = STart - wordStrt;
-				// Serial.println(thisWordBrk);
 				if (thisWordBrk < 11 * avgDeadSpace)
 				{
 					if (GudSig)
 						wordBrk = (5 * wordBrk + thisWordBrk) / 6;
 					MaxDeadTime = 0;
 					charCnt = 0;
-					// Serial.println(wordBrk);
 				}
 			}
 			else if (charCnt > 12)
@@ -510,12 +491,11 @@ void KeyEvntSR(uint8_t state, unsigned long EvntTime)
 				if (MaxDeadTime < wordBrk)
 				{
 					wordBrk = MaxDeadTime;
-					// Serial.println(wordBrk);
 				}
 				MaxDeadTime = 0;
 				charCnt = 0;
 			}
-			noSigStrt = EvntTime; // HAL_GetTick();//jmh20190717added to prevent an absurd value
+			noSigStrt = EvntTime;//jmh20190717added to prevent an absurd value
 
 			if (DeCodeVal == 0)
 			{ // we're starting a new symbol set
@@ -539,7 +519,6 @@ void KeyEvntSR(uint8_t state, unsigned long EvntTime)
 				prob = 1;
 				STart = start1;
 			}
-			// Tstperiod = EvntStart - STart;
 			DitDahCD = 8;
 
 			if (DeCodeVal != 0)
@@ -560,90 +539,6 @@ void KeyEvntSR(uint8_t state, unsigned long EvntTime)
 					period = (noSigStrt - STart); //+4;//jmh 20230706 added this corection value for ESP32
 				}
 				lastDit1 = period;
-				/*20230708 For ESP32 removed this code becuase the issue is now being managed on the Goertzel side of the fence */
-				// if ((1.72 * period < avgDit) || ((period < 15) && (wpm > 35)))
-				// { // seems to be a glitch//1.5
-				// 	if (DeCodeVal == 1)
-				// 	{
-				// 		glitchCnt++;
-				// 		if (glitchCnt < 2)
-				// 		{
-				// 			noSigStrt = OldNoStrt;
-				// 			XspctLo = false;
-				// 			XspctHi = true;
-				// 			exitCD = 1;
-				// 			return; // its a glitch before any real key closures have been detected, so ignore completely
-				// 		}
-				// 	}
-
-				// 	if (GudSig && period > 10) // if (SqlchLvl > (1.1 * CurNoise))
-				// 	{
-				// 		// if (GudSig)
-				// 		// {
-				// 		// 	avgDit = (4 * avgDit + period) / 5; // magC>10000 go ahead & factor this period in, just incase we are now listening to a faster WPM stream
-				// 		// }
-				// 		/*Ok lets try decide if this interval represents a dit or dah by comparing its duration with the last ten recorded periods*/
-				// 		Shrt = 1200;
-				// 		Long1 = 0;
-				// 		int ValidCnt = 0;
-				// 		DitDahCD = 4;
-				// 		for (int i = 0; i < 10; i++)
-				// 		{
-				// 			if (PrdStack[i] > Long1)
-				// 				Long1 = PrdStack[i];
-				// 			if (PrdStack[i] < Shrt)
-				// 			{
-				// 				Shrt = PrdStack[i];
-				// 			}
-				// 			Ratio = (float)((float)period / (float)PrdStack[i]);
-				// 			if ((Ratio < 1.5 && Ratio > 0.6) || (Ratio > 0.25 && Ratio < 0.44 && period < 0.5 * Long1) || (Ratio > 2.7 && Ratio < 3.9 && period > 2 * Shrt))
-				// 				ValidCnt++;
-				// 		}
-				// 		PrdStackPtr++;
-				// 		if (PrdStackPtr >= 10)
-				// 			PrdStackPtr = 0;
-				// 		PrdStack[PrdStackPtr] = period;
-				// 		if (ValidCnt > 6)
-				// 		{
-				// 			if (period < Long1 / 2)
-				// 			{
-				// 				avgDit = (4 * avgDit + period) / 5; // then its a dit
-				// 				DitDahCD = 1;
-				// 			}
-				// 			else if (period > 2 * Shrt)
-				// 			{
-				// 				avgDah = (4 * avgDah + period) / 5; // then its a dah
-				// 				DitDahCD = 2;
-				// 			}
-				// 			else
-				// 			{
-				// 				avgDit = (4 * avgDit + period) / 5; // treat it as a dit
-				// 				DitDahCD = 3;
-				// 			}
-				// 		}
-				// 		else
-				// 		{
-				// 			exitCD = ValidCnt;
-				// 			// return;
-				// 		}
-				// 	}
-				// 	else
-				// 	{
-				// 		glitchCnt++;
-				// 		if (glitchCnt < 2)
-				// 		{
-				// 			noSigStrt = OldNoStrt;
-				// 			if (Oldstart != 0)
-				// 				STart = Oldstart;
-				// 			letterBrk = OldltrBrk;
-				// 			if (GudSig && period > 10)
-				// 				exitCD = 2;
-				// 			else
-				// 				exitCD = 22;
-				// 			return; // abort processing this event
-				// 		}
-				// 	}
-				// }
 				WrdStrt = noSigStrt;
 				TimeDat[Bitpos] = period;
 				Bitpos += 1;
@@ -665,18 +560,8 @@ void KeyEvntSR(uint8_t state, unsigned long EvntTime)
 
 				if (glitchCnt == 2)
 				{
-					// if (GudSig)
-					// {
-					// 	avgDit = (4 * avgDit + period) / 5; //factor this period in, just incase we are now listening to a faster WPM stream
-					// 	avgDit = (4 * avgDit + period) / 5; //factor this period in, just incase we are now listening to a faster WPM stream
-					// }
-					//////////////////////////////////////////////
-					if (GudSig && period > 10) // if (SqlchLvl > (1.1 * CurNoise))
+					if (GudSig && period > 10) 
 					{
-						// if (GudSig)
-						// {
-						// 	avgDit = (4 * avgDit + period) / 5; // magC>10000 go ahead & factor this period in, just incase we are now listening to a faster WPM stream
-						// }
 						/*Ok lets try decide if this interval represents a dit or dah by comparing its duration with the last ten recorded periods*/
 						Shrt = 1200;
 						Long1 = 0;
@@ -719,7 +604,6 @@ void KeyEvntSR(uint8_t state, unsigned long EvntTime)
 						else
 						{
 							exitCD = ValidCnt;
-							// return;
 						}
 					}
 					else
@@ -732,18 +616,12 @@ void KeyEvntSR(uint8_t state, unsigned long EvntTime)
 
 					/////////////////////////////////////////////
 					glitchCnt = 0;
-					// exitCD = 7;
 				}
 				else
 				{
 					//////////////////////////////////////////////
 					if (GudSig && period > 10) // if (SqlchLvl > (1.1 * CurNoise))
 					{
-						// if (GudSig)
-						// {
-						// 	avgDit = (4 * avgDit + period) / 5; // magC>10000 go ahead & factor this period in, just incase we are now listening to a faster WPM stream
-						// }
-						/*Ok lets try decide if this interval represents a dit or dah by comparing its duration with the last ten recorded periods*/
 						Shrt = 1200;
 						Long1 = 0;
 						int ValidCnt = 0;
@@ -785,7 +663,6 @@ void KeyEvntSR(uint8_t state, unsigned long EvntTime)
 						else
 						{
 							exitCD = ValidCnt;
-							// return;
 						}
 					}
 					else
@@ -850,15 +727,14 @@ void KeyEvntSR(uint8_t state, unsigned long EvntTime)
 
 					/////////////////////////////////////////////
 					glitchCnt = 0;
-					// exitCD = 4;
 				}
 
 			} // End if(DeCodeVal!= 0)
 		}
 		// end of key interrupt processing;
-		// Now, if we are here; the interrupt was a "Key-Up" event. Now its time to decide whether this last "Key-Down" period represents a "dit", a "dah", or just garbage.
+		// Now, if we are here; the interrupt was a "Key-Up" event. Now its time to decide whether this last "Key-Down" period represents a "dit", a "dah"
+		// , or just garbage.
 		// 1st check. & throw out key-up events that have durations that represent speeds of less than 5WPM.
-		// if (GudSig) GudSig = 0; //clear old signal status
 		if (period > 720)
 		{						  // Reset, and wait for the next key closure
 			noSigStrt = EvntTime; // HAL_GetTick();//jmh20190717added to prevent an absurd value
@@ -885,7 +761,7 @@ void KeyEvntSR(uint8_t state, unsigned long EvntTime)
 				if (badKeyEvnt >= 20)
 				{
 					badKeyEvnt = 0;
-					noSigStrt = EvntTime; // HAL_GetTick();//jmh20190717added to prevent an absurd value
+					noSigStrt = EvntTime; //jmh20190717added to prevent an absurd value
 					letterBrk = 0;
 				}
 			}
@@ -992,11 +868,10 @@ void KeyEvntSR(uint8_t state, unsigned long EvntTime)
 						}
 						sprintf(PrntBuf, "%s Concat-false\n\r", tmpbuf);
 					}
-					// if(ConcatSymbl)sprintf(PrntBuf, "true");//printf("true");
-					// else sprintf(PrntBuf, "false");//printf("false");
+					// if(ConcatSymbl)sprintf(PrntBuf, "true");
+					// else sprintf(PrntBuf, "false");
 					printf(PrntBuf);
-					// USBprintln("");
-				}
+				} // end if(Test && SCD)
 			}
 			else
 			{
@@ -1100,7 +975,6 @@ void KeyEvntSR(uint8_t state, unsigned long EvntTime)
 					i++;
 				DeBugMsg[i] = '0';
 			}
-			// if(FrstSymbl && ((DeCodeVal & 2) == 0)){// FrstSymbl can only be true if we are in Bug3 mode; if (DeCodeVal & 2) == 0, then the last symbol of the preceeding letter was a 'dit'
 			if (FrstSymbl)
 			{ // JMH 2020103 New way, doesn't make any difference about the last symbol of the preceding letter. The first symbol in the current letter is a 'dit', so forget the past
 				// if we're here then we have recieved 2 'dits' back to back with a large gap between. So assume this is the begining of a new letter/character
@@ -1118,7 +992,6 @@ void KeyEvntSR(uint8_t state, unsigned long EvntTime)
 			if ((period != 0) && !FrstSymbl)
 			{
 				lastDit = period;
-				// lastDit1= period;
 			}
 
 			dahcnt = 0;
@@ -1137,17 +1010,6 @@ void KeyEvntSR(uint8_t state, unsigned long EvntTime)
 		blocked = false;
 		FrstSymbl = false;
 		exitCD += 50;
-		// if (xSemaphoreGiveFromISR(DeCodeVal_mutex, &xHigherPriorityTaskWoken) == pdTRUE)
-		// {
-		// 	if (xHigherPriorityTaskWoken != pdFALSE )
-		// 	{
-		// 		char BTbuf[50] = "xHigherPriorityTaskWoken != pdFALSE\r\n";
-		// 		printf(BTbuf);
-		// 		portYIELD_FROM_ISR();
-		// 	}
-		// 	return; // ok, we are done with evaluating this usable key event
-		// }
-
 		xSemaphoreGive(DeCodeVal_mutex);
 		blocked = false;
 		return; // ok, we are done with evaluating this usable key event
@@ -1481,7 +1343,8 @@ void SetLtrBrk(void)
 	// if here, setup "letter break" timing for speeds greater than 35 wpm
 	else
 	{
-		ltrBrk = ((8 * ltrBrk) + (0.95 * avgDah)) / 9;
+		//ltrBrk = ((8 * ltrBrk) + (0.95 * avgDah)) / 9;
+		ltrBrk = ((15 * ltrBrk) + (0.5 * avgDah)) / 16;
 	}
 
 	if (ltrBrk > wordBrk)

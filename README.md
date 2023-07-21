@@ -4,7 +4,7 @@ ___
 
 A VS Code/PlatformIO project, Using ESPIDF's framework.
   
-This ham radio project uses a generic Bluetooth Keyboard to send Morse Code (cw), and now using the audio out of RX can decode CW too.
+This ham radio project uses a generic Bluetooth Keyboard to send Morse Code (cw), and now using the audio out of your RX can decode CW too.
 <p align="center">  
 <img src="https://github.com/jmharvey1/ESP32BtCWKeyBrd/blob/main/MiscFiles/IMG_5733.JPG"  width="40%" height="40%">
 </p>
@@ -55,4 +55,7 @@ A PCB for this project can be ordered from a board manufacturer, like [JLCPCB](h
 A .PDF schematic for the PCB version of this project is [Here](https://github.com/jmharvey1/ESP32BtCWKeyBrd/blob/main/MiscFiles/ESP32-BT-CW-KeyBrd_Schematic.pdf)
   
 If you have access to 3D printer, the [MiscFiles](https://github.com/jmharvey1/ESP32BtCWKeyBrd/tree/main/MiscFiles)
- folder contains “.stl” files for a simple case to host your completed project.
+ folder contains “.stl” files for a simple case to host your completed project. 
+___
+Note: the PCB is currently not provisioned for the the decoder's audio input circuitry, nor is it documented in the MiscFiles folder.
+But is super simple to add. It consists of pair of 10K voltage divider reisistors connected between gnd & the ESP32's 3.3V input, with the center tap connected to GPIO pin34 (ADC channel 6). A 0.1ufd DC blocking Capacitor is used to couple the external audio source (the RX's audio/speaker out) to GPIO pin 34. 

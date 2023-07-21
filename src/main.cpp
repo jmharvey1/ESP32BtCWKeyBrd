@@ -23,9 +23,10 @@
 /*20230701  Reworked Goertzel tone detection & added adjustable glitch detection; Also reworked Goertzel sample count code */
 /*20230707 Added shortcuts (left/right Ctrl+g) user cntrolled gain setting; and reworked Glitch detection*/
 /*20230708 reworked Glitch detection by adding a front end average keydown section to the tone detect routine; it now sets the glitch inteval*/
-/* 20230711 minor tweaks to concatenate processes (DcodeCW.cpp) to imporve delete character managment */
+/*20230711 minor tweaks to concatenate processes (DcodeCW.cpp) to imporve delete character managment */
+/*20230715 minor tweaks */
 /*20230719 added "noreturn" patch to crash handler code and removed printf() calls originally in IRAM_ATTR DotClk_ISR(void *arg)*/
-/* 20230715 minor tweaks */
+/*20230721 Moved project to github*/
 #include "sdkconfig.h" //added for timer support
 #include "globals.hpp"
 #include "main.h"
@@ -81,7 +82,7 @@ DF_t DFault;
 int DeBug = 1; // Debug factory default setting; 0 => Debug "OFF"; 1 => Debug "ON"
 char StrdTxt[20] = {'\0'};
 /*Factory Default Settings*/
-char RevDate[9] = "20230719";
+char RevDate[9] = "20230721";
 char MyCall[10] = {'K', 'W', '4', 'K', 'D'};
 char MemF2[80] = "VVV VVV TEST DE KW4KD";
 char MemF3[80] = "CQ CQ CQ DE KW4KD KW4KD";
