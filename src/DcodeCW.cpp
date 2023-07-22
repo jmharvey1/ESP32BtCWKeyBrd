@@ -1744,14 +1744,15 @@ void SetModFlgs(int ModeVal) {
   }
 }
 //////////////////////////////////////////////////////////////////////
-
+/* this routine doesn't actually display anything; its role is to convert the dit/dah pattern created in the KeyEvntSR() routine into a set of ascii characters.
+Usually 1 per decodeval, but can be 2,3, or more. Depending on how sloppy the sending is */
 void DisplayChar(unsigned int decodeval) {
 	char curChr = 0 ;
 	int pos1 = -1;
 	int ChrCntFix = 0;
 	
 
-	if (decodeval == 2 || decodeval == 3) ++TEcnt;
+	if (decodeval == 2 || decodeval == 3) ++TEcnt;// record consecutive 'Ts" and or "Es"; if the count exceeds predetermined level, then likely the WPM calculation is out in left field
 	else TEcnt = 0;
 	if (Test && !Bug3){
 		// sprintf(PrntBuf, "%d\t", (int)decodeval);
@@ -1875,7 +1876,7 @@ void DisplayChar(unsigned int decodeval) {
 					/* it appears that a legitimate decodeval was found, so use this data for potential concatenation with the next symbol set */
 					//if(TonPltFlg ||Test) //sprintf(TmpBufB, "[%s]", Msgbuf);
 					//else //sprintf(TmpBufB, "%s", Msgbuf);
-					//sprintf( Msgbuf, "%s%s", TmpBufA, TmpBufB);
+					//sprintf( Mavgntrvlsgbuf, "%s%s", TmpBufA, TmpBufB);
 					//ChrCntFix = 1;
 					while( TmpBufA[ChrCntFix] != 0) ++ChrCntFix; // record how many characters will be printed in this group
 					DCVStrd[0] = DcdVal2;
@@ -1915,19 +1916,9 @@ void DisplayChar(unsigned int decodeval) {
 		dletechar = true;
 		DeleteID = 3;
 	}
-	/*Not needed for ESP32*/
-	// if (((cnt) - offset)*fontW >= displayW) {
-	// 	//if ((cnt -(curRow*LineLen) == LineLen)){
-	// 	curRow++;
-	// 	offset = cnt;
-	// 	cursorX = 0;
-	// 	cursorY = curRow * (fontH + 10);
-	// 	//tft.setCursor(cursorX, cursorY); // in the ESP32 version this will be handled else where
-	// 	if (curRow + 1 > row) scrollpg(); // its time to Scroll the Text up one line
-	// }
 	//sprintf ( Msgbuf, "%s%c", Msgbuf, curChr );
 	dispMsg(Msgbuf); // print current character(s) to LCD display
-	int avgntrvl = int(float(avgDit + avgDah) / 4);
+	//int avgntrvl = int(float(avgDit + avgDah) / 4);// not used in this iteration of the program
 	
 	wpm = CalcWPM(avgDit, avgDah, avgDeadSpace);//use all current time intervalls to extract a composite WPM
 	if (wpm != 1) { //if(wpm != lastWPM & decodeval == 0 & wpm <36){//wpm != lastWPM
