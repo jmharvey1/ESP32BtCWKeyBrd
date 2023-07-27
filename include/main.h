@@ -52,15 +52,18 @@ struct DF_t
 
 //static xQueueHandle s_timer_queue;
 extern int DeBug; // factory default setting; 0 => Debug "OFF"; 1 => Debug "ON"
+extern SemaphoreHandle_t mutex;//JMH Added
 extern char StrdTxt[20];
 extern char MyCall[10];
 extern char MemF2[80];
-
+extern bool clrbuf;
+//extern bool trapFlg;
 extern COREDUMP_DRAM_ATTR uint8_t global_var;
 uint8_t Read_NVS_Str(const char *key, char *value);
 template <class T>
 uint8_t Read_NVS_Val(const char *key, T &value);
 uint8_t Write_NVS_Str(const char *key, char *value);
 uint8_t Write_NVS_Val(const char *key,  int value);
+
 
 #endif /* INC_MAIN_H_ */

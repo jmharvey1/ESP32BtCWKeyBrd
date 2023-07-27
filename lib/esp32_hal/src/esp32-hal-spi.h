@@ -22,6 +22,7 @@ extern "C" {
 #include "sdkconfig.h"
 #include <stdint.h>
 #include <stdbool.h>
+//#include "freertos/semphr.h"
 
 #define SPI_HAS_TRANSACTION
 
@@ -59,6 +60,7 @@ extern "C" {
 #define SPI_LSBFIRST 0
 #define SPI_MSBFIRST 1
 
+//extern SemaphoreHandle_t mutex;//JMH Added
 struct spi_struct_t;
 typedef struct spi_struct_t spi_t;
 

@@ -31,7 +31,7 @@ volatile int TimeDat[16];
 int Bitpos = 0;
 int badKeyEvnt = 0;
 int DeleteID = 0;
-
+uint8_t LclKeyState;// local copy of the current keystate as passed from the Goertzel routine; 0 = Keydown; 1 = Keyup
 //int px = 0; //mapped 'x' display touch value
 //int py = 0; //mapped 'y' display touch value
 int displayW = 320;
@@ -289,6 +289,7 @@ void StartDecoder(TFTMsgBox *pttftmsgbx)
 /* PB13 KeyIN interrupt routine. */
 void KeyEvntSR(uint8_t state, unsigned long EvntTime)
 { // keydown state =0; Keyup state = 1;
+	LclKeyState = state;
 	char tmpbuf[50];
 	// EvntStart = pdTICKS_TO_MS(xTaskGetTickCount()); //This is now hapening in main.GoertzelHandler(void *param) when the adc signals that the sample group is ready for processing
 	ChkDeadSpace();
@@ -784,7 +785,7 @@ void KeyEvntSR(uint8_t state, unsigned long EvntTime)
 		bool NrmlDah = false;
 		if (((period >= 1.8 * avgDit) || (period >= 0.8 * avgDah)) && !Bug2)
 			NrmlDah = true;
-		else if (((period > 9 * avgDeadSpace) || (period > 2 * avgDit)) && Bug2)
+		else if (((period > 9 * avgDeadSpace) || (period > 1.5 * avgDit)) && Bug2)
 			NrmlDah = true;
 		else if ((period >= (1.46 * avgDit) + (DitVar)) && Bug3)
 		{
@@ -1220,7 +1221,8 @@ void ChkDeadSpace(void)
 					else
 					{
 						if (Bug2)
-							AvgLtrBrk = ((9 * AvgLtrBrk) + avgDit) / 10;
+							/*cootie mode*/
+							AvgLtrBrk = ((9 * AvgLtrBrk) +(0.8* avgDit)) / 10;
 						else
 							AvgLtrBrk = ((9 * AvgLtrBrk) + deadSpace) / 10;
 					}
@@ -1337,7 +1339,7 @@ void SetLtrBrk(void)
 		}
 		else if (Bug2)
 		{
-			ltrBrk = int(2.0 * (float(avgDit))); // int(1.6*(float(avgDit)));
+			ltrBrk = int(1.6*(float(avgDit)));// int(2.0 * (float(avgDit))); // 
 		}
 	}
 	// if here, setup "letter break" timing for speeds greater than 35 wpm
@@ -1371,6 +1373,10 @@ void chkChrCmplt(void) {
 	unsigned long Now = pdTICKS_TO_MS(xTaskGetTickCount());//(GetTimr5Cnt()/10);
 	if((Now - letterBrk1) > 35000) letterBrk1 = Now - 10000;// keep "letterBrk1" from becoming an absurdly large value
 	//check to see if enough time has passed since the last key closure to signify that the character is complete
+	if(LclKeyState == 0)// if this is the case, key is closed & should not be doing a letter complete
+	{
+		return;
+	}
 	if ((Now >= letterBrk) && letterBrk != 0 && DeCodeVal > 1) {
 		state = 1; //have a complete letter
 		ltrCmplt = -3000;
@@ -1767,46 +1773,47 @@ void DisplayChar(unsigned int decodeval) {
 		int GlitchCnt = 0;
 		int GlitchCnt1 = 0;
 		int p1 = 0;
+		/* 20230722 for esp32, and given the "glicth fixer" now in the Goertzel section, feel like the following section is obsolete*/
 		/* But 1st, test space timing for glitches*/
-		for(p1=1; p1 < 16; p1++) { //ignore the space interval found in the 1st position
-			if(SpcIntrvl[p1] == 0) break;
-			if((SpcIntrvl[p1] <= 6)) GlitchCnt++;
-		}
-		if((GlitchCnt <= 4) && (GlitchCnt != 0)){ //glitch(s) found; try to recover
-			/*use TimeDatBuf to rebuild the decodeval*/
-			/*1st combine/merge TimeDatBuf values where/when "glitches" occurred" */
-			unsigned long tempbuf[16];
-			unsigned long tempSpcBuf[16];
-			for(int p = 0; p <16; p++ ) {// make sure the temp buffers are "0" out
-				tempbuf[p] = 0;
-				tempSpcBuf[p] = 0;
-			}
-			int p = 0;
-			int offset = 0;
-			tempbuf[p] = TimeDatBuf[p];
-			tempSpcBuf[p] = SpcIntrvl[p];
-			/*Merge "key-down" timing and space timing*/
-			for(p = 1; p <p1; p++ ) {
-				if(SpcIntrvl[p]>6) tempSpcBuf[p+offset] = SpcIntrvl[p];
-				else offset--;
-				tempbuf[p+offset] += TimeDatBuf[p];
-			}
+		// for(p1=1; p1 < 16; p1++) { //ignore the space interval found in the 1st position
+		// 	if(SpcIntrvl[p1] == 0) break;
+		// 	if((SpcIntrvl[p1] <= 6)) GlitchCnt++;
+		// }
+		// if((GlitchCnt <= 4) && (GlitchCnt != 0)){ //glitch(s) found; try to recover
+		// 	/*use TimeDatBuf to rebuild the decodeval*/
+		// 	/*1st combine/merge TimeDatBuf values where/when "glitches" occurred" */
+		// 	unsigned long tempbuf[16];
+		// 	unsigned long tempSpcBuf[16];
+		// 	for(int p = 0; p <16; p++ ) {// make sure the temp buffers are "0" out
+		// 		tempbuf[p] = 0;
+		// 		tempSpcBuf[p] = 0;
+		// 	}
+		// 	int p = 0;
+		// 	int offset = 0;
+		// 	tempbuf[p] = TimeDatBuf[p];
+		// 	tempSpcBuf[p] = SpcIntrvl[p];
+		// 	/*Merge "key-down" timing and space timing*/
+		// 	for(p = 1; p <p1; p++ ) {
+		// 		if(SpcIntrvl[p]>6) tempSpcBuf[p+offset] = SpcIntrvl[p];
+		// 		else offset--;
+		// 		tempbuf[p+offset] += TimeDatBuf[p];
+		// 	}
 
-			/*now rebuild "decodeval" using new timing data*/
-			decodeval = 1;
-			p=0;
-			while(tempbuf[p] !=0){
-				decodeval = decodeval << 1;
-				if(tempbuf[p]> 2*avgDit) decodeval +=1;
-				p++;
-			}
-			/* copy back new space timing */
-			for(int p=0; p < 16; p++) {
-				SpcIntrvl[p] = tempSpcBuf[p];
-			}
-			GlitchCnt1 = GlitchCnt;
-			GlitchCnt = 0;
-		}
+		// 	/*now rebuild "decodeval" using new timing data*/
+		// 	decodeval = 1;
+		// 	p=0;
+		// 	while(tempbuf[p] !=0){
+		// 		decodeval = decodeval << 1;
+		// 		if(tempbuf[p]> 2*avgDit) decodeval +=1;
+		// 		p++;
+		// 	}
+		// 	/* copy back new space timing */
+		// 	for(int p=0; p < 16; p++) {
+		// 		SpcIntrvl[p] = tempSpcBuf[p];
+		// 	}
+		// 	GlitchCnt1 = GlitchCnt;
+		// 	GlitchCnt = 0;
+		// }
 		DCVStrd[0] = decodeval;
 		for(int p=0; p < 16; p++) {
 			if((SpcIntrvl[p] <= 6)&& (SpcIntrvl[p] != 0) && (p !=0)) GlitchCnt++; //ignore the first "space" value. It could be anything

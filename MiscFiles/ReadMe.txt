@@ -27,5 +27,19 @@ Special Functions:
 14. F4 Send stored F4 message
 15. F12 suspend outgoing text; Press F12 again to resume sending outgoing text (Note: Status box is yellow while in "suspend" mode)
 
+***********************************************************************************
+CW Decoder Notes:
+Special Keys & their functions:
+1. Left & Rght Ctrl+d: index through CW decode modes
+        Nrm (Normal)
+        Bg1 (Bug 1)
+        Bg2 (Bug 2)
+        Bg3 (Bug 2 cootie keys)
+2. Left Ctrl+f: index through select tone tune modes
+        FF  (Fixed Frequency)
+        AF  (Auto-Tune 500 to 900Hz)
+3. Left Ctrl-P:  Plot On/off        
+
+
 
 

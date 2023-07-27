@@ -21,6 +21,7 @@
 // limitations under the License.
 /*20230503 JMH Numerous mods to adapt the original code to work with thw ESP32 BT CW Keyboard applications*/
 /*20230507 JMH reversed 'TAB & TAB+Shift Assignments to make settings screen selection move in a 'Logical' order*/
+/*20230721 Fixed Crash issue related to BT Keyboard sending corrupted keystroke data; fix mostly containg bt_keyboard.hid callback code*/
 
 #define __BT_KEYBOARD__ 1
 #include "bt_keyboard.hpp"
@@ -65,6 +66,7 @@ static BTKeyboard *bt_keyboard = nullptr;
 
 char msgbuf[256];
 bool OpnEvntFlg = false;
+
 const char *
 BTKeyboard::ble_addr_type_str(esp_ble_addr_type_t ble_addr_type)
 {
@@ -670,7 +672,7 @@ void BTKeyboard::handle_bt_device_result(esp_bt_gap_cb_param_t *param)
 
 void BTKeyboard::bt_gap_event_handler(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *param)
 {
-  printf("bt_gap_event_handler\n"); //JMH Diagnosstic testing
+  //printf("bt_gap_event_handler\n"); //JMH Diagnosstic testing
   switch (event)
   {
   case ESP_BT_GAP_DISC_STATE_CHANGED_EVT:
@@ -716,7 +718,7 @@ void BTKeyboard::bt_gap_event_handler(esp_bt_gap_cb_event_t event, esp_bt_gap_cb
     // }
     break;
   }
-  printf("bt_gap_event_handler EXIT\n"); //JMH Diagnosstic testing
+  //printf("bt_gap_event_handler EXIT\n"); //JMH Diagnosstic testing
 }
 
 void BTKeyboard::handle_ble_device_result(esp_ble_gap_cb_param_t *param)
@@ -807,6 +809,16 @@ void BTKeyboard::handle_ble_device_result(esp_ble_gap_cb_param_t *param)
   }
 #endif
 }
+
+// void BTKeyboard::pairing_handler(uint32_t pid)
+// {
+//   sprintf(msgbuf, "Please enter the following pairing code,\n");
+//   pmsgbx->dispMsg(msgbuf, TFT_WHITE);
+//   sprintf(msgbuf, "followed with ENTER on your keyboard: \n");
+//   pmsgbx->dispMsg(msgbuf, TFT_WHITE);
+//   sprintf(msgbuf, "%d \n", (int)pid);
+//   pmsgbx->dispMsg(msgbuf, TFT_BLUE);
+// }
 
 void BTKeyboard::ble_gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param)
 {
@@ -1314,23 +1326,24 @@ void BTKeyboard::devices_scan(int seconds_wait_time)
 
 void BTKeyboard::hidh_callback(void *handler_args, esp_event_base_t base, int32_t id, void *event_data)
 {
-  char temp[150];
+  char temp[250];
   uint16_t clr = 0;
   temp[0] = 255;
   esp_hidh_event_t event = (esp_hidh_event_t)id;
   esp_hidh_event_data_t *param = (esp_hidh_event_data_t *)event_data;
+  bool talk = false; //set to true for hid callback debugging
   if (mutex != NULL)
   {
     /* See if we can obtain the semaphore.  If the semaphore is not
     available wait 15 ticks to see if it becomes free. */
     if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE) //(TickType_t)15
     {
-      printf("hidh_callback\n"); //JMH Diagnosstic testing
+      if(talk) printf("hidh_callback\n"); //JMH Diagnosstic testing
       switch (event)
       {
       case ESP_HIDH_OPEN_EVENT:
       {
-
+        sprintf(temp, "ESP_HIDH_OPEN_EVENT\n");
         if (param->open.status == ESP_OK)
         {
           const uint8_t *bda = esp_hidh_dev_bda_get(param->open.dev);
@@ -1338,7 +1351,7 @@ void BTKeyboard::hidh_callback(void *handler_args, esp_event_base_t base, int32_
           /*Now go query the reports for this device/keyboard, & See if the Logictech 'F-Key' config report can be found*/
           /*JMH added the following to ferrit out Logitech keyboards*/
           /*Query the keyboard for reports*/
-          bool talk = false;
+          
           if (talk)
           {
             printf("\n\nSTARTING REPORT REQUEST\n");
@@ -1503,8 +1516,76 @@ void BTKeyboard::hidh_callback(void *handler_args, esp_event_base_t base, int32_
                  param->input.map_index,
                  param->input.report_id,
                  param->input.length);
+        char databuf[150];
+        char databuf1[75];
+        int cntr = 0;
+        databuf1[0] =0;
+        //const uint8_t indat = param->input.data;
+        //unsigned int curdata[2];
+        for(int i = 0; i<param->input.length; i++){
+          //curdata[0] = (unsigned int )param->input.data[i];
+          sprintf(databuf, "%s:%02x", databuf1, param->input.data[i]);
+          if( param->input.data[i] == 0x01) cntr++;
+          else cntr = 0;
+          for(int p = 0; p<sizeof(databuf1); p++){
+            databuf1[p] = databuf[p];
+            if(databuf[p]==0) break;
+          }
+        }
+        for(int p = 0; p<sizeof(databuf1); p++){
+          databuf1[p] = databuf[p];
+          if(databuf[p]==0) break;
+        }
+        sprintf(temp, "INPUT_EVENT; ADDR:%02x:%02x:%02x:%02x:%02x:%02x; MAP:%s; NDX:%d; ID:%3u; LEN:%d; DATA%s\n",
+                 ESP_BD_ADDR_HEX(bda),
+                 esp_hid_usage_str(param->input.usage),
+                 param->input.map_index,
+                 param->input.report_id,
+                 param->input.length,
+                 databuf1);         
         ESP_LOG_BUFFER_HEX_LEVEL(TAG, param->input.data, param->input.length, ESP_LOG_DEBUG);
-        bt_keyboard->push_key(param->input.data, param->input.length);
+        if((cntr != 6) && !bt_keyboard->trapFlg) bt_keyboard->push_key(param->input.data, param->input.length);
+        else if(bt_keyboard->trapFlg){
+          if(param->input.length == 1){
+            bt_keyboard->trapFlg = false;
+            xSemaphoreGive(mutex);
+            bt_keyboard->pmsgbx->dispStat("KEYBOARD READY", TFT_GREEN);
+            vTaskDelay(100/portTICK_PERIOD_MS);
+            xSemaphoreTake(mutex, portMAX_DELAY);
+          }
+          break;
+        } 
+        else
+        {
+          /*Keybrd data is corrupt. So sit and wait while send buffer contents is completeS*/
+          bt_keyboard->trapFlg = true;
+          bt_keyboard->pmsgbx->dispStat("!!! KEYBOARD BLOCKED !!!", TFT_RED);
+         if (talk)
+          {
+            printf("!!! DATA BLOCKED !!!\n");
+          }
+          xSemaphoreGive(mutex);
+          while(clrbuf){
+            vTaskDelay(100/portTICK_PERIOD_MS);
+          }
+          if(talk) printf("WAITING FOR SOMETHING GOOD TO HAPPEN\n");
+          
+          // while(1){
+          //   vTaskDelay(100/portTICK_PERIOD_MS);
+          // }
+          //bt_keyboard->devices_scan(2);
+          //vTaskDelay(6000/portTICK_PERIOD_MS);
+          // if (bt_keyboard->setup(pairing_handler))
+          // {                             // Must be called once
+          //    bt_keyboard->devices_scan(2); // Required to discover new keyboards and for pairing
+                                // Default duration is 5 seconds
+          // }
+          // else
+          // {
+          //   printf("\n*******  RESTART!  ******\n** NO KEYBOARD PAIRED ***\n");
+          // }
+          xSemaphoreTake(mutex, portMAX_DELAY);
+        }
         break;
       }
       case ESP_HIDH_FEATURE_EVENT:
@@ -1522,8 +1603,8 @@ void BTKeyboard::hidh_callback(void *handler_args, esp_event_base_t base, int32_
                 esp_hid_usage_str(param->feature.usage),
                 param->feature.report_id); //,
                                            //(int)param->feature.length);
-        bt_keyboard->pmsgbx->dispMsg(temp, TFT_ORANGE);
-        temp[0] = 255;
+        // bt_keyboard->pmsgbx->dispMsg(temp, TFT_ORANGE);
+        // temp[0] = 255;
         break;
       }
       case ESP_HIDH_CLOSE_EVENT:
@@ -1541,10 +1622,11 @@ void BTKeyboard::hidh_callback(void *handler_args, esp_event_base_t base, int32_
       }
       if (temp[0] != 255)
       {
-        // vTaskDelay(20);
-        bt_keyboard->pmsgbx->dispStat(temp, clr); // tftmsgbx.dispStat(Title, TFT_GREEN);
+        /*took the post to display status line out because it could induce an unnecessary crash out because */
+        //bt_keyboard->pmsgbx->dispStat(temp, clr); // tftmsgbx.dispStat(Title, TFT_GREEN);
+        if(talk) printf("hidh_callback EXIT: %s\n", temp); //JMH Diagnosstic testing
       }
-       printf("hidh_callback EXIT\n"); //JMH Diagnosstic testing
+       
       xSemaphoreGive(mutex);
     }
   }
@@ -1569,6 +1651,7 @@ void BTKeyboard::push_key(uint8_t *keys, uint8_t size)
 char BTKeyboard::wait_for_ascii_char(bool forever)
 {
   KeyInfo inf;
+  last_ch = 0;
 
   // printf( "**  wait_for_ascii_cha\n");//for testing/debugging
   while (true)

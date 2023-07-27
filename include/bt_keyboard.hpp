@@ -41,7 +41,7 @@
 #include "TFTMsgBox.h"
 #include "main.h"
 
-extern SemaphoreHandle_t mutex;
+//extern SemaphoreHandle_t mutex;
 class BTKeyboard
 {
   public:
@@ -63,6 +63,7 @@ class BTKeyboard
       KeyModifier modifier;
       uint8_t     keys[MAX_KEY_COUNT];
     };
+    bool trapFlg;
 
   private:
 
@@ -136,7 +137,7 @@ class BTKeyboard
 
     void  handle_bt_device_result(esp_bt_gap_cb_param_t  * param);
     void handle_ble_device_result(esp_ble_gap_cb_param_t * scan_rst);
-  
+    //void pairing_handler(uint32_t pid);
     void esp_hid_scan_results_free(esp_hid_scan_result_t * results);
     esp_hid_scan_result_t * find_scan_result(esp_bd_addr_t bda, esp_hid_scan_result_t * results);
 
@@ -186,6 +187,7 @@ class BTKeyboard
     {
       pmsgbx = msgbx_ptr;//used mainly for error & debug reporting + scan/pairing reorting
       pDFault = Dft_ptr;
+      trapFlg = false;
     }
 
     bool setup(pid_handler * handler = nullptr);

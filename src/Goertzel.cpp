@@ -9,7 +9,7 @@
 #include "Goertzel.h"
 #include "DcodeCW.h"
 #include "TFTMsgBox.h"
-#define MagBSz  6
+#define MagBSz  6//3
 uint16_t adc_buf[Goertzel_SAMPLE_CNT];
 /* No longer needed; been replaced by code in main.cpp; uncomment the following 2 lines when you want capture/plot raw ADC data */
 // int Smpl_buf[6*Goertzel_SAMPLE_CNT];
@@ -107,6 +107,7 @@ float NSF = 1.7;//1.8;//2.2;//1.6;
 float ClipLvl = 15000;//based on 20230714 configuration//100000;//150000;//1500000;
 
 float NoiseFlr = 0;
+float SigDect = 0;//introduced primarily for Detecting Hi-speed CW keydown events
 float OLDNoiseFlr = 0;
 float SigPk =0;
 float MagBuf[MagBSz];
@@ -130,7 +131,7 @@ void PlotIfNeed2(void){
 		//sprintf(PlotTxt, "%d\t%d\t%d\t%d\t%d\t%d\n", (int)magC, (int)SqlchLvl, (int)NoiseFlr, KeyState, (int)CurNoise, PltGudSig);
 		//sprintf(PlotTxt, "%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n", (int)CurLvl, (int)SqlchLvl, (int)NoiseFlr, KeyState, (int)CurNoise, (int)AdjSqlch-500, NFkeystate, PltGudSig);//standard plot display
 		
-		sprintf(PlotTxt, "%d\t%d\t%d\t%d\t%d\t%d\t%d\n", (int)CurLvl, (int)NoiseFlr, KeyState, NFkeystate, (int)CurNoise, (int)AdjSqlch-90, ltrCmplt);//standard plot display
+		sprintf(PlotTxt, "%d\t%d\t%d\t%d\t%d\t%d\t%d\n", (int)CurLvl, (int)SigDect, KeyState, NFkeystate, (int)CurNoise, (int)AdjSqlch-90, ltrCmplt);//standard plot display
 		
 		//sprintf(PlotTxt, "%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n", (int)CurLvl, (int)NFlrBase, NFlrRatio, (int)NoiseFlr, KeyState, (int)CurNoise, (int)AdjSqlch-500, NFkeystate);
 		//sprintf(PlotTxt, "%d\t%d\t%d\t%d\n", (int)now, (int)NoisePrd, (int)avgDit, keystate);
@@ -273,15 +274,29 @@ void ComputeMags(unsigned long now){
 	// printf( buf);
     
 	/* Find Noisefloor for this recent period */
-//	float OldLvl = MagBuf[MBpntr];
+	// int OldestDataPt = MBpntr;
+	// SigDect = MagBuf[OldestDataPt];//get the oldest sample in the data buffer
 	MagBuf[MBpntr++] = CurLvl;
 	if(MBpntr==MagBSz) MBpntr = 0;
+	int OldestDataPt = MBpntr;
+	SigDect = MagBuf[OldestDataPt];//get the oldest sample in the data buffer
 	OLDNoiseFlr = NoiseFlr;
 	NoiseFlr = MagBuf[0];
 	SigPk = MagBuf[0];
+	
+	
 	for( int i =1 ; i <MagBSz; i++){
 		if(MagBuf[i]<NoiseFlr) NoiseFlr = MagBuf[i];
 		if(MagBuf[i]>SigPk) SigPk = MagBuf[i];
+		/*look for the smalest magnitude found in the 3 oldest samples; remember we alrady have one, the oldest of the three. So only need to check two more */
+		if( i < 2){
+			//int bufptr = i+ last3DataPt;
+			OldestDataPt++;
+			//if(bufptr >= MagBSz) bufptr = bufptr - MagBSz;
+			if(OldestDataPt == MagBSz) OldestDataPt = 0;
+			//if(MagBuf[bufptr] < SigDect) SigDect = MagBuf[bufptr];
+			if(MagBuf[OldestDataPt] < SigDect) SigDect = MagBuf[OldestDataPt];
+		}
 
 	}
 	if(NoiseFlr > NFlrBase){
@@ -401,7 +416,8 @@ void Chk4KeyDwn(float NowLvl)
 	
 	if (avgDit <= 1200 / 35) // WPM is the denominator here
 	{						 /*High speed code keying process*/
-		if ((1.3*NoiseFlr > CurNoise) || (CurLvl > 2*CurNoise)) // if   (CurLvl > 3*CurNoise)
+		// if ((1.3*SigDect > CurNoise) || (CurLvl > 2*CurNoise)) // if   (CurLvl > 3*CurNoise)
+		if (SigDect  > AdjSqlch)
 		{
 			if ((OLDNoiseFlr < NoiseFlr) && (OLDNoiseFlr < CurNoise))
 			{
@@ -410,7 +426,7 @@ void Chk4KeyDwn(float NowLvl)
 					CurNoise = (5*CurNoise+NuNoise)/6;//CurNoise = (3*CurNoise+NuNoise)/4;
 			}
 			toneDetect = true;
-			if (!GudTone) // if (!GudTone && !Scaning)
+			if (!GudTone)
 				GudTone = true;
 			
 		}
@@ -425,12 +441,10 @@ void Chk4KeyDwn(float NowLvl)
 		{
 			GudTone = false;
 			toneDetect = false;
-			// RSetNoise = false;
 		}
-		//if (((NoiseFlr > AdjSqlch) || (GudSig && (2 * NoiseFlr > AdjSqlch))) && !toneDetect && !Scaning)
-		if (((NoiseFlr > AdjSqlch)  ) && !toneDetect && !Scaning) //|| ((CurLvl> 1.4*AdjSqlch) && (NoiseFlr >25000))
+		/*Added (SigDect  > 2*AdjSqlch)||, for when in slow speed mode, to recognize a strong Hi-speed CW signal */
+		if (((SigDect  > 2*AdjSqlch)||(NoiseFlr > AdjSqlch)) && !toneDetect && !Scaning)//if (((NoiseFlr > AdjSqlch)  ) && !toneDetect && !Scaning)
 		{
-			// TonSig = (int)(((2999 * ((float)ToneLvl)) + ((float)ToneLvl)) / 3000.0); // only used on the settings screen to give a slow changing tone lvl reading
 			toneDetect = true;
 		}
 	}
@@ -492,19 +506,8 @@ void Chk4KeyDwn(float NowLvl)
 			/*Some straight keys & Bug senders have unusually small dead space between their dits (and Dahs). 
 			When thats the case, use the DcodeCW's avgDeadspace to set the duration of the glitch period */
 			if(FltrPrd > ((float)avgDeadSpace)/2) FltrPrd = (unsigned long)(((float)avgDeadSpace)/2);
-			if(ModeCnt == 3) FltrPrd = 8;//we are running in cootie mode, so lock the glitch inerval to a fixed value of 8ms. 
-			/*limit glitch interal maximum duration; based on a 50wpm dit ~=24ms*/
-			//if (FltrPrd >24) FltrPrd = 24; //if (FltrPrd >16) FltrPrd = 16;;
-			// if(StrngSigFLg){
-			// 	FltrPrd = 0; // based on when the sig last went high this appears to be a strong sig, so no need to apply glitch filter
-			// 	StrngSigFLg = false; // reset flag for next keydown event
-			// }
-			// if(NoiseFlr >30000){
-			// 	FltrPrd = 0; // appears to be a relatively strong sig, so no need to apply glitch filter
-			// 	StrngSigFLg = true;
-			// }
-
-			NoisePrd = now+ FltrPrd;// now+500;//
+			if(ModeCnt == 3) FltrPrd = 4;//we are running in cootie mode, so lock the glitch inerval to a fixed value of 8ms.
+			NoisePrd = now + FltrPrd;
 			OldKeyState = KeyState;
 			GltchFlg = true;
 			EvntTime = TmpEvntTime;//capture/remember when the state change occured

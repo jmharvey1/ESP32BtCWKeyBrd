@@ -1,7 +1,9 @@
 {
     "files.associations": {
         "memory": "cpp",
-        "esp_heap_caps.h": "c"
+        "esp_heap_caps.h": "c",
+        "semphr.h": "c",
+        "esp32-hal-spi.h": "c"
     },
     "cmake.configureOnOpen": false
 }

@@ -27,12 +27,14 @@
 /*20230715 minor tweaks */
 /*20230719 added "noreturn" patch to crash handler code and removed printf() calls originally in IRAM_ATTR DotClk_ISR(void *arg)*/
 /*20230721 Moved project to github*/
+/*20230721 Fixed Crash issue related to BT Keyboard sending corrupted keystroke data; fix mostly containg bt_keyboard.hid callback code*/
 #include "sdkconfig.h" //added for timer support
-#include "globals.hpp"
+#include "globals.h"
 #include "main.h"
 #include "bt_keyboard.hpp"
 #include <esp_log.h>
 #include <iostream>
+//#include "esp32-hal-spi.h"
 
 #include "esp_system.h"
 #include "esp_event.h"
@@ -82,7 +84,7 @@ DF_t DFault;
 int DeBug = 1; // Debug factory default setting; 0 => Debug "OFF"; 1 => Debug "ON"
 char StrdTxt[20] = {'\0'};
 /*Factory Default Settings*/
-char RevDate[9] = "20230721";
+char RevDate[9] = "20230727";
 char MyCall[10] = {'K', 'W', '4', 'K', 'D'};
 char MemF2[80] = "VVV VVV TEST DE KW4KD";
 char MemF3[80] = "CQ CQ CQ DE KW4KD KW4KD";
@@ -91,12 +93,14 @@ char MemF5[80] = "RST 5NN";
 esp_err_t ret;
 char Title[120];
 bool setupFlg = false;
-bool EnDsplInt = true;
+//bool EnDsplInt = true;
 bool clrbuf = false;
 bool PlotFlg = false;
 bool UrTurn = true;
 bool WokeFlg = false;
 bool QuequeFulFlg = false;
+bool mutexFLG =false;
+//bool trapFlg = false;
 volatile int DotClkstate = 0;
 volatile int CurHiWtrMrk = 0;
 static const uint8_t state_que_len = 50;
@@ -128,11 +132,12 @@ float Grtzl_Gain = 1.0;
 static adc_channel_t channel[1] = {ADC_CHANNEL_6};
 adc_continuous_handle_t adc_handle = NULL;
 static TaskHandle_t GoertzelTaskHandle;
+static TaskHandle_t DsplUpDtTaskHandle = NULL;
 static TaskHandle_t CWDecodeTaskHandle = NULL;
 static const char *TAG1 = "ADC_Config";
 uint32_t ret_num = 0;
 uint8_t result[Goertzel_SAMPLE_CNT * SOC_ADC_DIGI_RESULT_BYTES] = {0};
-uint32_t CB_CNtr = 0;
+//uint32_t CB_CNtr = 0;
 TaskHandle_t HKdotclkHndl;
 
 TFTMsgBox tftmsgbx(&tft, StrdTxt);
@@ -165,13 +170,7 @@ bool IRAM_ATTR s_conv_done_cb(adc_continuous_handle_t handle, const adc_continuo
   configASSERT(GoertzelTaskHandle != NULL);
   vTaskNotifyGiveFromISR(GoertzelTaskHandle, &xHigherPriorityTaskWoken); // start Goertzel Task
   portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
-  // CB_CNtr++;
-  // if(CB_CNtr>=(125*4)){//should report once/second @ samplerate = 48Khz
-
-  //   vTaskNotifyGiveFromISR(GoertzelTaskHandle, &xHigherPriorityTaskWoken); //start Goertzel Task
-  //   portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
-  //   CB_CNtr = 0;
-  // }
+  
   /* If xHigherPriorityTaskWoken is now set to pdTRUE then a context switch
   should be performed to ensure the interrupt returns directly to the highest
   priority task.  The macro used for this purpose is dependent on the port in
@@ -190,7 +189,7 @@ static void continuous_adc_init(adc_channel_t *channel, uint8_t channel_num, adc
   };
   ESP_ERROR_CHECK(adc_continuous_new_handle(&adc_config, &handle));
   uint32_t freq = 120*1000;// actually yeilds something closer to 100Khz sample rate
-  //uint32_t freq = 48*1000;
+  
   adc_continuous_config_t dig_cfg = {
       .sample_freq_hz = freq,
       .conv_mode = ADC_CONV_SINGLE_UNIT_1,
@@ -347,13 +346,51 @@ void GoertzelHandler(void *param)
   /** JMH Added this to ESP32 version to handle random crashing with error,"Task Goertzel Task should not return, Aborting now" */
   vTaskDelete(NULL);
 }
-
-
+///////////////////////////////////////////////////////////////////////////////////
+/* DisplayUpDt Task; Refresh/UpdateTFT Display*/
+void DisplayUpDt(void *param)
+{
+  static uint32_t thread_notification;
+  uint8_t state;
+  while (1)
+  {
+    /* Sleep until we are notified of a state change by an
+     * interrupt handler. Note the first parameter is pdTRUE,
+     * which has the effect of clearing the task's notification
+     * value back to 0, making the notification value act like
+     * a binary (rather than a counting) semaphore.  */
+    thread_notification = ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+    if (thread_notification)
+    {
+      if (mutex != NULL)
+      {
+        /* See if we can obtain the semaphore.  If the semaphore is not
+        available wait 10 ticks to see if it becomes free. */
+        if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE)
+        {
+          /* We were able to obtain the semaphore and can now access the
+          shared resource. */
+          mutexFLG = true;
+          tftmsgbx.dispMsg2();
+          while (xQueueReceive(state_que, (void *)&state, (TickType_t)10) == pdTRUE)
+          {
+            tftmsgbx.IntrCrsr(state);
+          }
+          /* We have finished accessing the shared resource.  Release the
+          semaphore. */
+          xSemaphoreGive(mutex);
+          mutexFLG = false;
+        }
+      }
+    }
+  } // end while(1) loop
+  /** JMH Added this to ESP32 version to handle random crashing with error,"Task Goertzel Task should not return, Aborting now" */
+  vTaskDelete(NULL);
+}
 ///////////////////////////////////////////////////////////////////////////////////
 /* CW Decoder Task; CW decoder main loop*/
 void CWDecodeTask(void *param)
 {
-  /*TODO tie to mainloop in DcodeCW.cpp*/
   static uint32_t thread_notification;
   static const char *TAG3 = "Decode Task";
   char Smpl[10];
@@ -428,9 +465,9 @@ extern "C"
 }
 /*Template for keyboard entry handler function detailed futrther down in this file*/
 void ProcsKeyEntry(uint8_t keyVal);
-/*        Display Update timer ISR          */
+/*        Display Update timer ISR Template        */
 void DsplTmr_callback(TimerHandle_t xtimer);
-/*        DotClk timer ISR                 */
+/*        DotClk timer ISR Template                */
 void IRAM_ATTR DotClk_ISR(void *arg);
 
 void pairing_handler(uint32_t pid)
@@ -445,7 +482,7 @@ void pairing_handler(uint32_t pid)
 
 void app_main()
 {
-  
+
   ModeCnt = 4;
   /* coredump crash test code */
   /*  vTaskDelay(10000/portTICK_PERIOD_MS);
@@ -465,6 +502,12 @@ void app_main()
   io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
   gpio_config(&io_conf);
   digitalWrite(KEY, Key_Up); // key 'UP' state
+  state_que = xQueueCreate(state_que_len, sizeof(uint8_t));
+  /*create DisplayUpDate Task*/
+  xTaskCreate(DisplayUpDt, "DisplayUpDate Task", 8192, NULL, 2, &DsplUpDtTaskHandle);
+  // configASSERT(DsplUpDtTaskHandle != NULL);
+  // xTaskNotifyWait(DsplUpDtTaskHandle);
+  // xTaskNotifyGive(DsplUpDtTaskHandle);
   /*Setup Software Display Refresh/Update timer*/
   DisplayTmr = xTimerCreate(
       "Display-Refresh-Timer",
@@ -472,7 +515,6 @@ void app_main()
       pdTRUE,
       (void *)1,
       DsplTmr_callback);
-  state_que = xQueueCreate(state_que_len, sizeof(uint8_t));
 
   memset(result, 0xcc, (SOC_ADC_DIGI_RESULT_BYTES * Goertzel_SAMPLE_CNT)); // 1 byte for the channel # & 1 byte for the data
   mutex = xSemaphoreCreateMutex();
@@ -507,12 +549,12 @@ void app_main()
   ///////////////////////////////////////////////////////////////////////////////////////////////////////
   // ESP_INTR_ENABLE(27);//dotclock
   ESP_INTR_ENABLE(26); // display
-  
+
   /* Start the timer dotclock (timer)*/
   ESP_ERROR_CHECK(esp_timer_start_periodic(DotClk_hndl, 60000)); // 20WPM or 60ms
-  
+
   /* Start the Display timer */
-  xTimerStart(DisplayTmr, portMAX_DELAY); 
+  xTimerStart(DisplayTmr, portMAX_DELAY);
 
   // To test the Pairing code entry, uncomment the following line as pairing info is
   // kept in the nvs. Pairing will then be required on every boot.
@@ -578,7 +620,7 @@ void app_main()
   CWsndengn.SetWPM(DFault.WPM); // 20230507 Added this seperate method call after changing how the dot clocktiming gets updated
 
   InitGoertzel();
-  vTaskDelay(100/portTICK_PERIOD_MS);
+  vTaskDelay(100 / portTICK_PERIOD_MS);
   /*start bluetooth pairing/linking process*/
   if (bt_keyboard.setup(pairing_handler))
   {                             // Must be called once
@@ -617,7 +659,7 @@ void app_main()
     ESP_LOGI(TAG1, "SUSPEND CWDecodeTaskHandle TASK");
     vTaskDelay(20);
   }
-  vTaskDelay(200/portTICK_PERIOD_MS);
+  vTaskDelay(200 / portTICK_PERIOD_MS);
   // uint32_t freq = 48*1000;
   // uint32_t interval = APB_CLK_FREQ / (ADC_LL_CLKM_DIV_NUM_DEFAULT + ADC_LL_CLKM_DIV_A_DEFAULT / ADC_LL_CLKM_DIV_B_DEFAULT + 1) / 2 / freq;
   // char buf[35];
@@ -663,17 +705,16 @@ void app_main()
     }
     uint8_t key = 0;
 
-    key = bt_keyboard.wait_for_ascii_char();
-
-    // uint8_t key = bt_keyboard.wait_for_ascii_char();
-    EnDsplInt = false; // no longer need timer driven display refresh; As its now being handled in the wait for BT_keybrd entry loop "wait_for_low_event()"
+    if (!bt_keyboard.trapFlg)
+      key = bt_keyboard.wait_for_ascii_char();
+    
+    //EnDsplInt = false; // no longer need timer driven display refresh; As its now being handled in the wait for BT_keybrd entry loop "wait_for_low_event()"
 
     /*test key entry & process as needed*/
     if (key != 0)
     {
       ProcsKeyEntry(key);
     } // else vTaskResume(CWDecodeTaskHandle);
-    
 
 #else
     BTKeyboard::KeyInfo inf;
@@ -693,52 +734,62 @@ void app_main()
 } /*End Main loop*/
 
 /*Timer interrupt ISRs*/
-void IRAM_ATTR DsplTmr_callback(TimerHandle_t xtimer)
 // void DsplTmr_callback(TimerHandle_t xtimer)
+// {
+//   uint8_t state;
+//   BaseType_t TaskWoke;
+
+//   if (mutex != NULL)
+//   {
+//     /* See if we can obtain the semaphore.  If the semaphore is not
+//     available wait 10 ticks to see if it becomes free. */
+//     //if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE)
+//     if (xSemaphoreTakeFromISR(mutex,  &TaskWoke) == pdTRUE)
+//     {
+//       /* We were able to obtain the semaphore and can now access the
+//       shared resource. */
+//       mutexFLG =true;
+//       tftmsgbx.dispMsg2();
+//       /* Pull accumulated "state" values from que and pass on to the tftmsgbx method "IntrCrsr"*/
+//       while (xQueueReceiveFromISR(state_que, (void *)&state, &TaskWoke) == pdTRUE)
+//         tftmsgbx.IntrCrsr(state);
+//       /* We have finished accessing the shared resource.  Release the
+//       semaphore. */
+//       MutexbsyCnt = 0;
+//       xSemaphoreGiveFromISR(mutex, NULL);
+//       //xSemaphoreGive(mutex);
+//       mutexFLG =false;
+//     }
+//   }
+// }
+void DsplTmr_callback(TimerHandle_t xtimer)
 {
   uint8_t state;
   BaseType_t TaskWoke;
+  BaseType_t xHigherPriorityTaskWoken = pdFALSE;
 
-  if (mutex != NULL)
-  {
-    /* See if we can obtain the semaphore.  If the semaphore is not
-    available wait 10 ticks to see if it becomes free. */
-    if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE) //(TickType_t)5
-    {
+  // if (mutex != NULL)
+  // {
+  //   /* See if we can obtain the semaphore.  If the semaphore is not
+  //   available wait 10 ticks to see if it becomes free. */
+  //   //if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE)
+  //   if (xSemaphoreTakeFromISR(mutex,  &TaskWoke) == pdTRUE)
+  //   {
       /* We were able to obtain the semaphore and can now access the
       shared resource. */
-      tftmsgbx.dispMsg2();
-      /* Pull accumulated "state" values from que and pass on to the tftmsgbx method "IntrCrsr"*/
-      while (xQueueReceiveFromISR(state_que, (void *)&state, &TaskWoke) == pdTRUE)
-        tftmsgbx.IntrCrsr(state);
-      /* We have finished accessing the shared resource.  Release the
-      semaphore. */
-      MutexbsyCnt = 0;
-      xSemaphoreGive(mutex);
-    }
-    // else
-    // {
-    //   /* We could not obtain the semaphore and can therefore not access
-    //   the shared resource safely. */
-
-    //   MutexbsyCnt++;
-    //   if (MutexbsyCnt > 6)
-    //   {
-    //     MutexbsyCnt = 6;
-    //     tftmsgbx.dispMsg2();
-    //     /* Altrenate route; Pull accumulated "state" values from que and pass on to the tftmsgbx method "IntrCrsr"*/
-    //     while (xQueueReceiveFromISR(state_que, (void *)&state, &TaskWoke) == pdTRUE)
-    //       tftmsgbx.IntrCrsr(state);
-    //     // char ISRbuf[20] ="ISRLOCKED\r\n";
-    //     // printf(ISRbuf);
-    //   }
-    //   else
-    //   {
-    //     // char ISRbuf[20] ="NO dispMsg2\r\n";
-    //     // printf(ISRbuf);
-    //   }
-    // }
-  }
+      mutexFLG =true;
+      //tftmsgbx.dispMsg2();
+      //vTaskResume(DsplUpDtTaskHandle);
+      //configASSERT(DsplUpDtTaskHandle != NULL); // only need the configASSERT() for initial testing 
+      vTaskNotifyGiveFromISR(DsplUpDtTaskHandle, &xHigherPriorityTaskWoken); // start DisplayUpDt Task
+      if (xHigherPriorityTaskWoken == pdTRUE) portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+  //     /* We have finished accessing the shared resource.  Release the
+  //     semaphore. */
+  //     xSemaphoreGiveFromISR(mutex, NULL);
+  //     //xSemaphoreGive(mutex);
+  //     mutexFLG =false;
+  //   }
+  // }
 }
 /*                                          */
 /* DotClk timer ISR                 */
@@ -750,9 +801,6 @@ void IRAM_ATTR DotClk_ISR(void *arg)
   {
     vTaskSuspend(CWDecodeTaskHandle);
     clrbuf = true;
-    // CLrDCdValBuf(); //added this to ensure no DeCode Vals accumulate while the CWGen process is active; In other words the App doesn't decode itself
-    // vTaskSuspend(GoertzelTaskHandle);//found placing this command here prevented the whole thing from starting
-    // printf("STOP\r\n");
   }
   else
   {
@@ -762,85 +810,21 @@ void IRAM_ATTR DotClk_ISR(void *arg)
       CLrDCdValBuf(); // added this to ensure no DeCode Vals accumulate while the CWGen process is active; In other words the App doesn't decode itself
       vTaskResume(CWDecodeTaskHandle);
     }
-
-    // vTaskResume(GoertzelTaskHandle);
-    // printf("Resume\r\n");
   }
   /*Push returned "state" values on the que */
   if (xQueueSendFromISR(state_que, &state, &Woke) == pdFALSE)
      QuequeFulFlg = true;
   if (Woke == pdTRUE)
+      portYIELD_FROM_ISR(Woke);
     /*Woke == pdTRUE, if sending to the queue caused a task to unblock, 
     and the unblocked task has a priority higher than the currently running task. 
     If xQueueSendFromISR() sets this value to pdTRUE,
     then a context switch should be requested before the interrupt is exited.*/
-     WokeFlg = true;
+     //WokeFlg = true;
   
 }
 ///////////////////////////////////////////////////////////////////////////////////
-// static bool IRAM_ATTR DotClock_isr_callback(void *args)
-// {
-//   BaseType_t high_task_awoken = pdFALSE;
-//   KB_timer_info_t *Info = (KB_timer_info_t *)args;
 
-//   uint64_t timer_counter_value =0;// = timer_group_get_counter_value_in_isr(Info->timer_group, Info->timer_idx);
-
-//   /* Prepare basic event data that will be then sent back to task */
-//   KB_timer_event_t evt;
-//   // = {
-//   evt.info.timer_group = Info->timer_group;
-//   evt.info.timer_idx = Info->timer_idx;
-//   evt.info.auto_reload = Info->auto_reload;
-//   evt.info.alarm_interval = Info->alarm_interval;
-//   evt.timer_counter_value = timer_counter_value;
-//   //};
-
-//   if (!Info->auto_reload)
-//   {
-//     timer_counter_value += Info->alarm_interval * TIMER_SCALE;
-// //    timer_group_set_alarm_value_in_isr(Info->timer_group, Info->timer_idx, timer_counter_value);
-//   }
-//   // int state = CWsndengn.Intr(); // check CW send Engine & process as code as needed
-//   // tftmsgbx.IntrCrsr(state);
-//    printf("DOTCLCK\n");
-//   /* Now just send the event data back to the main program task */
-//   xQueueSendFromISR(s_timer_queue, &evt, &high_task_awoken);
-
-//   return high_task_awoken == pdTRUE; // return whether we need to yield at the end of ISR
-// }
-
-// static bool IRAM_ATTR Display_isr_callback(void *args)
-// {
-//     BaseType_t high_task_awoken = pdFALSE;
-//     KB_timer_info_t *Info = (KB_timer_info_t *) args;
-
-//     uint64_t timer_counter_value =0;// = timer_group_get_counter_value_in_isr(Info->timer_group, Info->timer_idx);
-
-//     /* Prepare basic event data that will be then sent back to task */
-//     KB_timer_event_t evt;
-//     // = {
-//         evt.info.timer_group = Info->timer_group;
-//         evt.info.timer_idx = Info->timer_idx;
-//         evt.info.auto_reload = Info->auto_reload;
-//         evt.info.alarm_interval = Info->alarm_interval;
-//         evt.timer_counter_value = timer_counter_value;
-//     //};
-
-//     if (!Info->auto_reload) {
-//         timer_counter_value += Info->alarm_interval * TIMER_SCALE;
-// //        timer_group_set_alarm_value_in_isr(Info->timer_group, Info->timer_idx, timer_counter_value);
-//     }
-
-//     // tftmsgbx.dispMsg2();
-//      printf("DISPLAY\n");
-
-//     /* Now just send the event data back to the main program task */
-//     xQueueSendFromISR(s_timer_queue, &evt, &high_task_awoken);
-
-//     return high_task_awoken == pdTRUE; // return whether we need to yield at the end of ISR
-// }
-
-///////////////////////////////////////////////////////////////////////////////////
 /*This routine checks the current key entry; 1st looking for special key values that signify special handling
 if none are found, it hands off the key entry to be treated as a standard CW character*/
 void ProcsKeyEntry(uint8_t keyVal)
@@ -852,7 +836,6 @@ void ProcsKeyEntry(uint8_t keyVal)
   // return;
   if (keyVal == 0x8)
   { //"BACKSpace" key pressed
-    // Serial.print(" Delete ");
     int ChrCnt = CWsndengn.Delete();
     if (ChrCnt > 0)
       tftmsgbx.Delete(ChrCnt);
@@ -1168,7 +1151,6 @@ uint8_t Write_NVS_Str(const char *key, char *value)
 /* write string data to NVS */
 {
   uint8_t stat = 0;
-  // const uint16_t* p = (const uint16_t*)(const void*)&value;
   //  Handle will automatically close when going out of scope or when it's reset.
   std::unique_ptr<nvs::NVSHandle> handle = nvs::open_nvs_handle("storage", NVS_READWRITE, &ret);
   if (ret != ESP_OK)

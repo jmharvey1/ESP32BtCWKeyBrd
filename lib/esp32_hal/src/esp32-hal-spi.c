@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 #include "esp32-hal-spi.h"
 #include "esp32-hal.h"
 #include "freertos/FreeRTOS.h"
@@ -24,7 +23,7 @@
 #include "soc/gpio_sig_map.h"
 #include "soc/rtc.h"
 #include "driver/periph_ctrl.h"
-
+//#include "freertos/queue.h"  //JMH 20230723 ADDED
 #include "esp_system.h"
 #ifdef ESP_IDF_VERSION_MAJOR // IDF 4+
 #if CONFIG_IDF_TARGET_ESP32 // ESP32/PICO-D4
@@ -54,6 +53,7 @@
 #include "rom/gpio.h"
 #include "esp_intr.h"
 #endif
+#include "globals.h"
 
 struct spi_struct_t {
     spi_dev_t * dev;
@@ -63,6 +63,62 @@ struct spi_struct_t {
 #endif
     uint8_t num;
 };
+
+/*JMH ADDED the following*/
+typedef struct QueuePointers
+{
+    int8_t * pcTail;     /*< Points to the byte at the end of the queue storage area.  Once more byte is allocated than necessary to store the queue items, this is used as a marker. */
+    int8_t * pcReadFrom; /*< Points to the last place that a queued item was read from when the structure is used as a queue. */
+} QueuePointers_t;
+
+typedef struct SemaphoreData
+{
+    TaskHandle_t xMutexHolder;        /*< The handle of the task that holds the mutex. */
+    UBaseType_t uxRecursiveCallCount; /*< Maintains a count of the number of times a recursive mutex has been recursively 'taken' when the structure is used as a mutex. */
+} SemaphoreData_t;
+
+typedef struct QueueDefinition /* The old naming convention is used to prevent breaking kernel aware debuggers. */
+{
+    int8_t * pcHead;           /*< Points to the beginning of the queue storage area. */
+    int8_t * pcWriteTo;        /*< Points to the free next place in the storage area. */
+
+    union
+    {
+        QueuePointers_t xQueue;     /*< Data required exclusively when this structure is used as a queue. */
+        SemaphoreData_t xSemaphore; /*< Data required exclusively when this structure is used as a semaphore. */
+    } u;
+
+    List_t xTasksWaitingToSend;             /*< List of tasks that are blocked waiting to post onto this queue.  Stored in priority order. */
+    List_t xTasksWaitingToReceive;          /*< List of tasks that are blocked waiting to read from this queue.  Stored in priority order. */
+
+    volatile UBaseType_t uxMessagesWaiting; /*< The number of items currently in the queue. */
+    UBaseType_t uxLength;                   /*< The length of the queue defined as the number of items it will hold, not the number of bytes. */
+    UBaseType_t uxItemSize;                 /*< The size of each items that the queue will hold. */
+
+    volatile int8_t cRxLock;                /*< Stores the number of items received from the queue (removed from the queue) while the queue was locked.  Set to queueUNLOCKED when the queue is not locked. */
+    volatile int8_t cTxLock;                /*< Stores the number of items transmitted to the queue (added to the queue) while the queue was locked.  Set to queueUNLOCKED when the queue is not locked. */
+
+    #if ( ( configSUPPORT_STATIC_ALLOCATION == 1 ) && ( configSUPPORT_DYNAMIC_ALLOCATION == 1 ) )
+        uint8_t ucStaticallyAllocated; /*< Set to pdTRUE if the memory used by the queue was statically allocated to ensure no attempt is made to free the memory. */
+    #endif
+
+    #if ( configUSE_QUEUE_SETS == 1 )
+        struct QueueDefinition * pxQueueSetContainer;
+    #endif
+
+    #if ( configUSE_TRACE_FACILITY == 1 )
+        UBaseType_t uxQueueNumber;
+        uint8_t ucQueueType;
+    #endif
+#ifdef ESP_PLATFORM
+    portMUX_TYPE mux;       //Mutex required due to SMP
+#endif // ESP_PLATFORM
+} xQUEUE;
+
+/* The old xQUEUE name is maintained above then typedefed to the new Queue_t
+ * name below to enable the use of older kernel aware debuggers. */
+typedef xQUEUE Queue_t;
+/*END JMH ADDED code*/
 
 #if CONFIG_IDF_TARGET_ESP32S2
 // ESP32S2
@@ -1143,18 +1199,85 @@ void spiSimpleTransaction(spi_t * spi)
     if(!spi) {
         return;
     }
+    // if(mutexFLG){
+    //     BaseType_t Woke;
+    //     xSemaphoreTakeFromISR(spi->lock, &Woke);
+    //     return;
+    // } 
     SPI_MUTEX_LOCK();
+    // BaseType_t Woke;
+    // xSemaphoreTakeFromISR(spi->lock, &Woke);
 }
 
-void spiEndTransaction(spi_t * spi)
+void spiEndTransaction(spi_t *spi)
 {
-    if(!spi) {
+    if (!spi)
+    {
         return;
     }
-    SPI_MUTEX_UNLOCK();
+    // if(mutexFLG){
+    //     xSemaphoreGiveFromISR(spi->lock, NULL);
+    //     return;
+    // } 
+    // Queue_t *const pxQueue = spi->lock;
+    // TaskHandle_t ThisTskHndl = pxQueue->u.xSemaphore.xMutexHolder;
+    // //TaskHandle_t CurTskHndl = xTaskGetCurrentTaskHandle();
+    // TaskStatus_t xTaskDetails;
+    // BaseType_t xGetFreeStackSpace = pdFALSE;
+    // eTaskState eState = eInvalid;
+    // vTaskGetInfo(ThisTskHndl,
+    //                  &xTaskDetails,
+    //                  xGetFreeStackSpace,
+    //                  eState);
+    // unsigned int ThisTaskNumber = (unsigned int)xTaskDetails.xTaskNumber;
+    // bool errorFLG = true;
+    // while (errorFLG)
+    // {
+    //     errorFLG = false;
+        
+    //     if (pxQueue->pcHead != NULL)
+    //     {
+    //         errorFLG = true;
+    //         // printf("***spi->lock->pcHead != NULL***\n"); // printf() wont work here
+    //     }
+    //     if (ThisTskHndl == NULL)
+    //     {
+    //         errorFLG = true;
+    //         // printf("***spi->lock->u.xSemaphore.xMutexHolder == NULL***\n"); // printf() wont work here
+    //     }
+    //     /*JMH Enable this function through MenuConfig; not enabled by default*/
+    //     // vTaskGetInfo(CurTskHndl,
+    //     //              &xTaskDetails,
+    //     //              xGetFreeStackSpace,
+    //     //              eState);
+    //     // unsigned int CurTaskNumber = (unsigned int)xTaskDetails.xTaskNumber;
+    //     //if (ThisTaskNumber == CurTaskNumber)
+    //     // TaskHandle_t CurTskHndl = xTaskGetCurrentTaskHandle();
+    //     // if(ThisTskHndl == CurTskHndl)
+    //     // {
+    //     //    errorFLG = true;
+    //     //    vTaskDelay(4/portTICK_PERIOD_MS);
+    //     // }
+    // }//end while loop
+    // if((unsigned int)ThisTaskNumber == (unsigned int)CurTaskNumber){
+    //     errorFLG = true;
+    //    //printf("***ThisTaskNumber == CurTaskNumber***\n"); // printf() wont work here
+    // }
+    // esp_system_abort(buff);
+    // if((uint64_t)ThisTskHndl == (uint64_t)CurTskHndl)   errorFLG = true;
+    // if(pxQueue->u.xSemaphore.xMutexHolder == xTaskGetCurrentTaskHandle())  errorFLG = true;//printf("spi->lock->u.xSemaphore.xMutexHolder == xTaskGetCurrentTaskHandle()\n");
+    // if (!errorFLG)
+    // {
+        // printf("***SPI_MUTEX_UNLOCK()***\n"); // printf() wont work here
+        //SPI_MUTEX_UNLOCK();
+        xQueueGenericSend( spi->lock, NULL, semGIVE_BLOCK_TIME, queueSEND_TO_BACK );//spi->lock =( QueueHandle_t ) ( xSemaphore )
+        //xSemaphoreGiveFromISR(spi->lock, NULL);
+    // }
 }
 
-void ARDUINO_ISR_ATTR spiWriteByteNL(spi_t * spi, uint8_t data)
+//void ARDUINO_ISR_ATTR spiWriteByteNL(spi_t * spi, uint8_t data)
+//void IRAM_ATTR spiWriteByteNL(spi_t * spi, uint8_t data)
+void spiWriteByteNL(spi_t * spi, uint8_t data)
 {
     if(!spi) {
         return;
