@@ -100,6 +100,7 @@ bool UrTurn = true;
 bool WokeFlg = false;
 bool QuequeFulFlg = false;
 bool mutexFLG =false;
+bool PairFlg = false;
 //bool trapFlg = false;
 volatile int DotClkstate = 0;
 volatile int CurHiWtrMrk = 0;
@@ -277,7 +278,7 @@ void GoertzelHandler(void *param)
   int k;
   int BIAS = 1844; // based reading found when no signal applied to ESP32continuous_adc_init
   int Smpl_CntrA = 0;
-  InitGoertzel(); //make sure the Goertzel Params are setup & ready to go
+  InitGoertzel(); // make sure the Goertzel Params are setup & ready to go
   while (1)
   {
     /* Sleep until we are notified of a state change by an
@@ -302,19 +303,18 @@ void GoertzelHandler(void *param)
         ResetGoertzel();
         /*  ESP_LOGI("TASK_ADC", "ret is %x, ret_num is %"PRIu32" bytes", ret, ret_num);*/
 
-        for (int i = 0; i < Goertzel_SAMPLE_CNT/2; i++) // for (int i = 0; i < ret_num; i += SOC_ADC_DIGI_RESULT_BYTES)
+        for (int i = 0; i < Goertzel_SAMPLE_CNT / 2; i++) // for (int i = 0; i < ret_num; i += SOC_ADC_DIGI_RESULT_BYTES)
         {
           /*Used this approach because I found the ADC data were being returned in alternating order.
           So by taking them a pair at a time,I could restore (& process them) in their true chronological order*/
-          int pos0 = 2*i;
-          int pos1 = pos0+1;
+          int pos0 = 2 * i;
+          int pos1 = pos0 + 1;
           adc_digi_output_data_t *p = (adc_digi_output_data_t *)&result[pos0 * SOC_ADC_DIGI_RESULT_BYTES];
           adc_digi_output_data_t *p1 = (adc_digi_output_data_t *)&result[pos1 * SOC_ADC_DIGI_RESULT_BYTES];
           k = ((int)(p1->type1.data) - BIAS);
           addSmpl(k, pos1, &Smpl_CntrA);
           k = ((int)(p->type1.data) - BIAS);
           addSmpl(k, pos0, &Smpl_CntrA);
-          
         }
         ComputeMags(EvntStart);
         uint16_t curclr = ToneClr();
@@ -323,14 +323,18 @@ void GoertzelHandler(void *param)
           oldclr = curclr;
           tftmsgbx.ShwTone(curclr);
         }
-        /**
-         * Because printing is slow, so every time you call `ulTaskNotifyTake`, it will immediately return.
-         * To avoid a task watchdog timeout, add a delay here. When you replace the way you process the data,
-         * usually you don't need this delay (as this task will block for a while).
-         */
-        // vTaskDelay(1);
-        // ESP_LOGI(TAG1, "SUSPEND GoertzelHandler TASK");
-        // vTaskSuspend(GoertzelTaskHandle);
+
+        // if (PairFlg)
+        // {
+        //   /*Stop decoder while in the pairing process*/
+        //   PairFlg = false;
+        //   ModeCnt = 4;
+        //   ESP_ERROR_CHECK(adc_continuous_stop(adc_handle));
+        //   vTaskSuspend(GoertzelTaskHandle);
+        //   ESP_LOGI(TAG1, "SUSPEND GoertzelHandler TASK");
+        //   vTaskSuspend(CWDecodeTaskHandle);
+        //   ESP_LOGI(TAG1, "SUSPEND CWDecodeTaskHandle TASK");
+        // }
       }
       else if (ret == ESP_ERR_TIMEOUT)
       {
@@ -338,11 +342,13 @@ void GoertzelHandler(void *param)
         /*JMH - This ocassionally happens; Why I'm not sure; But seems to recover & goes on with little fuss*/
         ESP_LOGI(TAG2, "BREAK from GoertzelHandler TASK");
         // break; //Commented out for esp32 decoder task
-      }else{
+      }
+      else
+      {
         ESP_LOGI(TAG2, "NO ADC Data Returned");
       }
     }
-  }// end while(1) loop
+  } // end while(1) loop
   /** JMH Added this to ESP32 version to handle random crashing with error,"Task Goertzel Task should not return, Aborting now" */
   vTaskDelete(NULL);
 }
@@ -407,8 +413,6 @@ void CWDecodeTask(void *param)
     thread_notification = ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
     if (thread_notification)
     {
-      // ESP_LOGI(TAG3, "Start CWDecode TASK");
-      // printf( "Start CWDecode TASK\n\r");
       Dcodeloop();
       /* uncomment for diagnostic testing; graph ADC samples; Note: companion code in addSmpl(int k, int i, int *pCntrA) needs to be uncommented too */
       /* Pull accumulated "ADC sample" values from buffer & print to serial port*/
@@ -432,14 +436,7 @@ void CWDecodeTask(void *param)
       /* END code for diagnostic testing; graph ADC samples; */
       
       xTaskNotifyGive(CWDecodeTaskHandle);
-      /**
-       * Because printing is slow, so every time you call `ulTaskNotifyTake`, it will immediately return.
-       * To avoid a task watchdog timeout, add a delay here. When you replace the way you process the data,
-       * usually you don't need this delay (as this task will block for a while).
-       */
-      // vTaskDelay(1);
-      // ESP_LOGI(TAG1, "SUSPEND CWDecodeTask TASK");
-      // vTaskSuspend(CWDecodeTaskHandle);
+      
     }
     else if (ret == ESP_ERR_TIMEOUT)
     {
@@ -472,6 +469,8 @@ void IRAM_ATTR DotClk_ISR(void *arg);
 
 void pairing_handler(uint32_t pid)
 {
+  PairFlg = true;
+  vTaskDelay(200 / portTICK_PERIOD_MS);
   sprintf(Title, "Please enter the following pairing code,\n");
   tftmsgbx.dispMsg(Title, TFT_WHITE);
   sprintf(Title, "followed with ENTER on your keyboard: \n");
@@ -670,7 +669,18 @@ void app_main()
   {
 #if 1 // 0 = scan codes retrieval, 1 = augmented ASCII retrieval
     /* note: this loop only completes when there is a key enter from the paired/connected Bluetooth Keyboard */
-
+    if(PairFlg){
+      PairFlg = false;
+      if(ModeCnt != 4){
+        ModeCnt = 4;
+        ESP_ERROR_CHECK(adc_continuous_stop(adc_handle));
+        vTaskSuspend(GoertzelTaskHandle);
+        ESP_LOGI(TAG1, "SUSPEND GoertzelHandler TASK");
+        vTaskSuspend(CWDecodeTaskHandle);
+        ESP_LOGI(TAG1, "SUSPEND CWDecodeTaskHandle TASK");
+      }
+    }
+     vTaskDelay(1);//give the watchdogtimer a chance to reset
     if (setupFlg)
     /*if true, exit main loop and jump to "settings" screen */
     {
@@ -706,7 +716,7 @@ void app_main()
     uint8_t key = 0;
 
     if (!bt_keyboard.trapFlg)
-      key = bt_keyboard.wait_for_ascii_char();
+      key = bt_keyboard.wait_for_ascii_char(false);
     
     //EnDsplInt = false; // no longer need timer driven display refresh; As its now being handled in the wait for BT_keybrd entry loop "wait_for_low_event()"
 
@@ -777,7 +787,7 @@ void DsplTmr_callback(TimerHandle_t xtimer)
   //   {
       /* We were able to obtain the semaphore and can now access the
       shared resource. */
-      mutexFLG =true;
+      //mutexFLG =true;
       //tftmsgbx.dispMsg2();
       //vTaskResume(DsplUpDtTaskHandle);
       //configASSERT(DsplUpDtTaskHandle != NULL); // only need the configASSERT() for initial testing 

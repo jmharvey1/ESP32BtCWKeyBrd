@@ -810,16 +810,6 @@ void BTKeyboard::handle_ble_device_result(esp_ble_gap_cb_param_t *param)
 #endif
 }
 
-// void BTKeyboard::pairing_handler(uint32_t pid)
-// {
-//   sprintf(msgbuf, "Please enter the following pairing code,\n");
-//   pmsgbx->dispMsg(msgbuf, TFT_WHITE);
-//   sprintf(msgbuf, "followed with ENTER on your keyboard: \n");
-//   pmsgbx->dispMsg(msgbuf, TFT_WHITE);
-//   sprintf(msgbuf, "%d \n", (int)pid);
-//   pmsgbx->dispMsg(msgbuf, TFT_BLUE);
-// }
-
 void BTKeyboard::ble_gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param)
 {
   switch (event)
@@ -1544,8 +1534,8 @@ void BTKeyboard::hidh_callback(void *handler_args, esp_event_base_t base, int32_
                  param->input.length,
                  databuf1);         
         ESP_LOG_BUFFER_HEX_LEVEL(TAG, param->input.data, param->input.length, ESP_LOG_DEBUG);
-        if((cntr != 6) && !bt_keyboard->trapFlg) bt_keyboard->push_key(param->input.data, param->input.length);
-        else if(bt_keyboard->trapFlg){
+        if((cntr != 6) && !bt_keyboard->trapFlg) bt_keyboard->push_key(param->input.data, param->input.length);// normal path when keystroke data is good/usuable
+        else if(bt_keyboard->trapFlg){// path used to test for data corruption recovery 
           if(param->input.length == 1){
             bt_keyboard->trapFlg = false;
             xSemaphoreGive(mutex);
@@ -1564,26 +1554,11 @@ void BTKeyboard::hidh_callback(void *handler_args, esp_event_base_t base, int32_
           {
             printf("!!! DATA BLOCKED !!!\n");
           }
-          xSemaphoreGive(mutex);
+          xSemaphoreGive(mutex);//we're likely going to be stuck for awhile. So let the other parts of the program conitnue (i.e. send whats in the cw buffer)
           while(clrbuf){
             vTaskDelay(100/portTICK_PERIOD_MS);
           }
           if(talk) printf("WAITING FOR SOMETHING GOOD TO HAPPEN\n");
-          
-          // while(1){
-          //   vTaskDelay(100/portTICK_PERIOD_MS);
-          // }
-          //bt_keyboard->devices_scan(2);
-          //vTaskDelay(6000/portTICK_PERIOD_MS);
-          // if (bt_keyboard->setup(pairing_handler))
-          // {                             // Must be called once
-          //    bt_keyboard->devices_scan(2); // Required to discover new keyboards and for pairing
-                                // Default duration is 5 seconds
-          // }
-          // else
-          // {
-          //   printf("\n*******  RESTART!  ******\n** NO KEYBOARD PAIRED ***\n");
-          // }
           xSemaphoreTake(mutex, portMAX_DELAY);
         }
         break;
@@ -1656,6 +1631,7 @@ char BTKeyboard::wait_for_ascii_char(bool forever)
   // printf( "**  wait_for_ascii_cha\n");//for testing/debugging
   while (true)
   {
+    repeat_period = pdMS_TO_TICKS(120);
     if (!wait_for_low_event(inf, (last_ch == 0) ? (forever ? portMAX_DELAY : 0) : repeat_period))
     {
       repeat_period = pdMS_TO_TICKS(120);
