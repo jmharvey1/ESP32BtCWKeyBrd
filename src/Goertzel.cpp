@@ -537,11 +537,11 @@ void Chk4KeyDwn(float NowLvl)
 				OldKeyState = KeyState;
 				GlthCnt = 0;
 				//KeyEvntSR(state, EvntTime);
-				KeyEvntSR(state, TmpEvntTime);
+				KeyEvntSR(Sentstate, TmpEvntTime);
 			}
 		} 
 	}
-	if(KeyState< -1000) chkChrCmplt();//key is up
+	if(Sentstate) chkChrCmplt();//key is up
 	else SetLtrBrk();//key is down
 	
 	
@@ -624,9 +624,6 @@ uint16_t ToneClr(void)
 	uint8_t r = LEDRED;
 	uint8_t g = LEDGREEN;
 	uint8_t b = LEDBLUE;
-	// char PlotTxt[70];
-	// sprintf(PlotTxt, "r: %d\tg: %d\tb: %d\tLVL: %d\n", (int)r, (int)g, (int)b, (int)LightLvl);//, ltrCmplt
-	// printf(PlotTxt);
 	uint16_t color = ((r & 0xF8) << 8) | ((g & 0xF8) << 3) | (b >> 3);
 	return color;
 }

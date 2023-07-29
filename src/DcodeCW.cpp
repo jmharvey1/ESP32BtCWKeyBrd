@@ -7,7 +7,8 @@
  * 20221025 made changes to timing/parsing routines to improve Bug3 (cootie) decoding
  * 20230609 Added code to the KEYISR to improve recovery/WPM tracking from slow to fast CW
  * 20230617 To support advanced DcodeCW "Bug" processes, reworked dispMsg(char Msgbuf[50]) to handle "delete" character condition
- * 20230711 minor tweaks to concatenate processes to imporve delete character managment
+ * 20230711 minor tweaks to concatenate processes to improve delete character managment
+ * 20230729 Changed letter break scheme to now be driven from the Goertzel side of the house 
  */
 
 //#include <SetUpCwDecoder.h>
@@ -300,7 +301,7 @@ void KeyEvntSR(uint8_t Kstate, unsigned long EvntTime)
 	XspctLo = true;
 	XspctHi = true;
 	/* See if we can obtain the semaphore.  If the semaphore is not available, wait 12 ticks to see if it becomes free. */
-	if (xSemaphoreTake(DeCodeVal_mutex, (TickType_t)12) == pdFALSE)
+	if (xSemaphoreTake(DeCodeVal_mutex, portMAX_DELAY) == pdFALSE) //(TickType_t)12
 	{
 		/* failed obtain the semaphore. So abort */
 		/* Which will normally happen, when we are actively sending CW via the BT Keyboard*/
@@ -1033,7 +1034,7 @@ void Dcodeloop(void)
 		/* We were able to obtain the semaphore and can now access the shared resource. */
 
 		ChkDeadSpace();
-		SetLtrBrk();
+		// SetLtrBrk();
 		if (CalcDitFlg)
 		{ // moved this from interrupt routine to reduce time needed to process interupts
 			CalcDitFlg = false;
@@ -1272,10 +1273,10 @@ void SetLtrBrk(void)
 	unsigned long ltrBrka;
 	unsigned long ltrBrkb;
 	char tmpbuf[150];
-	if (!LtrBrkFlg)
+	/* if (!LtrBrkFlg)
 		return;
 	// Just detected the start of a new keyUp event
-	LtrBrkFlg = false;
+	LtrBrkFlg = false; */
 	if (Bug3)
 	{
 		if (LtrCntr < 9)
@@ -1359,7 +1360,8 @@ void SetLtrBrk(void)
 	// sprintf(tmpbuf,"%s",PrntBuf);
 	// sprintf(PrntBuf,"%s\t%lu; %lu; %lu; %lu; %lu\n\r ", tmpbuf, ltrBrk, SpaceStk[Bitpos-1], space, avgDeadSpace, avgDah);
 	//	printf(PrntBuf);
-	letterBrk = ltrBrk + noSigStrt; // set the next letter break "time stamp"
+	//letterBrk = ltrBrk + noSigStrt; // set the next letter break "time stamp"
+	letterBrk = ltrBrk + pdTICKS_TO_MS(xTaskGetTickCount());//ESP32/Goertzel driven method		
 
 	// if (BugMode) letterBrk = letterBrk + 0.8 * avgDit ;//20200306 removed to reduce having to deal with multi letter sysmbols
 	if (NuWrd && NuWrdflg)
@@ -2217,8 +2219,8 @@ void dispMsg(char Msgbuf[50]) {
 	}
 	LtrCntr = 0;
 	ChkDeadSpace();
-	SetLtrBrk();
-	chkChrCmplt();
+	// SetLtrBrk();
+	// chkChrCmplt();
 }
 //////////////////////////////////////////////////////////////////////
 // void scrollpg() {
