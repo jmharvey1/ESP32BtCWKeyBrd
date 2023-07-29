@@ -387,7 +387,7 @@ const char DicTbl2[ARSIZE2][6]={
 
 ////////////////////////////////////////////////////////////////////////////
 void StartDecoder(TFTMsgBox *pttftmsgbx);
-void KeyEvntSR(uint8_t state, unsigned long EvntTime);// keydown state =0; Keyup state = 1
+void KeyEvntSR(uint8_t Kstate, unsigned long EvntTime);// keydown state =0; Keyup state = 1
 void Dcodeloop(void);
 void WPMdefault(void);
 void ChkDeadSpace(void);
@@ -402,7 +402,7 @@ int Srch4Match(unsigned int decodeval, bool DpScan);
 int linearSearchBreak(long val, unsigned int arr[], int sz);
 int linearSrchChr(char val, char arr[ARSIZE][2], int sz);
 void dispMsg(char Msgbuf[50]);
-void scrollpg(void);
+//void scrollpg(void); //not needed in ESP32 version
 void DrawButton(void);
 void DrawButton2(void);
 void ModeBtn(void);

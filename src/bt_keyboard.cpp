@@ -1116,10 +1116,12 @@ void BTKeyboard::devices_scan(int seconds_wait_time)
       }
       r = r->next;
     }
+    
     if (cr)
     {
       // open the last result
-
+      bt_keyboard->PairFlg = true;//JMH probably not the smartest place to put this
+      vTaskDelay(200/portTICK_PERIOD_MS);//pause long enough for flag change to take effect
       sprintf(msgbuf, "Enter PAIRING code for %s\n", cr->name);
 
       esp_hidh_dev_open(cr->bda, cr->transport, cr->ble.addr_type);
@@ -1148,171 +1150,7 @@ void BTKeyboard::devices_scan(int seconds_wait_time)
     }
   }
 }
-/*ORIGINAL METHOD BELOW*/
-// void
-// BTKeyboard::devices_scan( int seconds_wait_time)
-// {
-//   size_t results_len = 0;
-//   esp_hid_scan_result_t *results = NULL;
-//   ESP_LOGV(TAG, "SCAN...");
 
-//   //start scan for HID devices
-
-//   esp_hid_scan(seconds_wait_time, &results_len, &results);
-//   ESP_LOGV(TAG, "SCAN: %u results", results_len);
-//   if (results_len) {
-//     esp_hid_scan_result_t *r = results;
-//     esp_hid_scan_result_t *cr = NULL;
-//     while (r) {
-//       printf("  %s: " ESP_BD_ADDR_STR ", ", (r->transport == ESP_HID_TRANSPORT_BLE) ? "BLE" : "BT ", ESP_BD_ADDR_HEX(r->bda));
-//       printf("RSSI: %d, ", r->rssi);
-//       printf("USAGE: %s, ", esp_hid_usage_str(r->usage));
-//       if (r->transport == ESP_HID_TRANSPORT_BLE) {
-//         cr = r;
-//         printf("APPEARANCE: 0x%04x, ", r->ble.appearance);
-//         printf("ADDR_TYPE: '%s', ", ble_addr_type_str(r->ble.addr_type));
-//       }
-//       if (r->transport == ESP_HID_TRANSPORT_BT) {
-//         cr = r;
-//         printf("COD: %s[", esp_hid_cod_major_str(r->bt.cod.major));
-//         esp_hid_cod_minor_print(r->bt.cod.minor, stdout);
-//         printf("] srv 0x%03x, ", r->bt.cod.service);
-//         print_uuid(&r->bt.uuid);
-//         printf(", ");
-//       }
-//       printf("NAME: %s ", r->name ? r->name : "");
-//       printf("\n");
-//       r = r->next;
-//     }
-//     if (cr) {
-//       //open the last result
-//       esp_hidh_dev_open(cr->bda, cr->transport, cr->ble.addr_type);
-//     }
-//     //free the results
-//     esp_hid_scan_results_free(results);
-//   }
-// }
-
-// void BTKeyboard::devices_scan(int seconds_wait_time)
-// {
-//   size_t results_len = 0;
-//   esp_hid_scan_result_t *results = NULL;
-//   OpnEvntFlg = false;
-//   ESP_LOGV(TAG, "SCAN...");
-//   if (pDFault->DeBug)
-//   {
-//     sprintf(msgbuf, "SCAN...");
-//     pmsgbx->dispMsg(msgbuf, TFT_WHITE);
-//   }
-
-//   // start scan for HID devices
-
-//   esp_hid_scan(seconds_wait_time, &results_len, &results);
-//   ESP_LOGV(TAG, "SCAN: %u results", results_len);
-//   if (pDFault->DeBug)
-//   {
-//     sprintf(msgbuf, "SCAN: %u results\n", results_len);
-//     pmsgbx->dispMsg(msgbuf, TFT_WHITE);
-//   }
-//   if (results_len)
-//   {
-//     esp_hid_scan_result_t *r = results;
-//     esp_hid_scan_result_t *cr = NULL;
-//     while (r)
-//     {
-//       printf("  %s: " ESP_BD_ADDR_STR ", ", (r->transport == ESP_HID_TRANSPORT_BLE) ? "BLE" : "BT ", ESP_BD_ADDR_HEX(r->bda));
-//       // if (pDFault->DeBug)
-//       // {
-//       //   sprintf(msgbuf, "  %s: " ESP_BD_ADDR_STR ", ", (r->transport == ESP_HID_TRANSPORT_BLE) ? "BLE" : "BT ", ESP_BD_ADDR_HEX(r->bda));
-//       //   pmsgbx->dispMsg(msgbuf, TFT_WHITE);
-//       // }
-//       printf("RSSI: %d, ", r->rssi);
-//       // if (pDFault->DeBug)
-//       // {
-//       //   sprintf(msgbuf, "RSSI: %d, ", r->rssi);
-//       //   pmsgbx->dispMsg(msgbuf, TFT_WHITE);
-//       // }
-//       printf("USAGE: %s, ", esp_hid_usage_str(r->usage));
-//       // if (pDFault->DeBug)
-//       // {
-//       //   sprintf(msgbuf, "USAGE: %s, ", esp_hid_usage_str(r->usage));
-//       //   pmsgbx->dispMsg(msgbuf, TFT_WHITE);
-//       // }
-//       if (r->transport == ESP_HID_TRANSPORT_BLE)
-//       {
-//         cr = r;
-//         printf("APPEARANCE: 0x%04x, ", r->ble.appearance);
-//         // if (pDFault->DeBug)
-//         // {
-//         //   sprintf(msgbuf, "APPEARANCE: 0x%04x, ", r->ble.appearance);
-//         //   pmsgbx->dispMsg(msgbuf, TFT_WHITE);
-//         // }
-//         printf("ADDR_TYPE: '%s', ", ble_addr_type_str(r->ble.addr_type));
-//         // if (pDFault->DeBug)
-//         // {
-//         //   sprintf(msgbuf, "ADDR_TYPE: '%s', ", ble_addr_type_str(r->ble.addr_type));
-//         //   pmsgbx->dispMsg(msgbuf, TFT_WHITE);
-//         // }
-//       }
-//       if (r->transport == ESP_HID_TRANSPORT_BT)
-//       {
-//         cr = r;
-//         printf("COD: %s[", esp_hid_cod_major_str(r->bt.cod.major));
-//         // if (pDFault->DeBug)
-//         // {
-//         //   sprintf(msgbuf, "COD: %s[", esp_hid_cod_major_str(r->bt.cod.major));
-//         //   pmsgbx->dispMsg(msgbuf, TFT_WHITE);
-//         // }
-//         esp_hid_cod_minor_print(r->bt.cod.minor, stdout);
-
-//         printf("] srv 0x%03x, ", r->bt.cod.service);
-//         // if (pDFault->DeBug)
-//         // {
-//         //   sprintf(msgbuf, "] srv 0x%03x, ", r->bt.cod.service);
-//         //   pmsgbx->dispMsg(msgbuf, TFT_WHITE);
-//         // }
-//         print_uuid(&r->bt.uuid);
-//         printf(", ");
-//         // if (pDFault->DeBug)
-//         // {
-//         //   sprintf(msgbuf, ", ");
-//         //   pmsgbx->dispMsg(msgbuf, TFT_WHITE);
-//         // }
-//       }
-//       printf("NAME: %s ", r->name ? r->name : "");
-//       printf("\n");
-//       if (pDFault->DeBug)
-//       {
-//         sprintf(msgbuf, "NAME: %s\n", r->name ? r->name : "");
-//         pmsgbx->dispMsg(msgbuf, TFT_WHITE);
-//       }
-//       r = r->next;
-//     }
-//     if (cr)
-//     {
-//       // open the last result
-//       esp_hidh_dev_open(cr->bda, cr->transport, cr->ble.addr_type);
-//       sprintf(msgbuf, "%s READY...\n", r->name ? r->name : "");
-//       pmsgbx->dispMsg(msgbuf, TFT_GREEN);
-//     }else
-//     {
-//       sprintf(msgbuf, "KeyBroard NOT found...\n");
-//       pmsgbx->dispMsg(msgbuf, TFT_YELLOW);
-//     }
-//     // free the results
-//     esp_hid_scan_results_free(results);
-//   }else
-//     {
-//       if(OpnEvntFlg){
-//         sprintf(msgbuf, "Keyboard Ready...\n");
-//         pmsgbx->dispMsg(msgbuf, TFT_YELLOW);
-//       }else{
-//         sprintf(msgbuf, "No BT Devices found...\n");
-//         pmsgbx->dispMsg(msgbuf, TFT_YELLOW);
-//       }
-
-//     }
-// }
 
 void BTKeyboard::hidh_callback(void *handler_args, esp_event_base_t base, int32_t id, void *event_data)
 {
@@ -1538,9 +1376,10 @@ void BTKeyboard::hidh_callback(void *handler_args, esp_event_base_t base, int32_
         else if(bt_keyboard->trapFlg){// path used to test for data corruption recovery 
           if(param->input.length == 1){
             bt_keyboard->trapFlg = false;
-            xSemaphoreGive(mutex);
+            
             bt_keyboard->pmsgbx->dispStat("KEYBOARD READY", TFT_GREEN);
-            vTaskDelay(100/portTICK_PERIOD_MS);
+            xSemaphoreGive(mutex);
+            vTaskDelay(200/portTICK_PERIOD_MS);
             xSemaphoreTake(mutex, portMAX_DELAY);
           }
           break;
@@ -1550,14 +1389,14 @@ void BTKeyboard::hidh_callback(void *handler_args, esp_event_base_t base, int32_
           /*Keybrd data is corrupt. So sit and wait while send buffer contents is completeS*/
           bt_keyboard->trapFlg = true;
           bt_keyboard->pmsgbx->dispStat("!!! KEYBOARD BLOCKED !!!", TFT_RED);
-         if (talk)
+          if (talk)
           {
             printf("!!! DATA BLOCKED !!!\n");
           }
           xSemaphoreGive(mutex);//we're likely going to be stuck for awhile. So let the other parts of the program conitnue (i.e. send whats in the cw buffer)
-          while(clrbuf){
-            vTaskDelay(100/portTICK_PERIOD_MS);
-          }
+          //while(clrbuf){
+            vTaskDelay(200/portTICK_PERIOD_MS);
+          //}
           if(talk) printf("WAITING FOR SOMETHING GOOD TO HAPPEN\n");
           xSemaphoreTake(mutex, portMAX_DELAY);
         }
@@ -1631,7 +1470,7 @@ char BTKeyboard::wait_for_ascii_char(bool forever)
   // printf( "**  wait_for_ascii_cha\n");//for testing/debugging
   while (true)
   {
-    repeat_period = pdMS_TO_TICKS(120);
+    //repeat_period = pdMS_TO_TICKS(120);
     if (!wait_for_low_event(inf, (last_ch == 0) ? (forever ? portMAX_DELAY : 0) : repeat_period))
     {
       repeat_period = pdMS_TO_TICKS(120);
@@ -1653,11 +1492,12 @@ char BTKeyboard::wait_for_ascii_char(bool forever)
 
     char ch = inf.keys[k];
     /*JMH: uncomment the following to expose key entry values*/
-    /* char buf[20];
+    char buf[20];
     if((inf.keys[0] != (uint8_t)0) || (inf.keys[1] != (uint8_t)0) || (inf.keys[0] != (uint8_t)0) || ((uint8_t)inf.modifier != (uint8_t)0)){
-      sprintf(buf, "%d; %d; %d; %d\n", inf.keys[0], inf.keys[1], inf.keys[2], (uint8_t)inf.modifier);
-      pmsgbx->dispMsg(buf, TFT_GOLD);
-    } */
+      // sprintf(buf, "%02x; %02x; %02x; %02x\n", inf.keys[0], inf.keys[1], inf.keys[2], (uint8_t)inf.modifier);
+      // printf(buf);//print to computer
+      // pmsgbx->dispMsg(buf, TFT_GOLD); //print to LCD Display
+    }
     /* special test for TAB */
     if (inf.keys[0] == 43 && ((uint8_t)inf.modifier == 0))
     {
@@ -1684,12 +1524,12 @@ char BTKeyboard::wait_for_ascii_char(bool forever)
       return last_ch = 0x9C;
     }
     /* special test for ctr+'f' */
-    if (((uint8_t)inf.modifier == 1|| (uint8_t)inf.modifier == 16) && (inf.keys[0] == 9))
+    if (((uint8_t)inf.modifier == 1|| (uint8_t)inf.modifier == 16) && ((inf.keys[0] == 9) || (inf.keys[1] == 9)))
     {
       return last_ch = 0x9D;
     }
     /* special test for Left ctr+'d' */
-    if (((uint8_t)inf.modifier == 1) && (inf.keys[0] == 7))
+    if (((uint8_t)inf.modifier == 1) && ((inf.keys[0] == 7) || (inf.keys[1] == 7)))
     {
       return last_ch = 0x9E;
     }
@@ -1704,7 +1544,7 @@ char BTKeyboard::wait_for_ascii_char(bool forever)
       return last_ch = 0xA2;
     }
     /* special test for ctr+'p' */
-    if (((uint8_t)inf.modifier == 1|| (uint8_t)inf.modifier == 16) && (inf.keys[0] == 19))
+    if (((uint8_t)inf.modifier == 1|| (uint8_t)inf.modifier == 16) && ((inf.keys[0] == 0x13) || (inf.keys[1] == 0x13)))
     {
       return last_ch = 0x9F;
     }

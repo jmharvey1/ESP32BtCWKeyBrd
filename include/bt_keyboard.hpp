@@ -64,6 +64,7 @@ class BTKeyboard
       uint8_t     keys[MAX_KEY_COUNT];
     };
     bool trapFlg;
+    bool PairFlg;
 
   private:
 
@@ -187,6 +188,7 @@ class BTKeyboard
       pmsgbx = msgbx_ptr;//used mainly for error & debug reporting + scan/pairing reorting
       pDFault = Dft_ptr;
       trapFlg = false;
+      PairFlg = false;
     }
 
     bool setup(pid_handler * handler = nullptr);

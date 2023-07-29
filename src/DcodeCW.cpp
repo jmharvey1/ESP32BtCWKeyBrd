@@ -72,7 +72,7 @@ int cursorY = 0;
 int cursorX = 0;
 int wpm = 0;
 int lastWPM = 0;
-int state = 0;
+int Pstate = 0;
 //int RfshFlg = 0; //no longer needed here; now done in Goertzel.cpp
 //int DeBug = 0;
 int TDBptr = 0;
@@ -287,14 +287,15 @@ void StartDecoder(TFTMsgBox *pttftmsgbx)
 /////////////////////////////////////////
 
 /* PB13 KeyIN interrupt routine. */
-void KeyEvntSR(uint8_t state, unsigned long EvntTime)
-{ // keydown state =0; Keyup state = 1;
-	LclKeyState = state;
+void KeyEvntSR(uint8_t Kstate, unsigned long EvntTime)
+{ // keydown Kstate =0; Keyup Kstate = 1;
+	//LclKeyState = Kstate;// moved this to getupdated after the chkChrCmplt() to prevent premature passing, when in affect the key just opened
 	char tmpbuf[50];
 	// EvntStart = pdTICKS_TO_MS(xTaskGetTickCount()); //This is now hapening in main.GoertzelHandler(void *param) when the adc signals that the sample group is ready for processing
 	ChkDeadSpace();
-	SetLtrBrk();
-	chkChrCmplt();
+	//if(Kstate) SetLtrBrk(); //if this is a key"UP" [i.e.Kstate= 1] event, recalculate the current letter break interval & update the time stamp for the next letter break
+	//chkChrCmplt();
+	LclKeyState = Kstate;
 	// uint8_t state = (uint8_t)HAL_GPIO_ReadPin (GPIOB, GPIO_PIN_13);
 	XspctLo = true;
 	XspctHi = true;
@@ -313,7 +314,7 @@ void KeyEvntSR(uint8_t state, unsigned long EvntTime)
 	{
 		blocked = true;
 		
-		if (state == LOW && XspctLo)
+		if (Kstate == LOW && XspctLo)
 		{					   // key-down event
 			start1 = EvntTime; // HAL_GetTick();//used/saved in case recovery is needed
 			if (((EvntTime - noSigStrt) < 15) && (wpm < 35))
@@ -511,7 +512,7 @@ void KeyEvntSR(uint8_t state, unsigned long EvntTime)
 			return;
 			/*****   end of "keydown" processing ******/
 		}
-		else if (state == HIGH && XspctHi)
+		else if (Kstate == HIGH && XspctHi)
 		{ // "Key Up" event/evaluations;
 			int prob = 0;
 			if (DeCodeVal == 0)
@@ -529,15 +530,15 @@ void KeyEvntSR(uint8_t state, unsigned long EvntTime)
 				noSigStrt = EvntTime;
 				// Prtflg = true; //enable or uncomment for diagnostic testing
 				if (STart != 0)
-					period = (noSigStrt - STart); //+4;//jmh 20230706 added this corection value for ESP32;
+					period = (noSigStrt - STart)+4; //+4;//jmh 20230706 added this corection value for ESP32;
 				else
-					period = (noSigStrt - AltSTart); //+4;//jmh 20230706 added this corection value for ESP32; // Something weird happened so use backup start value
+					period = (noSigStrt - AltSTart)+4; //+4;//jmh 20230706 added this corection value for ESP32; // Something weird happened so use backup start value
 
 				if (prob)
 				{
 					prob = 0;
 					STart = start1;
-					period = (noSigStrt - STart); //+4;//jmh 20230706 added this corection value for ESP32
+					period = (noSigStrt - STart)+4; //+4;//jmh 20230706 added this corection value for ESP32
 				}
 				lastDit1 = period;
 				WrdStrt = noSigStrt;
@@ -1369,7 +1370,7 @@ void SetLtrBrk(void)
 }
 ////////////////////////////////////////////////////////////////////////
 void chkChrCmplt(void) {
-	state = 0;
+	Pstate = 0;
 	unsigned long Now = pdTICKS_TO_MS(xTaskGetTickCount());//(GetTimr5Cnt()/10);
 	if((Now - letterBrk1) > 35000) letterBrk1 = Now - 10000;// keep "letterBrk1" from becoming an absurdly large value
 	//check to see if enough time has passed since the last key closure to signify that the character is complete
@@ -1378,7 +1379,7 @@ void chkChrCmplt(void) {
 		return;
 	}
 	if ((Now >= letterBrk) && letterBrk != 0 && DeCodeVal > 1) {
-		state = 1; //have a complete letter
+		Pstate = 1; //have a complete letter
 		ltrCmplt = -3000;
 		letterBrk1 = letterBrk;
 		/*testing only; comment out when running normally*/
@@ -1392,7 +1393,7 @@ void chkChrCmplt(void) {
 	if ((noKeySig >= 0.75 * ((float)wordBrk) ) && noSigStrt != 0 && !wordBrkFlg && (DeCodeVal == 0)) {
 		//printf(wordBrk);
 		//printf("\t");
-		state = 2;//have word
+		Pstate = 2;//have word
 
 		wordStrt = noSigStrt;
 		if ( DeCodeVal == 0) {
@@ -1412,13 +1413,13 @@ void chkChrCmplt(void) {
 	//    printf("; ");
 	//  }
 
-	if (state == 0) {
+	if (Pstate == 0) {
 		if ((unsigned long)noKeySig > MaxDeadTime && noKeySig < 7 * avgDeadSpace ) MaxDeadTime = (unsigned long)noKeySig;
 		return;
 	}
 	else {
 
-		if (state >= 1) { //if(state==1){
+		if (Pstate >= 1) { //if(state==1){
 
 			if (DeCodeVal >= 2) {
 				int i = 0;
@@ -1452,7 +1453,7 @@ void chkChrCmplt(void) {
 				}
 			}
 			//      printf("DeCodeVal = ");  USBprintIntln(DeCodeVal);
-			if (state == 2) {
+			if (Pstate == 2) {
 				int i = 0;
 				while (CodeValBuf[i] > 0) ++i; // move buffer pointer to 1st available empty array position
 				CodeValBuf[i] = 255; //insert space in text to create a word break
@@ -2204,9 +2205,9 @@ void dispMsg(char Msgbuf[50]) {
 			cursorY = curRow * (fontH + 10);
 			offset = cnt;
 			//tft.setCursor(cursorX, cursorY);//for esp32 version this will be handled elsewhere.
-			if (curRow + 1 > row) {
-				scrollpg();
-			}
+			// if (curRow + 1 > row) {
+			// 	scrollpg();
+			// }
 		}
 		else{
 			cursorX = (cnt - offset) * fontW;
@@ -2220,45 +2221,45 @@ void dispMsg(char Msgbuf[50]) {
 	chkChrCmplt();
 }
 //////////////////////////////////////////////////////////////////////
-void scrollpg() {
-/* for the ESP32 BT Keybrd & CW decoder version this function will be addressed elesewhere
-	SO commented out references to 'tft.' to keep the esp32 compiler happy*/	
-  //buttonEnabled =false;
-  curRow = 0;
-  cursorX = 0;
-  cursorY = 0;
-  cnt = 0;
-  offset = 0;
-  //enableDisplay(); // Not needed forESP32. This is a Blackpill/TouchScreen thing
-  //tft.fillRect(cursorX, cursorY, displayW, row * (fontH + 10), BLACK); //erase current page of text
-  //tft.setCursor(cursorX, cursorY);
-  while (Pgbuf[cnt] != 0 && curRow + 1 < row) { //print current page buffer and move current text up one line
-    ChkDeadSpace();
-    SetLtrBrk();
-    chkChrCmplt();
-    //tft.print(Pgbuf[cnt]);
-//    if (displayW == 480) Pgbuf[cnt] = Pgbuf[cnt + 40]; //shift existing text character forward by one line
-//    else Pgbuf[cnt] = Pgbuf[cnt + 27]; //shift existing text character forward by one line
-    Pgbuf[cnt] = Pgbuf[cnt + CPL]; //shift existing text character forward by one line
-    cnt++;
-    //delay(300);
-    if (((cnt) - offset)*fontW >= displayW) {
-      curRow++;
-      offset = cnt;
-      cursorX = 0;
-      cursorY = curRow * (fontH + 10);
-      //tft.setCursor(cursorX, cursorY);
-    }
-    else cursorX = (cnt - offset) * fontW;
+// void scrollpg() {
+// /* for the ESP32 BT Keybrd & CW decoder version this function will be addressed elesewhere
+// 	SO commented out references to 'tft.' to keep the esp32 compiler happy*/	
+//   //buttonEnabled =false;
+//   curRow = 0;
+//   cursorX = 0;
+//   cursorY = 0;
+//   cnt = 0;
+//   offset = 0;
+//   //enableDisplay(); // Not needed forESP32. This is a Blackpill/TouchScreen thing
+//   //tft.fillRect(cursorX, cursorY, displayW, row * (fontH + 10), BLACK); //erase current page of text
+//   //tft.setCursor(cursorX, cursorY);
+//   while (Pgbuf[cnt] != 0 && curRow + 1 < row) { //print current page buffer and move current text up one line
+//     ChkDeadSpace();
+//     SetLtrBrk();
+//     chkChrCmplt();
+//     //tft.print(Pgbuf[cnt]);
+// //    if (displayW == 480) Pgbuf[cnt] = Pgbuf[cnt + 40]; //shift existing text character forward by one line
+// //    else Pgbuf[cnt] = Pgbuf[cnt + 27]; //shift existing text character forward by one line
+//     Pgbuf[cnt] = Pgbuf[cnt + CPL]; //shift existing text character forward by one line
+//     cnt++;
+//     //delay(300);
+//     if (((cnt) - offset)*fontW >= displayW) {
+//       curRow++;
+//       offset = cnt;
+//       cursorX = 0;
+//       cursorY = curRow * (fontH + 10);
+//       //tft.setCursor(cursorX, cursorY);
+//     }
+//     else cursorX = (cnt - offset) * fontW;
 
-  }//end While Loop
-  while (Pgbuf[cnt] != 0) { //finish cleaning up last line
-    chkChrCmplt();
-    //tft.print(Pgbuf[cnt]);
-    Pgbuf[cnt] = Pgbuf[cnt + 26];
-    cnt++;
-  }
-}
+//   }//end While Loop
+//   while (Pgbuf[cnt] != 0) { //finish cleaning up last line
+//     chkChrCmplt();
+//     //tft.print(Pgbuf[cnt]);
+//     Pgbuf[cnt] = Pgbuf[cnt + 26];
+//     cnt++;
+//   }
+// }
 /////////////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////

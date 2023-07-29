@@ -27,7 +27,10 @@
 /*20230715 minor tweaks */
 /*20230719 added "noreturn" patch to crash handler code and removed printf() calls originally in IRAM_ATTR DotClk_ISR(void *arg)*/
 /*20230721 Moved project to github*/
-/*20230721 Fixed Crash issue related to BT Keyboard sending corrupted keystroke data; fix mostly containg bt_keyboard.hid callback code*/
+/*20230727 Fixed Crash issue related to BT Keyboard sending corrupted keystroke data; fix mostly containg bt_keyboard.hid callback code*/
+/*20230727 Reworked pairing code & mail code to avoid watchdog timer crashes*/
+/*20230728 reworked code to improve pairing of multiple keyboard */
+/*20230729 added calls to DcodeCW SetLtrBrk() & chkChrCmplt() to ensure that the letter break gets refreshed with each ADC update (i.e., every 4ms)*/
 #include "sdkconfig.h" //added for timer support
 #include "globals.h"
 #include "main.h"
@@ -84,7 +87,7 @@ DF_t DFault;
 int DeBug = 1; // Debug factory default setting; 0 => Debug "OFF"; 1 => Debug "ON"
 char StrdTxt[20] = {'\0'};
 /*Factory Default Settings*/
-char RevDate[9] = "20230727";
+char RevDate[9] = "20230729";
 char MyCall[10] = {'K', 'W', '4', 'K', 'D'};
 char MemF2[80] = "VVV VVV TEST DE KW4KD";
 char MemF3[80] = "CQ CQ CQ DE KW4KD KW4KD";
@@ -100,7 +103,7 @@ bool UrTurn = true;
 bool WokeFlg = false;
 bool QuequeFulFlg = false;
 bool mutexFLG =false;
-bool PairFlg = false;
+//bool PairFlg = false;
 //bool trapFlg = false;
 volatile int DotClkstate = 0;
 volatile int CurHiWtrMrk = 0;
@@ -168,7 +171,8 @@ bool IRAM_ATTR s_conv_done_cb(adc_continuous_handle_t handle, const adc_continuo
   // Notify GoertzelTaskHandle that the buffer is full.
 
   /* At this point GoertzelTaskHandle should not be NULL as a ADC conversion completed. */
-  configASSERT(GoertzelTaskHandle != NULL);
+  //configASSERT(GoertzelTaskHandle != NULL);
+  EvntStart = pdTICKS_TO_MS(xTaskGetTickCount());
   vTaskNotifyGiveFromISR(GoertzelTaskHandle, &xHigherPriorityTaskWoken); // start Goertzel Task
   portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
   
@@ -179,7 +183,7 @@ bool IRAM_ATTR s_conv_done_cb(adc_continuous_handle_t handle, const adc_continuo
   // portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
   return (xHigherPriorityTaskWoken == pdTRUE);
 }
-/*Code needed  to setup & initialize DMA ADC process */
+/* Setup & initialize DMA ADC process */
 static void continuous_adc_init(adc_channel_t *channel, uint8_t channel_num, adc_continuous_handle_t *out_handle)
 {
   adc_continuous_handle_t handle = NULL;
@@ -293,7 +297,7 @@ void GoertzelHandler(void *param)
     if (thread_notification)
     { // Goertzel data samples ready for processing
 
-      EvntStart = pdTICKS_TO_MS(xTaskGetTickCount());
+      //EvntStart = pdTICKS_TO_MS(xTaskGetTickCount());
       /* the following 2 lines are for diagnostic testing only*/
       // SmpIntrl = EvntStart - LstNw;
       // LstNw = EvntStart;
@@ -323,18 +327,6 @@ void GoertzelHandler(void *param)
           oldclr = curclr;
           tftmsgbx.ShwTone(curclr);
         }
-
-        // if (PairFlg)
-        // {
-        //   /*Stop decoder while in the pairing process*/
-        //   PairFlg = false;
-        //   ModeCnt = 4;
-        //   ESP_ERROR_CHECK(adc_continuous_stop(adc_handle));
-        //   vTaskSuspend(GoertzelTaskHandle);
-        //   ESP_LOGI(TAG1, "SUSPEND GoertzelHandler TASK");
-        //   vTaskSuspend(CWDecodeTaskHandle);
-        //   ESP_LOGI(TAG1, "SUSPEND CWDecodeTaskHandle TASK");
-        // }
       }
       else if (ret == ESP_ERR_TIMEOUT)
       {
@@ -469,8 +461,8 @@ void IRAM_ATTR DotClk_ISR(void *arg);
 
 void pairing_handler(uint32_t pid)
 {
-  PairFlg = true;
-  vTaskDelay(200 / portTICK_PERIOD_MS);
+  // PairFlg = true;
+  // vTaskDelay(200 / portTICK_PERIOD_MS);
   sprintf(Title, "Please enter the following pairing code,\n");
   tftmsgbx.dispMsg(Title, TFT_WHITE);
   sprintf(Title, "followed with ENTER on your keyboard: \n");
@@ -640,7 +632,7 @@ void app_main()
   }
   /*initialize & start continuous DMA ADC conversion process*/
   continuous_adc_init(channel, sizeof(channel) / sizeof(adc_channel_t), &adc_handle);
-  xTaskCreate(GoertzelHandler, "Goertzel Task", 8192, NULL, 3, &GoertzelTaskHandle);
+  xTaskCreate(GoertzelHandler, "Goertzel Task", 8192, NULL, 5, &GoertzelTaskHandle);//priority used to be 3
 
   adc_continuous_evt_cbs_t cbs = {
       .on_conv_done = s_conv_done_cb,
@@ -656,6 +648,7 @@ void app_main()
     ESP_LOGI(TAG1, "SUSPEND GoertzelHandler TASK");
     vTaskSuspend(CWDecodeTaskHandle);
     ESP_LOGI(TAG1, "SUSPEND CWDecodeTaskHandle TASK");
+    tftmsgbx.dispStat("DECODER SUSPENDED", TFT_YELLOW);
     vTaskDelay(20);
   }
   vTaskDelay(200 / portTICK_PERIOD_MS);
@@ -669,18 +662,23 @@ void app_main()
   {
 #if 1 // 0 = scan codes retrieval, 1 = augmented ASCII retrieval
     /* note: this loop only completes when there is a key enter from the paired/connected Bluetooth Keyboard */
-    if(PairFlg){
-      PairFlg = false;
+    if(bt_keyboard.PairFlg)
+    {
+      bt_keyboard.PairFlg = false;
       if(ModeCnt != 4){
         ModeCnt = 4;
+        printf("Pairing Flag Set\n");
         ESP_ERROR_CHECK(adc_continuous_stop(adc_handle));
         vTaskSuspend(GoertzelTaskHandle);
         ESP_LOGI(TAG1, "SUSPEND GoertzelHandler TASK");
         vTaskSuspend(CWDecodeTaskHandle);
         ESP_LOGI(TAG1, "SUSPEND CWDecodeTaskHandle TASK");
+        tftmsgbx.dispStat("DECODER SUSPENDED", TFT_YELLOW);
+        int key = bt_keyboard.wait_for_ascii_char(false);// added this to keep the watchdogtimer happy
+
       }
     }
-     vTaskDelay(1);//give the watchdogtimer a chance to reset
+    vTaskDelay(1);//give the watchdogtimer a chance to reset
     if (setupFlg)
     /*if true, exit main loop and jump to "settings" screen */
     {
@@ -715,8 +713,8 @@ void app_main()
     }
     uint8_t key = 0;
 
-    if (!bt_keyboard.trapFlg)
-      key = bt_keyboard.wait_for_ascii_char(false);
+    if (!bt_keyboard.trapFlg)// this gets set to true when the K380 KB generates corrupt keystroke data
+      key = bt_keyboard.wait_for_ascii_char(!bt_keyboard.PairFlg);
     
     //EnDsplInt = false; // no longer need timer driven display refresh; As its now being handled in the wait for BT_keybrd entry loop "wait_for_low_event()"
 
@@ -724,7 +722,7 @@ void app_main()
     if (key != 0)
     {
       ProcsKeyEntry(key);
-    } // else vTaskResume(CWDecodeTaskHandle);
+    }
 
 #else
     BTKeyboard::KeyInfo inf;
@@ -841,7 +839,8 @@ void ProcsKeyEntry(uint8_t keyVal)
 {
   bool addspce = false;
   char SpcChr = char(0x20);
-  // sprintf(Title, "%d\n", keyVal);
+  // sprintf(Title, "%02x\n", keyVal);
+  // printf(Title);
   // tftmsgbx.dispMsg(Title, TFT_GOLD);
   // return;
   if (keyVal == 0x8)

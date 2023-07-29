@@ -1,9 +1,10 @@
-/*
+/* 
  * Goertzel.c
  *
  *  Created on: May 15, 2023
  *      Author: jim (KW4KD)
  */
+/*20230729 added calls to DcodeCW SetLtrBrk() & chkChrCmplt() to ensure that the letter break gets refreshed with each ADC update (i.e., every 4ms)*/
 #include <stdio.h>
 #include "Arduino.h"
 #include "Goertzel.h"
@@ -532,13 +533,16 @@ void Chk4KeyDwn(float NowLvl)
 			if( GltchFlg)
 			{/*We had keystate change ("tone" on, or "tone" off)  & passed the glicth interval; Go evaluate the key change*/
 				GltchFlg = false;
-				Sentstate = state;
+				Sentstate = state;//'Sentstate' is what gets plotted
+				OldKeyState = KeyState;
 				GlthCnt = 0;
 				//KeyEvntSR(state, EvntTime);
 				KeyEvntSR(state, TmpEvntTime);
 			}
 		} 
 	}
+	if(KeyState< -1000) chkChrCmplt();//key is up
+	else SetLtrBrk();//key is down
 	
 	
 	// The following code is just to support the RGB LED.
