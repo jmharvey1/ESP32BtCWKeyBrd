@@ -536,7 +536,7 @@ void Chk4KeyDwn(float NowLvl)
 				Sentstate = state;//'Sentstate' is what gets plotted
 				OldKeyState = KeyState;
 				GlthCnt = 0;
-				//KeyEvntSR(state, EvntTime);
+				if(1) GudSig = 1;
 				KeyEvntSR(Sentstate, TmpEvntTime);
 			}
 		} 

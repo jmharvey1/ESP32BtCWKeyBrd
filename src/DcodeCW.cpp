@@ -287,19 +287,14 @@ void StartDecoder(TFTMsgBox *pttftmsgbx)
 }/* END SetUp Code */
 /////////////////////////////////////////
 
-/* PB13 KeyIN interrupt routine. */
+/* In ESP32 No Longer a Stand alone Interurpt; but now called from within Goertzel.cpp*/
 void KeyEvntSR(uint8_t Kstate, unsigned long EvntTime)
 { // keydown Kstate =0; Keyup Kstate = 1;
-	//LclKeyState = Kstate;// moved this to getupdated after the chkChrCmplt() to prevent premature passing, when in affect the key just opened
 	char tmpbuf[50];
-	// EvntStart = pdTICKS_TO_MS(xTaskGetTickCount()); //This is now hapening in main.GoertzelHandler(void *param) when the adc signals that the sample group is ready for processing
 	ChkDeadSpace();
-	//if(Kstate) SetLtrBrk(); //if this is a key"UP" [i.e.Kstate= 1] event, recalculate the current letter break interval & update the time stamp for the next letter break
-	//chkChrCmplt();
 	LclKeyState = Kstate;
-	// uint8_t state = (uint8_t)HAL_GPIO_ReadPin (GPIOB, GPIO_PIN_13);
-	XspctLo = true;
-	XspctHi = true;
+	XspctLo = true;// not really needed for ESP32 config
+	XspctHi = true;// not really needed for ESP32 config
 	/* See if we can obtain the semaphore.  If the semaphore is not available, wait 12 ticks to see if it becomes free. */
 	if (xSemaphoreTake(DeCodeVal_mutex, portMAX_DELAY) == pdFALSE) //(TickType_t)12
 	{
@@ -1378,11 +1373,15 @@ void chkChrCmplt(void) {
 	//check to see if enough time has passed since the last key closure to signify that the character is complete
 	if(LclKeyState == 0)// if this is the case, key is closed & should not be doing a letter complete
 	{
+		ltrCmplt = -2200;
 		return;
 	}
-	if ((Now >= letterBrk) && letterBrk != 0 && DeCodeVal > 1) {
+	else if(ltrCmplt == -2200) ltrCmplt = -2500;
+	if ((Now >= letterBrk) && letterBrk != 0){ 
+		ltrCmplt = -2800;
+		if(DeCodeVal > 1) {
 		Pstate = 1; //have a complete letter
-		ltrCmplt = -3000;
+		ltrCmplt = -3500;
 		letterBrk1 = letterBrk;
 		/*testing only; comment out when running normally*/
 //		if((Now-letterBrk)>1){
@@ -1390,6 +1389,7 @@ void chkChrCmplt(void) {
 //		sprintf(PrntBuf,"%s %d %d;\n\r ", PrntBuf, (Now-letterBrk), letterBrk);
 //		printf(PrntBuf);
 //		}
+		}
 	}
 	float noKeySig = (float)(Now - noSigStrt);
 	if ((noKeySig >= 0.75 * ((float)wordBrk) ) && noSigStrt != 0 && !wordBrkFlg && (DeCodeVal == 0)) {
