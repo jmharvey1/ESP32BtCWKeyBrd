@@ -1437,8 +1437,9 @@ void BTKeyboard::hidh_callback(void *handler_args, esp_event_base_t base, int32_
       if (temp[0] != 255)
       {
         /*took the post to display status line out because it could induce an unnecessary crash out because */
-        //bt_keyboard->pmsgbx->dispStat(temp, clr); // tftmsgbx.dispStat(Title, TFT_GREEN);
-        if(talk) printf("hidh_callback EXIT: %s\n", temp); //JMH Diagnosstic testing
+        bt_keyboard->pmsgbx->dispStat(temp, clr);
+        if(talk) printf("hidh_callback EXIT: %s\n", temp); //JMH Diagnostic testing
+        vTaskDelay(500/portTICK_PERIOD_MS);
       }
        
       xSemaphoreGive(mutex);
