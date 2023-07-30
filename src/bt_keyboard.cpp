@@ -1364,13 +1364,16 @@ void BTKeyboard::hidh_callback(void *handler_args, esp_event_base_t base, int32_
           databuf1[p] = databuf[p];
           if(databuf[p]==0) break;
         }
-        sprintf(temp, "INPUT_EVENT; ADDR:%02x:%02x:%02x:%02x:%02x:%02x; MAP:%s; NDX:%d; ID:%3u; LEN:%d; DATA%s\n",
-                 ESP_BD_ADDR_HEX(bda),
-                 esp_hid_usage_str(param->input.usage),
-                 param->input.map_index,
-                 param->input.report_id,
-                 param->input.length,
-                 databuf1);         
+        if (talk){
+          sprintf(temp, "INPUT_EVENT; ADDR:%02x:%02x:%02x:%02x:%02x:%02x; MAP:%s; NDX:%d; ID:%3u; LEN:%d; DATA%s\n",
+                   ESP_BD_ADDR_HEX(bda),
+                   esp_hid_usage_str(param->input.usage),
+                   param->input.map_index,
+                   param->input.report_id,
+                   param->input.length,
+                   databuf1);
+        }
+        clr = TFT_BLACK;                  
         ESP_LOG_BUFFER_HEX_LEVEL(TAG, param->input.data, param->input.length, ESP_LOG_DEBUG);
         if((cntr != 6) && !bt_keyboard->trapFlg) bt_keyboard->push_key(param->input.data, param->input.length);// normal path when keystroke data is good/usuable
         else if(bt_keyboard->trapFlg){// path used to test for data corruption recovery 
@@ -1437,7 +1440,7 @@ void BTKeyboard::hidh_callback(void *handler_args, esp_event_base_t base, int32_
       if (temp[0] != 255)
       {
         /*took the post to display status line out because it could induce an unnecessary crash out because */
-        bt_keyboard->pmsgbx->dispStat(temp, clr);
+        if(clr != TFT_BLACK) bt_keyboard->pmsgbx->dispStat(temp, clr);
         if(talk) printf("hidh_callback EXIT: %s\n", temp); //JMH Diagnostic testing
         vTaskDelay(500/portTICK_PERIOD_MS);
       }
