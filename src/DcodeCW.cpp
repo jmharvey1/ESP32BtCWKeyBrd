@@ -9,6 +9,7 @@
  * 20230617 To support advanced DcodeCW "Bug" processes, reworked dispMsg(char Msgbuf[50]) to handle "delete" character condition
  * 20230711 minor tweaks to concatenate processes to improve delete character managment
  * 20230729 Changed letter break scheme to now be driven from the Goertzel side of the house 
+ * 20230731 Now launching the chkChrCmplt() strickly from goertzel/Chk4KeyDwn() task/routine 
  */
 
 //#include <SetUpCwDecoder.h>
@@ -1156,7 +1157,7 @@ void Dcodeloop(void)
 		// 		}
 		//////////////////////////////////////////////
 	
-		chkChrCmplt();
+		//chkChrCmplt();//20230731 JMH took this out to test with new goertzel method of doing a chkChrCmplt()
 		/* We have finished accessing the shared resource.  Release the semaphore. */
 		// blocked = false;
 		// if(KEISRwaiting){
