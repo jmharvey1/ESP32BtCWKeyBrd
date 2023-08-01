@@ -33,6 +33,7 @@
 /*20230729 added calls to DcodeCW SetLtrBrk() & chkChrCmplt() to ensure that the letter break gets refreshed with each ADC update (i.e., every 4ms)*/
 /*20230730 blocked the gudsig function to imporve noisy signal decoding */
 /*20230731 Now launching the chkChrCmplt() strickly from goertzel/Chk4KeyDwn() task/routine*/
+/*20230801 Added Short/Long (4ms/8ms) sample interval; User selectable via Ctrl+g */
 #include "sdkconfig.h" //added for timer support
 #include "globals.h"
 #include "main.h"
@@ -89,7 +90,7 @@ DF_t DFault;
 int DeBug = 1; // Debug factory default setting; 0 => Debug "OFF"; 1 => Debug "ON"
 char StrdTxt[20] = {'\0'};
 /*Factory Default Settings*/
-char RevDate[9] = "20230731";
+char RevDate[9] = "20230801";
 char MyCall[10] = {'K', 'W', '4', 'K', 'D'};
 char MemF2[80] = "VVV VVV TEST DE KW4KD";
 char MemF3[80] = "CQ CQ CQ DE KW4KD KW4KD";
@@ -284,6 +285,7 @@ void GoertzelHandler(void *param)
   int k;
   int BIAS = 1844; // based reading found when no signal applied to ESP32continuous_adc_init
   int Smpl_CntrA = 0;
+  bool FrstPass = true;
   InitGoertzel(); // make sure the Goertzel Params are setup & ready to go
   while (1)
   {
@@ -298,15 +300,14 @@ void GoertzelHandler(void *param)
 
     if (thread_notification)
     { // Goertzel data samples ready for processing
-
-      //EvntStart = pdTICKS_TO_MS(xTaskGetTickCount());
-      /* the following 2 lines are for diagnostic testing only*/
-      // SmpIntrl = EvntStart - LstNw;
-      // LstNw = EvntStart;
+      /*1st do a little house keeping*/
+      if(!SlwFlg){
+        FrstPass = true;
+      }
       ret = adc_continuous_read(adc_handle, result, Goertzel_SAMPLE_CNT * SOC_ADC_DIGI_RESULT_BYTES, &ret_num, 0);
       if (ret == ESP_OK)
       {
-        ResetGoertzel();
+        if(FrstPass) ResetGoertzel();
         /*  ESP_LOGI("TASK_ADC", "ret is %x, ret_num is %"PRIu32" bytes", ret, ret_num);*/
 
         for (int i = 0; i < Goertzel_SAMPLE_CNT / 2; i++) // for (int i = 0; i < ret_num; i += SOC_ADC_DIGI_RESULT_BYTES)
@@ -322,7 +323,12 @@ void GoertzelHandler(void *param)
           k = ((int)(p->type1.data) - BIAS);
           addSmpl(k, pos0, &Smpl_CntrA);
         }
-        ComputeMags(EvntStart);
+        if(SlwFlg && FrstPass){
+          FrstPass = false;
+        } else if(SlwFlg){
+          FrstPass = true;
+        } 
+        if(FrstPass) ComputeMags(EvntStart);
         uint16_t curclr = ToneClr();
         if (oldclr != curclr)
         {
@@ -582,6 +588,7 @@ void app_main()
     DFault.AutoTune = AutoTune;
     DFault.TRGT_FREQ = (int)TARGET_FREQUENCYC;
     DFault.Grtzl_Gain = Grtzl_Gain;
+    DFault.SlwFlg = SlwFlg;
     sprintf(Title, "\n        No stored USER params Found\n   Using FACTORY values until params are\n   'Saved' via the Settings Screen\n");
     tftmsgbx.dispMsg(Title, TFT_ORANGE);
   }
@@ -602,8 +609,11 @@ void app_main()
     int strdAT;
     Rstat = Read_NVS_Val("AutoTune", strdAT);
     DFault.AutoTune = (bool)strdAT;
+    Rstat = Read_NVS_Val("SlwFlg", strdAT);
+    DFault.SlwFlg = (bool)strdAT;
     /*pass the decoder setting(s) back to their global counterpart(s) */
     AutoTune = DFault.AutoTune;
+    SlwFlg = DFault.SlwFlg;
     ModeCnt = DFault.ModeCnt;
     TARGET_FREQUENCYC = (float)DFault.TRGT_FREQ;
     Grtzl_Gain = DFault.Grtzl_Gain;
@@ -931,6 +941,15 @@ void ProcsKeyEntry(uint8_t keyVal)
   { // Cntrl+"F"; auto-tune/ freqLocked
     AutoTune = !AutoTune;
     DFault.AutoTune = AutoTune;
+    vTaskDelay(20);
+    showSpeed();
+    vTaskDelay(250);
+    return;
+  }
+   else if ((keyVal == 0xA1))
+  { // Cntrl+"G"; auto-tune/ freqLocked
+    SlwFlg = !SlwFlg;
+    DFault.SlwFlg = SlwFlg;
     vTaskDelay(20);
     showSpeed();
     vTaskDelay(250);

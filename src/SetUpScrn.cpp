@@ -754,13 +754,16 @@ void SaveUsrVals(void)
 	Rstat = Write_NVS_Val("AutoTune", (int)pDFault->AutoTune);
 	if (Rstat != 1)
 		GudFlg = false;
-	
+	/* Save current Decoder SlwFlg value */
+	Rstat = Write_NVS_Val("SlwFlg", (int)pDFault->SlwFlg);
+	if (Rstat != 1)
+		GudFlg = false;
 	/* Save current Decoder TARGET_FREQUENCYC value; Note pDFault->TRGT_FREQ was last updated in DcodeCW.showSpeed(void)  */
 	Rstat = Write_NVS_Val("TRGT_FREQ", pDFault->TRGT_FREQ);
 	if (Rstat != 1)
 		GudFlg = false;
 	/* Save current Grtzl_Gain value; Note this is an unsigned factional (1.0 or smaller) float value. But NVS library can't handle floats,
-	so 1st contvert to unsigned 64bit int    */
+	so 1st convert to unsigned 64bit int    */
 	//uint64_t intGainVal = uint64_t(10000000 * pDFault->Grtzl_Gain);
 	int intGainVal = (int)(10000000 * pDFault->Grtzl_Gain);
     Rstat = Write_NVS_Val("Grtzl_Gain", intGainVal);

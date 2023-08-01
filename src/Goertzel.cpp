@@ -18,8 +18,7 @@ uint16_t adc_buf[Goertzel_SAMPLE_CNT];
 uint8_t LongSmplFlg =1; // controls high speed sampling VS High Sensitivity ;can not set the value here
 uint8_t NuMagData = 0x0;
 uint8_t delayLine;
-//uint8_t delayLine2;
-//uint8_t delayLine3;
+
 uint8_t LEDRED = 0;
 uint8_t LEDGREEN = 0;
 uint8_t LEDBLUE = 0;
@@ -27,10 +26,11 @@ uint8_t LightLvl = 0;
 uint8_t LstLightLvl = 0;
 bool Ready = true;
 bool toneDetect = false;
-//bool RSetNoise = false;
+bool SlwFlg = false;
+
 bool AutoTune = true; //false; //true;
 bool Scaning = false;
-//bool Skip = false;
+
 int N = 0; //Block size sample 6 cycles of a 750Hz tone; ~8ms interval
 int NL = Goertzel_SAMPLE_CNT/2;
 int NC = 0;
@@ -117,8 +117,8 @@ float MagBuf[MagBSz];
 void PlotIfNeed2(void){
 	if (NuMagData) {
 	//if (TonPltFlg && NuMagData) {
-		int PltGudSig = -3000;
-		if(GudSig) PltGudSig = -2200;
+		// int PltGudSig = -3000;
+		// if(GudSig) PltGudSig = -2200;
 		int NFkeystate = -100;
 		if(Sentstate == 1) NFkeystate = -1700;//KeyUp
 		// if(GltchFlg) PltGudSig = -10000;
@@ -163,10 +163,11 @@ void ResetGoertzel(void)
 /* Call this once, to precompute the constants. */
 void InitGoertzel(void)
 {
-	int CYCLE_CNT, k;// 6.0
+	int CYCLE_CNT;//, k;// 6.0
 	float  omega;
 	float CyRadians;
 	float floatnumSamples = (float) (Goertzel_SAMPLE_CNT);
+	if(SlwFlg) floatnumSamples = 2*floatnumSamples;
 	ResetGoertzel();// make sure you're working with the current set of frequeincies needed for this set of parameters
 	/* For the lowest frequency of interest, Find the Maximum Number of whole Cycles we can look at  */
 	CYCLE_CNT = (int)((((float)(Goertzel_SAMPLE_CNT))*TARGET_FREQUENCYL)/SAMPLING_RATE);
@@ -247,6 +248,7 @@ float GetMagnitudeSquared(float q1, float q2, float Coeff, int SmplCnt)
 {
 	float result;
 	float SclFctr = (float)SmplCnt/2.0;
+	if(SlwFlg) SclFctr = 2*SclFctr;
 	// float CyRadians = (2.0 * M_PI * CYCLE_CNT);
 	// float omega = CyRadians / (float)floatN;
 	// float cosine = cos(omega);
@@ -365,6 +367,7 @@ void ComputeMags(unsigned long now){
 		} 
 		
 		AdjSqlch = CurNoise;
+		if(SlwFlg) AdjSqlch = 1.20*AdjSqlch; 
 		
 	}else{
 		AdjSqlch = SqlchLvl;
@@ -412,7 +415,7 @@ void ComputeMags(unsigned long now){
 void Chk4KeyDwn(float NowLvl)
 {
 	/* to get a Keydown condition "toneDetect" must be set to "true" */
-	float ToneLvl = magB; // tone level delayed by six samples
+	//float ToneLvl = magB; // tone level delayed by six samples
 	bool GudTone = true;
 	
 	if (avgDit <= 1200 / 35) // WPM is the denominator here
@@ -444,49 +447,52 @@ void Chk4KeyDwn(float NowLvl)
 			toneDetect = false;
 		}
 		/*Added (SigDect  > 2*AdjSqlch)||, for when in slow speed mode, to recognize a strong Hi-speed CW signal */
-		if (((SigDect  > 2*AdjSqlch)||(NoiseFlr > AdjSqlch)) && !toneDetect && !Scaning)//if (((NoiseFlr > AdjSqlch)  ) && !toneDetect && !Scaning)
+		if ( !toneDetect && !Scaning)//if (((NoiseFlr > AdjSqlch)  ) && !toneDetect && !Scaning)
 		{
-			toneDetect = true;
+			if(((SigDect  > 2*AdjSqlch)||(NoiseFlr > AdjSqlch))) toneDetect = true;
+			if((SigDect > AdjSqlch) && SlwFlg) toneDetect = true; //used to dectect key down state while using 8ms sample interval
 		}
 	}
 	uint8_t state = 1; //Keyup or no tone state
 	KeyState = -2000;//Keyup or no tone state
 	//if (avgKeyDwn > 1200 / 35) /** Slow code method */
-	if(0)//no longer need/use this method
-	{
-		delayLine = delayLine << 1;
-		delayLine &= 0b00001110;
+	// if(0)//no longer need/use this method
+	// {
+	// 	delayLine = delayLine << 1;
+	// 	delayLine &= 0b00001110;
 
-		if (toneDetect)
-			delayLine |= 0b00000001; // keystate delay line & glitch detector
-		// Use For Slow code [<27WPM] fill in the glitches  pin is left open
-		if (avgKeyDwn > 40)
-		{ // incoming code is slower than 30WPM //if(digitalRead(SlowData)){
-			if (((delayLine ^ 0b00001110) == 4) || ((delayLine ^ 0b00001111) == 4))
-				delayLine |= 0b00000100;
-			if (((delayLine ^ 0b00000001) == 0b00000100) || ((delayLine ^ 0b00000000) == 0b00000100))
-				delayLine &= 0b11111011;
-		}
+	// 	if (toneDetect)
+	// 		delayLine |= 0b00000001; // keystate delay line & glitch detector
+	// 	// Use For Slow code [<27WPM] fill in the glitches  pin is left open
+	// 	if (avgKeyDwn > 40)
+	// 	{ // incoming code is slower than 30WPM //if(digitalRead(SlowData)){
+	// 		if (((delayLine ^ 0b00001110) == 4) || ((delayLine ^ 0b00001111) == 4))
+	// 			delayLine |= 0b00000100;
+	// 		if (((delayLine ^ 0b00000001) == 0b00000100) || ((delayLine ^ 0b00000000) == 0b00000100))
+	// 			delayLine &= 0b11111011;
+	// 	}
 		
 
-		if (delayLine & 0b00001000)
-		{ // key Closed
-			KeyState = -400;// Key Down
-			state = 0;
-		}
-		else
-		{ // No Tone Detected
-		}
-	}
-	else if (toneDetect)
+	// 	if (delayLine & 0b00001000)
+	// 	{ // key Closed
+	// 		KeyState = -400;// Key Down
+	// 		state = 0;
+	// 	}
+	// 	else
+	// 	{ // No Tone Detected
+	// 	}
+	// }
+	// else if(toneDetect)
+	if(toneDetect)
 	{ /** Fast code method */
 		KeyState = -400;// Key Down
 		state = 0;
 	}
 	/*now if this last sample represents a keydown state, Lets set the CurNoise to be mid way between the lowest curlevel and the NFlrBase value*/
 	if(!state){
-		float tmpcurnoise = ((CurLvl-NFlrBase)/2) + NFlrBase;
-		//float tmpcurnoise = ((CurLvl-NFlrBase)/2);
+		float tmpcurnoise;
+		if(!SlwFlg) tmpcurnoise = ((CurLvl-NFlrBase)/2) + NFlrBase;
+		else tmpcurnoise = 1.0*CurNoise;
 		if((tmpcurnoise < CurNoise)&& (tmpcurnoise > 3*NFlrBase) ) CurNoise = tmpcurnoise; 
 	}
 	/* new auto-adjusting glitch detection; based on average dit length */
@@ -508,6 +514,7 @@ void Chk4KeyDwn(float NowLvl)
 			When thats the case, use the DcodeCW's avgDeadspace to set the duration of the glitch period */
 			if(FltrPrd > ((float)avgDeadSpace)/2) FltrPrd = (unsigned long)(((float)avgDeadSpace)/2);
 			if(ModeCnt == 3) FltrPrd = 4;//we are running in cootie mode, so lock the glitch inerval to a fixed value of 8ms.
+			if(SlwFlg) FltrPrd = FltrPrd/2;
 			NoisePrd = now + FltrPrd;
 			OldKeyState = KeyState;
 			GltchFlg = true;
@@ -530,7 +537,7 @@ void Chk4KeyDwn(float NowLvl)
 		}
 	} else{
 		if (now >= NoisePrd){ 
-			if( GltchFlg)
+			if( GltchFlg ||(Sentstate != state))
 			{/*We had keystate change ("tone" on, or "tone" off)  & passed the glicth interval; Go evaluate the key change*/
 				GltchFlg = false;
 				Sentstate = state;//'Sentstate' is what gets plotted
@@ -576,7 +583,7 @@ void Chk4KeyDwn(float NowLvl)
 			} // End Just detectable Tone
 			else
 			{				  // Freq Dependant Lighting
-				magC2 = 1.1*magC;//magC; // 
+				magC2 = 1.05*magC;//magC; // 
 				if ((magC2 >= magH) && (magC2 >= magL))
 				{ // Freq Just Right
 					LEDGREEN = LightLvl;

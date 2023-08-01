@@ -33,6 +33,7 @@ struct DF_t
 	int TRGT_FREQ;
 	bool AutoTune;
 	float Grtzl_Gain;
+	bool SlwFlg;
 };
 
 // typedef struct {
@@ -57,7 +58,6 @@ extern char StrdTxt[20];
 extern char MyCall[10];
 extern char MemF2[80];
 extern bool clrbuf;
-//extern bool trapFlg;
 extern COREDUMP_DRAM_ATTR uint8_t global_var;
 uint8_t Read_NVS_Str(const char *key, char *value);
 template <class T>

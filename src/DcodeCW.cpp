@@ -328,7 +328,7 @@ void KeyEvntSR(uint8_t Kstate, unsigned long EvntTime)
 			Oldstart = STart;
 			STart = EvntTime;				 // HAL_GetTick();
 			MySTart = EvntTime;				 // for testing purposes only
-			deadSpace = (STart - noSigStrt); //+4;//jmh 20230706 added this corection value for ESP32
+			deadSpace = (STart - noSigStrt)+4; //+4;//jmh 20230706 added this corection value for ESP32
 			SpaceStk[Bitpos] = deadSpace;
 			if (Bitpos <= 14)
 				SpaceStk[Bitpos + 1] = 0; // make sure the next time slot has been "0SftReset(void)" out
@@ -1307,12 +1307,15 @@ void SetLtrBrk(void)
 		ltrBrk = int(1.5 * (float(space))); // 20221106 went from 1.6 back to 1.5//20221105 went from 1.5 back to 1.6//20221022 went from 1.4 back to 1.5  // 20210410 went from 1.5 back to 1.4 // 20200306 went from 1.6 back to 1.5 to reduce the chance of having to deal with multi letter symbol groups
 		if (BugMode)
 		{										// use special case spacing
-			ltrBrk = int(1.0 * (float(space))); // 20221022 assume this is part of a dit series
+			//ltrBrk = int(1.0 * (float(space))); // 20221022 assume this is part of a dit series
+			ltrBrk = int(1.8 * (float(space))); // 20230801 trying this value for ESP32 processing
+			// sprintf(tmpbuf,"%s",PrntBuf);
 			// sprintf(tmpbuf,"%s",PrntBuf);
 			// sprintf(PrntBuf,"%s!:", tmpbuf);
 			if (((DeCodeVal & 1) == 1) && (DeCodeVal > 3))
 			{										// this dead space interval appears to be an mid-character event AND the last symbol detected was a "DAH".
-				ltrBrk = int(2.3 * (float(space))); // int(1.8*(float(space)));
+				//ltrBrk = int(2.3 * (float(space))); 
+				ltrBrk = int(2.5 * (float(space))); // 20230801 trying this value for ESP32 processing
 				// sprintf(tmpbuf,"%s",PrntBuf);
 				// sprintf(PrntBuf,"%sA:", tmpbuf);
 			}
@@ -1320,7 +1323,7 @@ void SetLtrBrk(void)
 			{ // the first symbol sent is a dash
 				// At this point(time) the letter looks like a "T", but it could be the beginning of something else;i.e., "N"
 				ltrBrka = long(float(avgDah) * 0.90);
-				ltrBrkb = long(float(avgDeadSpace) * 1.5); // 20221026 changed x factor from 2.1 to 2.5
+				ltrBrkb = long(float(avgDeadSpace) * 1.7); // 20230801 changed x factor from 1.5 to 1.7
 				if (ltrBrka >= ltrBrkb)
 				{ // hold on, new ltrBrk interval seems short
 					ltrBrk = ltrBrka;
@@ -2276,6 +2279,7 @@ void showSpeed(void)
   char buf[50];
   char tmpbuf[15];
   char tmpbufA[4];
+  char tmpbufB[2];
   int ratioInt = (int)curRatio;
   int ratioDecml = (int)((curRatio - ratioInt) * 10);
   //int SI = (int) SmpIntrl; //un-comment for diagnositic testing only;used to find/display the ADC total sample time
@@ -2308,8 +2312,10 @@ void showSpeed(void)
 	  sprintf(tmpbufA, "???");
 	  break;     
 	}
+	if(SlwFlg) sprintf(tmpbufB, "s");
+	else sprintf(tmpbufB, "f");
 	DFault.TRGT_FREQ = (int)TARGET_FREQUENCYC;// update the default setting with the current Geortzel center frequency; Can & will change while in the AUTO-Tune mode
-	sprintf(buf, "%d/%d.%d WPM FREQ %dHz %s %s", wpm, ratioInt, ratioDecml, int(TARGET_FREQUENCYC), tmpbuf, tmpbufA);// normal ESP32 CW deoder status display
+	sprintf(buf, "%d/%d.%d WPM FREQ %dHz %s %s%s", wpm, ratioInt, ratioDecml, int(TARGET_FREQUENCYC), tmpbuf, tmpbufA, tmpbufB);// normal ESP32 CW deoder status display
 	//sprintf(buf, "SI %dms  FREQ %dHz %s %s", SI, int(TARGET_FREQUENCYC), tmpbuf, tmpbufA); //un-comment for diagnositic testing only;; Shws ADC sample interval
 	//sprintf(buf, "SR %d  FREQ %dHz %s %s", (int)SAMPLING_RATE, int(TARGET_FREQUENCYC), tmpbuf, tmpbufA); //un-comment for diagnositic testing only (current sample rate)
 	break;
