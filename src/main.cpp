@@ -34,6 +34,7 @@
 /*20230730 blocked the gudsig function to imporve noisy signal decoding */
 /*20230731 Now launching the chkChrCmplt() strickly from goertzel/Chk4KeyDwn() task/routine*/
 /*20230801 Added Short/Long (4ms/8ms) sample interval; User selectable via Ctrl+g */
+/*20230804 Minor timing tweeks to  DecodeCW & Goertzel code*/
 #include "sdkconfig.h" //added for timer support
 #include "globals.h"
 #include "main.h"
@@ -90,7 +91,7 @@ DF_t DFault;
 int DeBug = 1; // Debug factory default setting; 0 => Debug "OFF"; 1 => Debug "ON"
 char StrdTxt[20] = {'\0'};
 /*Factory Default Settings*/
-char RevDate[9] = "20230801";
+char RevDate[9] = "20230804";
 char MyCall[10] = {'K', 'W', '4', 'K', 'D'};
 char MemF2[80] = "VVV VVV TEST DE KW4KD";
 char MemF3[80] = "CQ CQ CQ DE KW4KD KW4KD";

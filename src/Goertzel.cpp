@@ -514,7 +514,7 @@ void Chk4KeyDwn(float NowLvl)
 			When thats the case, use the DcodeCW's avgDeadspace to set the duration of the glitch period */
 			if(FltrPrd > ((float)avgDeadSpace)/2) FltrPrd = (unsigned long)(((float)avgDeadSpace)/2);
 			if(ModeCnt == 3) FltrPrd = 4;//we are running in cootie mode, so lock the glitch inerval to a fixed value of 8ms.
-			if(SlwFlg) FltrPrd = FltrPrd/2;
+			//if(SlwFlg) FltrPrd = FltrPrd/2;
 			NoisePrd = now + FltrPrd;
 			OldKeyState = KeyState;
 			GltchFlg = true;
@@ -556,6 +556,7 @@ void Chk4KeyDwn(float NowLvl)
 	/*Added 'NowLvl' to better sync the LED with the incoming tone */
 	//	if (GudTone){
 	//if ((NowLvl > AdjSqlch) && !Scaning)
+	if(SlwFlg) ClipLvl = 20000;
 	if(!state)
 	{
 		if (CurLvl > ClipLvl)
