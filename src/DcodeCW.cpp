@@ -349,12 +349,9 @@ void KeyEvntSR(uint8_t Kstate, unsigned long EvntTime)
 
 						for (int i = 0; i <= OldLtrPntr; i++)
 						{
-							// USBprintInt(ShrtBrk[i]);
-							// printf(";");
 							// sprintf(PrntBuf, "%s %d;", PrntBuf, (int)ShrtBrk[i]);
 						}
-						// printf("  ");
-						// USBprintIntln(AvgShrtBrk);
+						
 						// sprintf(PrntBuf, "%s %d\n\r", PrntBuf, (int)AvgShrtBrk);
 						PrntUSB = true; // printf(PrntBuf);
 					}
@@ -1920,8 +1917,8 @@ void DisplayChar(unsigned int decodeval)
 	// clear buffer
 	for (int i = 0; i < sizeof(Msgbuf); ++i)
 		Msgbuf[i] = 0;
-	if (decodeval != 99999)
-	{ // 99999 is the 'end of File' code; So we see this, there is nothing left to process
+	if (decodeval != 99999)// 99999 is the 'end of File' code; So if we see this, there is nothing left to process
+	{ 
 		/* prepare to transfer inter-symbol space intervals to next buffer */
 		int SymblLen = 0;
 		int GlitchCnt = 0;
@@ -1994,8 +1991,9 @@ void DisplayChar(unsigned int decodeval)
 				// Msgbuf[0] = 0; //clear buffer
 				char TmpBufA[10];
 				char TmpBufB[10];
-				if (DeleteID == 4)
-					DeleteID = 2; // probably going to get a multi character string, so to ignore at least one delete
+				//printf("DeleteID: %d; ", DeleteID);//for debugging only
+				// if (DeleteID == 4)
+				// 	DeleteID = 2; // probably going to get a multi character string, so to ignore at least one delete
 				for (int p = 0; p < 10; p++)
 				{
 					Msgbuf[p] = 0; // erase buffer
@@ -2014,16 +2012,20 @@ void DisplayChar(unsigned int decodeval)
 					}
 				}
 				decodeval = DCVStrd[0] >> (SymblLen - EndSPntr);
+				//printf("decodeval : %d; ", decodeval );//for debugging only	
 				if (Srch4Match(decodeval, true) < 0)
 				{
 					Msgbuf[0] = 0; // clear buffer
-					////sprintf( TmpBuf, "%s?%d?", Msgbuf, GlitchCnt1);
-					// if(TonPltFlg ||Test)  //sprintf( TmpBufA, "?%d?", GlitchCnt1);
-					// else   sprintf( TmpBufA, "");
-				} /* else{
-					 if(TonPltFlg ||Test)  //sprintf( TmpBufA, "{%s}", Msgbuf);
-					 else //sprintf( TmpBufA, "%s", Msgbuf);
-				 } */
+					
+				}else{
+					//printf("1st Char : %s; ", Msgbuf);//for debugging only
+					//sprintf( TmpBufA, "%s", Msgbuf);//this doesn't work with ESP32 compiler; So Have to use the following code
+					for(int i =0; i<sizeof(TmpBufA);i++){
+						TmpBufA[i] = Msgbuf[i];
+						if(TmpBufA[i]== 0) break;
+
+					}
+				 }
 				/*now construct the 2nd decodeval */
 				int DcdVal2 = (1 << ((SymblLen - EndSPntr)));
 				int Mask = 0;
@@ -2037,11 +2039,10 @@ void DisplayChar(unsigned int decodeval)
 				DcdVal2 += (DCVStrd[0] & Mask);
 				for (int p = 0; p < 8; p++)
 					Msgbuf[p] = 0; // erase buffer
+				//printf("DcdVal2 : %d; ", DcdVal2 );//for debugging only	
 				if (Srch4Match(DcdVal2, true) < 0)
 				{
-					// Msgbuf[0] = 0; //clear buffer
-					// if(TonPltFlg ||Test) //sprintf( Msgbuf, "%s#%d#", TmpBufA, GlitchCnt1);
-					// else  //sprintf( Msgbuf, "%s",  TmpBufA);
+					sprintf( Msgbuf, "%s",  TmpBufA);
 					DCVStrd[0] = 0;
 					for (int p = 0; p < 16; p++)
 					{
@@ -2052,9 +2053,16 @@ void DisplayChar(unsigned int decodeval)
 				else
 				{
 					/* it appears that a legitimate decodeval was found, so use this data for potential concatenation with the next symbol set */
+					//printf("2nd Char : %s; ", Msgbuf);//for debugging only	
 					// if(TonPltFlg ||Test) //sprintf(TmpBufB, "[%s]", Msgbuf);
-					// else //sprintf(TmpBufB, "%s", Msgbuf);
-					// sprintf( Mavgntrvlsgbuf, "%s%s", TmpBufA, TmpBufB);
+					// else //
+					//sprintf(TmpBufB, "%s", Msgbuf);//this doesn't work with ESP32 compiler; So Have to use the following code
+					for(int i =0; i<sizeof(TmpBufB);i++){
+						TmpBufB[i] = Msgbuf[i];
+						if(TmpBufB[i] == 0) break;
+
+					}
+					sprintf( Msgbuf, "%s%s", TmpBufA, TmpBufB);//put the two just found characters back in the MsgBuf, in their order of occurance
 					// ChrCntFix = 1;
 					while (TmpBufA[ChrCntFix] != 0)
 						++ChrCntFix; // record how many characters will be printed in this group
@@ -2333,42 +2341,18 @@ void dispMsg(char Msgbuf[50])
 		// recalculate maximum wait interval to splice decodeval
 		if (Bug3 && curChar != ' ')
 		{ // if(Bug3 & (cnt>CPL) & (Pgbuf[cnt-(CPL)]!=' ') ){ //JMH 20200925 with current algorithm, no longer need to wait for "Pgbuf" to become active
-			// if ((ShrtBrk[LtrCntr] > 1.5*ShrtBrkA) & (ShrtBrk[LtrCntr] <3* ltrBrk)){
-			// if ((ShrtBrk[LtrCntr] > 1.5*ltrBrk) & (ShrtBrk[LtrCntr] <3* ltrBrk)& (info[0] == 0)){
-			// if ((ShrtBrk[LtrCntr] < 1.2*ltrBrk) & (ShrtBrk[LtrCntr]> ShrtBrkA)& (info[0] == 0)){ // this filter is based on W1AW sent code
 			ltrBrk = (60 * UsrLtrBrk) / 100; // Jmh 20200925 added this to keep "ltrBrk" at a dynamic/reasonable value with respect to what the sender is doing
 			if (ShrtBrk[LtrCntr] < UsrLtrBrk)
 			{ // we're working with the last letter received was started before a normal letter break period
-				//        if(Pgbuf[cnt-(CPL+1)]=='T'&& Pgbuf[cnt-(CPL)]=='T'){ // we have 2 'T's in a row so increase the "ShrtFctr" a bit
-				//          if(ShrtBrk[LtrCntr]> ltrBrk) ShrtFctr = float(float(ShrtBrk[LtrCntr])/float(UsrLtrBrk));
-				//          else ShrtFctr = float(float(ltrBrk)/float(UsrLtrBrk));
-
 				ShrtFctr = float(float(80 * ltrBrk) / float(100 * UsrLtrBrk));
 				ShrtBrkA = (80 * UsrLtrBrk) / 100; // ShrtBrkA = (76*UsrLtrBrk)/100; //ShrtBrkA = (88*UsrLtrBrk)/100; //ShrtBrkA = (90*UsrLtrBrk)/100; //ShrtBrkA =  ShrtFctr*UsrLtrBrk;
-				//          AvgShrtBrk = ShrtBrkA;
-
-				//        }
-
-				//          ShrtFctr += 0.05;
-				//          if(Pgbuf[cnt-(CPL+2)]=='T') {// Whoa, Now we have 3 T's in a row, recalibrate the timing settings
-				//           float ShrtFctrold = ShrtFctr;
-				//           ShrtFctr = float(float(ShrtBrk[LtrCntr])/float(UsrLtrBrk));
-				//           if(ShrtFctr < ShrtFctrold) ShrtFctr = ShrtFctrold;// the new value should have been greater than what we had been using, but not true, so "bumb up" the old value a bit es use it
-				//           //ShrtFctr = 2.0*float(float(AvgShrtBrk)/float(UsrLtrBrk));
-				//           AvgShrtBrk = ShrtBrk[LtrCntr];
-				//           ShrtBrkA =  ShrtFctr*UsrLtrBrk;
-				//          }
-				//        }
+				
 			}
 
 			if ((ShrtBrk[LtrCntr] < 0.6 * wordBrk) && curChar != ' ' && (info[0] == 0))
 			{														// if ((ShrtBrk[LtrCntr] < 0.6*wordBrk) & (ShrtBrk[LtrCntr]> ShrtBrkA)& (info[0] == 0)){ // this filter is based on Bug sent code
 				UsrLtrBrk = (5 * UsrLtrBrk + ShrtBrk[LtrCntr]) / 6; //(6*UsrLtrBrk+ShrtBrk[LtrCntr])/7; //(9*UsrLtrBrk+ShrtBrk[LtrCntr])/10;
-																	// ShrtBrkA =  ShrtFctr*UsrLtrBrk;//0.45*UsrLtrBrk;
-				// } else if((info[0] != 0)&(ShrtBrk[LtrCntr]<ShrtBrkA/2) ){// we just processed a spliced character
-			} // else if((info[0] == '*')){// we just processed a spliced character
-
-			//}
+			} 
 		}
 		if (Bug3 && SCD && Test)
 		{
@@ -2406,9 +2390,9 @@ void dispMsg(char Msgbuf[50])
 			cursorY = curRow * (fontH + 10);
 			offset = cnt;
 			// tft.setCursor(cursorX, cursorY);//for esp32 version this will be handled elsewhere.
-			//  if (curRow + 1 > row) {
-			//  	scrollpg();
-			//  }
+			 if (curRow + 1 > row) {//20230805 restoring this "if" statement to support decoder/parser error corrections
+			 	scrollpg();
+			 }
 		}
 		else
 		{
@@ -2422,45 +2406,36 @@ void dispMsg(char Msgbuf[50])
 	// chkChrCmplt();
 }
 //////////////////////////////////////////////////////////////////////
-// void scrollpg() {
-// /* for the ESP32 BT Keybrd & CW decoder version this function will be addressed elesewhere
-// 	SO commented out references to 'tft.' to keep the esp32 compiler happy*/
-//   //buttonEnabled =false;
-//   curRow = 0;
-//   cursorX = 0;
-//   cursorY = 0;
-//   cnt = 0;
-//   offset = 0;
-//   //enableDisplay(); // Not needed forESP32. This is a Blackpill/TouchScreen thing
-//   //tft.fillRect(cursorX, cursorY, displayW, row * (fontH + 10), BLACK); //erase current page of text
-//   //tft.setCursor(cursorX, cursorY);
-//   while (Pgbuf[cnt] != 0 && curRow + 1 < row) { //print current page buffer and move current text up one line
-//     ChkDeadSpace();
-//     SetLtrBrk();
-//     chkChrCmplt();
-//     //tft.print(Pgbuf[cnt]);
-// //    if (displayW == 480) Pgbuf[cnt] = Pgbuf[cnt + 40]; //shift existing text character forward by one line
-// //    else Pgbuf[cnt] = Pgbuf[cnt + 27]; //shift existing text character forward by one line
-//     Pgbuf[cnt] = Pgbuf[cnt + CPL]; //shift existing text character forward by one line
-//     cnt++;
-//     //delay(300);
-//     if (((cnt) - offset)*fontW >= displayW) {
-//       curRow++;
-//       offset = cnt;
-//       cursorX = 0;
-//       cursorY = curRow * (fontH + 10);
-//       //tft.setCursor(cursorX, cursorY);
-//     }
-//     else cursorX = (cnt - offset) * fontW;
+void scrollpg() {
+/* for the ESP32 BT Keybrd & CW decoder version this function will be addressed elesewhere
+	SO commented out references to 'tft.' to keep the esp32 compiler happy*/
+  //buttonEnabled =false;
+  curRow = 0;
+  cursorX = 0;
+  cursorY = 0;
+  cnt = 0;
+  offset = 0;
+  //enableDisplay(); // Not needed forESP32. This is a Blackpill/TouchScreen thing
+  //tft.fillRect(cursorX, cursorY, displayW, row * (fontH + 10), BLACK); //erase current page of text
+  //tft.setCursor(cursorX, cursorY);
+  while (Pgbuf[cnt] != 0 && curRow + 1 < row) { //print current page buffer and move current text up one line
+    Pgbuf[cnt] = Pgbuf[cnt + CPL]; //shift existing text character forward by one line
+    cnt++;
+    //if (((cnt) - offset)*fontW >= displayW) {
+	if (((cnt) - offset) >= CPL) {	
+      curRow++;
+      offset = cnt;
+    //   cursorX = 0;
+    //   cursorY = curRow * (fontH + 10);
+    }
+    // else cursorX = (cnt - offset) * fontW;
 
-//   }//end While Loop
-//   while (Pgbuf[cnt] != 0) { //finish cleaning up last line
-//     chkChrCmplt();
-//     //tft.print(Pgbuf[cnt]);
-//     Pgbuf[cnt] = Pgbuf[cnt + 26];
-//     cnt++;
-//   }
-// }
+  }//end While Loop
+  while (Pgbuf[cnt] != 0) { //finish cleaning up last line
+    Pgbuf[cnt] = Pgbuf[cnt + 26];
+    cnt++;
+  }
+}
 /////////////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////

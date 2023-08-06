@@ -402,7 +402,7 @@ int Srch4Match(unsigned int decodeval, bool DpScan);
 int linearSearchBreak(long val, unsigned int arr[], int sz);
 int linearSrchChr(char val, char arr[ARSIZE][2], int sz);
 void dispMsg(char Msgbuf[50]);
-//void scrollpg(void); //not needed in ESP32 version
+void scrollpg(void); //20230805 restoring this function to support decoder/parser error corrections
 void DrawButton(void);
 void DrawButton2(void);
 void ModeBtn(void);
