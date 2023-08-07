@@ -10,6 +10,7 @@
  * 20230711 minor tweaks to concatenate processes to improve delete character managment
  * 20230729 Changed letter break scheme to now be driven from the Goertzel side of the house
  * 20230731 Now launching the chkChrCmplt() strickly from goertzel/Chk4KeyDwn() task/routine
+ * 20230807 rewrote sloppy string check code for ESP32; Now using a small buffer,"DcddChrBuf" in place of the pagebuffer used in the STM serries
  */
 
 // #include <SetUpCwDecoder.h>
@@ -42,7 +43,7 @@ int LineLen = 27; // max number of characters to be displayed on one line
 int statsMode = 0;
 int textSrtX = 0;
 int textSrtY = 0;
-int cnt = 0; // used in scrollpage routine
+//int cnt = 0; // used in scrollpage routine
 int curRow = 0;
 int offset = 0;
 int LtrCntr = 0;
@@ -82,7 +83,7 @@ volatile int TimeDatBuf[24];
 
 char newLine = '\n';
 char DeBugMsg[150];
-char Pgbuf[448];
+char DcddChrBuf[10]; //holds the last 10 decoded & DIsplayed characters; Pimarily used to look/test for common slopy sending strings
 char Msgbuf[50];
 char LstPstdchar[2]; // used for diagnostic testing only
 char P[13];
@@ -194,47 +195,15 @@ void StartDecoder(TFTMsgBox *pttftmsgbx)
 	// Begin CW Decoder setup
 	DeCodeVal_mutex = xSemaphoreCreateMutex();
 	ptrmsgbx = pttftmsgbx;
-	// ts.ReDefineTchPins(XP, YP, XM, YM);
-	// tft.reset();
-	// ID = tft.readID();
-	//  if (ID == 0x9090) ID = 0x9486; //do this to fix color issues
-	//  tft.begin(ID);//  The value here is screen specific & depends on the chipset used to drive the screen,
-	//  tft.setRotation(1); // valid values 1 or 3
-	//  tft.fillScreen(BLACK);
-	//  tft.fillScreen(BLACK);//Had to do this twice to get the Screen Fully "Blacked" out
-	//  scrnHeight = tft.height();
-	//  scrnWidth = tft.width();
-	//  displayW = scrnWidth;
-	//  // PORTRAIT is 240 x 320 2.8" inch Screen
-	//  if (scrnHeight == 240) { //If true change settings from 3.5 inch to 2.8" screen
-	//  	px = 0; //mapped 'x' display touch value
-	//  	py = 0; //mapped 'y' display touch value
-	//  	LineLen = 27; //max number of characters to be displayed on one line
-	//  	row = 7;//7; //max number of lines to be displayed
-	//  	ylo = 200; //button touch reading 2.8" screen
-	//  	yhi = 250; //button touch reading 2.8" screen
-	//  	Stxl = 21; //Status touch reading 2.8" screen
-	//  	Stxh = 130; //Status touch reading 2.8" screen
-	//  	bxlo = 130; //blue button (CLEAR) touch reading 2.8" screen
-	//  	bxhi = 200; //blue button (CLEAR)touch reading 2.8" screen
-	//  	gxlo  = 200; //green button(MODE) touch reading 2.8" screen
-	//  	gxhi  = 290; //green touch (MODE)reading 2.5" screen
-	//  	CPL = 27; //number of characters each line that a 2.8" screen can contain
-
-	// }
-
-	// MsgChrCnt[0] = 0;
-	// DrawButton2();
-	// DrawButton();
-	// ModeBtn();
+	/*initialize Decoded Character Buffer with ASCii space*/
+	for (int i = 0; i < sizeof(DcddChrBuf)-1; i++)
+	{
+		DcddChrBuf[i] =   (uint8_t) 32;// add "space" symbol;
+	}
+	/*Make absolutely certain the Decoded Character Buffer is properly treminated*/
+	DcddChrBuf[sizeof(DcddChrBuf)-1] = 0;
 	WPMdefault();
-	// tft.setCursor(textSrtX, textSrtY);
-	// tft.setTextColor(WHITE);//tft.setTextColor(WHITE, BLACK);
-	// tft.setTextSize(2);//SemaphoreHandle_t  *ptrmutex;
-	// tft.setTextWrap(false);
-
-	//	enableINT(); //This is a local function, and is defined below
-
+	
 	STart = 0;
 	WrdStrt = pdTICKS_TO_MS(xTaskGetTickCount()); //(GetTimr5Cnt()/10);
 	wordBrk = avgDah;
@@ -243,47 +212,8 @@ void StartDecoder(TFTMsgBox *pttftmsgbx)
 	{
 		PrdStack[i] = 1200 / 15;
 	}
-	// if (scrnHeight == 320) { //we are using a 3.5 inch screen
-	// 	sprintf( Title, "             KW4KD (%s)           ", RevDate );
-
-	// }
-	// else {
-	// 	sprintf( Title, "      KW4KD (%s)     ", RevDate );
-
-	// }
-
-	/*setup guard rail to prevent USB err when trying to display title*/
-	// bool tstState = false;
-	// if(Test){
-	// 	tstState = true;
-	// 	Test = false;
-	// }
-	// dispMsg(Title);
-	// tft.setTextColor(TFT_YELLOW);
-	// if(NoStrdVals){
-	// 	sprintf( Title, "        No stored USER params Found       Using FACTORY values until params are   'Saved' via the Settings Screen");
-	// 	dispMsg(Title);
-	// 	sprintf( Title, "       ");
-	// 	dispMsg(Title);
-	// 	delay(2000);
-	// 	tftmsgbx.setTxtSize(1);
-	// 	TchScrnCal_MainLoop();
-	// 	tft.fillScreen(BLACK);
-	// 	tft.fillScreen(BLACK);//Had to do this twice to get the Screen Fully "Blacked" out
-	// 	DrawButton2();
-	// 	DrawButton();
-	// 	ModeBtn();
-	// 	tftmsgbx.setTxtSize(2);
-	// 	tftmsgbx.setFont(12, 16);//setFont(w,h)
-
-	// }
-	// if(tstState) Test = true;
 	wordBrk = ((5 * wordBrk) + (4 * avgDeadSpace)) / 6;
-	// tft.setTextColor(WHITE);
-	// sprintf(DeBugMsg, "");
-	// End CW Decoder Setup
-	/*ESP32 version doesn't need to jump to the 'Dcodloop'*/
-	// Dcodeloop();
+	
 } /* END SetUp Code */
 /////////////////////////////////////////
 
@@ -390,7 +320,7 @@ void KeyEvntSR(uint8_t Kstate, unsigned long EvntTime)
 						// go get that last character displayed
 						//         Serial.print("cnt: ");
 						//         Serial.println(cnt);
-						//         if(cnt>CPL+1){//Pgbuf now has enough data to recover sloppy sending results
+						//         if(cnt>CPL+1){//DcddChrBuf now has enough data to recover sloppy sending results
 						if (MsgChrCnt[1] > 0)
 						{
 							DeCodeVal = DCVStrd[1];
@@ -2269,6 +2199,14 @@ void dispMsg(char Msgbuf[50])
 				tmpbuf[1] = 0;
 				ptrmsgbx->dispMsg(tmpbuf, TFT_GREENYELLOW);
 				--MsgChrCnt[1];
+				/*now remove the previously decoded character from DcddChrBuf */
+				for (int i = sizeof(DcddChrBuf)-1; i == 0; i--)
+				{
+					DcddChrBuf[i] =  DcddChrBuf[i-1];
+				}
+				/*make sure the DcddChrBuf is 'capped' correctly*/
+				DcddChrBuf[sizeof(DcddChrBuf)-1] =  0;// add string terminator
+				DcddChrBuf[0] =  (uint8_t) 32;// add "space" symbol to beginning of  the DcddChrBuf
 			}
 			DeleteID = 0;
 
@@ -2286,61 +2224,66 @@ void dispMsg(char Msgbuf[50])
 		tmpbuf[0] = curChar;
 		tmpbuf[1] = 0;
 		ptrmsgbx->dispMsg(tmpbuf, TFT_GREENYELLOW);
-
-		// now test/correct letter groups that represent common mis-prints
-		if (curRow > 0)
+		/*now add the just decoded character to DcddChrBuf */
+		for (int i = 0; i < sizeof(DcddChrBuf)-1; i++)
 		{
-			char tmpbuf[440];
-			for (int i = 0; i < 440; i++)
-			{
-				tmpbuf[i] = Pgbuf[i];
-				if (Pgbuf[i] == 0)
-					break;
-			}
-			tmpbuf[439] = 0;
-			sprintf(Pgbuf, "%s%c", tmpbuf, curChar); // add the character just "printed" to the "PgBuf"
+			DcddChrBuf[i] =  DcddChrBuf[i+1];
 		}
+		DcddChrBuf[sizeof(DcddChrBuf)-2] = curChar;
+		DcddChrBuf[sizeof(DcddChrBuf)-1] = 0;
 
-		if (cnt > CPL)
-		{ // Pgbuf now has enough data, to test for special character combos often found with sloppy sending
-			/**/
-			if (Pgbuf[cnt - (CPL + 1)] == '@' && Pgbuf[cnt - (CPL)] == 'D')
-			{															  // test for "@"
-				sprintf(Msgbuf, " (%c%s", Pgbuf[cnt - (CPL + 2)], "AC)"); //"true"; Insert preceeding character plus correction "AC"
+		// char tmpStrBuf[9];
+		// for (int i = 0; i < sizeof(tmpStrBuf); i++)
+		// {
+		// 	tmpStrBuf[i] =  DcddChrBuf[i+1];
+		// 	if (tmpStrBuf[i] == 0)
+		// 		break;
+		// }
+		// sprintf(DcddChrBuf, "%s%c", tmpStrBuf, curChar);// add the character just "printed" to the "DcddChrBuf"
+
+		
+		/* now test/correct letter groups that represent common mis-prints */
+		if (true)//if (cnt > CPL)
+		{ //No longer need to worry about if we haveenough decoded characters evaluate the following sloppy strings DcddChrBuf now has enough data, to test for special character combos often found with sloppy sending
+			int lstCharPos = sizeof(DcddChrBuf)-2;
+			//printf("%c%c%c\n", DcddChrBuf[lstCharPos - 2],  DcddChrBuf[lstCharPos - 1], DcddChrBuf[lstCharPos] );// for debugging sloppy strings only
+			if(DcddChrBuf[lstCharPos - 1] == '@' && DcddChrBuf[lstCharPos] == 'D')
+			{															  
+				sprintf(Msgbuf, " (%c%s", DcddChrBuf[lstCharPos - 2], "AC)");// test for "@" (%c%s", DcddChrBuf[lstCharPos - 2], "AC)"); //"true"; Insert preceeding character plus correction "AC"
 			}
 
-			if (Pgbuf[cnt - (CPL + 1)] == 'P' && Pgbuf[cnt - (CPL)] == 'D')
+			if (DcddChrBuf[lstCharPos - 1] == 'P' && DcddChrBuf[lstCharPos] == 'D')
 			{															   // test for "PD"
-				sprintf(Msgbuf, " (%c%s", Pgbuf[cnt - (CPL + 2)], "AND)"); //"true"; Insert preceeding character plus correction "AND"
+				sprintf(Msgbuf, " (%c%s", DcddChrBuf[lstCharPos - 2], "AND)"); //"true"; Insert preceeding character plus correction "AND"
 			}
-			if (Pgbuf[cnt - (CPL + 1)] == '6' && Pgbuf[cnt - (CPL)] == 'E')
+			if (DcddChrBuf[lstCharPos - 1] == '6' && DcddChrBuf[lstCharPos] == 'E')
 			{															   // test for "6E"
-				sprintf(Msgbuf, " (%c%s", Pgbuf[cnt - (CPL + 2)], "THE)"); //"true"; Insert preceeding character plus correction "THE"
+				sprintf(Msgbuf, " (%c%s", DcddChrBuf[lstCharPos - 2], "THE)"); //"true"; Insert preceeding character plus correction "THE"
 			}
-			if (Pgbuf[cnt - (CPL + 1)] == '6' && Pgbuf[cnt - (CPL)] == 'A')
+			if (DcddChrBuf[lstCharPos - 1] == '6' && DcddChrBuf[lstCharPos] == 'A')
 			{															   // test for "6A"
-				sprintf(Msgbuf, " (%c%s", Pgbuf[cnt - (CPL + 2)], "THA)"); //"true"; Insert preceeding character plus correction "THA"
+				sprintf(Msgbuf, " (%c%s", DcddChrBuf[lstCharPos - 2], "THA)"); //"true"; Insert preceeding character plus correction "THA"
 			}
-			if (Pgbuf[cnt - (CPL + 1)] == '9' && Pgbuf[cnt - (CPL)] == 'E')
+			if (DcddChrBuf[lstCharPos - 1] == '9' && DcddChrBuf[lstCharPos] == 'E')
 			{							   // test for "9E"
 				sprintf(Msgbuf, " (ONE)"); //"true"; Insert correction "ONE"
 			}
-			if (Pgbuf[cnt - (CPL + 2)] == 'P' && Pgbuf[cnt - (CPL + 1)] == 'L' && Pgbuf[cnt - (CPL)] == 'L')
+			if (DcddChrBuf[lstCharPos - 2] == 'P' && DcddChrBuf[lstCharPos - 1] == 'L' && DcddChrBuf[lstCharPos] == 'L')
 			{								// test for "PLL"
 				sprintf(Msgbuf, " (WELL)"); //"true"; Insert correction "WELL"
 			}
-			if ((Pgbuf[cnt - (CPL + 2)] == 'N' || Pgbuf[cnt - (CPL + 2)] == 'L') && Pgbuf[cnt - (CPL + 1)] == 'M' && Pgbuf[cnt - (CPL)] == 'Y')
+			if ((DcddChrBuf[lstCharPos - 2] == 'N' || DcddChrBuf[lstCharPos - 2] == 'L') && DcddChrBuf[lstCharPos - 1] == 'M' && DcddChrBuf[lstCharPos] == 'Y')
 			{															  // test for "NMY/LMY"
-				sprintf(Msgbuf, " (%c%s", Pgbuf[cnt - (CPL + 2)], "OW)"); //"true"; Insert correction "NOW"/"LOW"
+				sprintf(Msgbuf, " (%c%s", DcddChrBuf[lstCharPos - 2], "OW)"); //"true"; Insert correction "NOW"/"LOW"
 			}
-			if (Pgbuf[cnt - (CPL + 2)] == 'T' && Pgbuf[cnt - (CPL + 1)] == 'T' && Pgbuf[cnt - (CPL)] == 'O')
+			if (DcddChrBuf[lstCharPos - 2] == 'T' && DcddChrBuf[lstCharPos - 1] == 'T' && DcddChrBuf[lstCharPos] == 'O')
 			{							  // test for "PD"
 				sprintf(Msgbuf, "  (0)"); //"true"; Insert correction "TTO" = "0"
 			}
 		}
 		// recalculate maximum wait interval to splice decodeval
 		if (Bug3 && curChar != ' ')
-		{ // if(Bug3 & (cnt>CPL) & (Pgbuf[cnt-(CPL)]!=' ') ){ //JMH 20200925 with current algorithm, no longer need to wait for "Pgbuf" to become active
+		{ // if(Bug3 & (cnt>CPL) & (DcddChrBuf[cnt-(CPL)]!=' ') ){ //JMH 20200925 with current algorithm, no longer need to wait for "DcddChrBuf" to become active
 			ltrBrk = (60 * UsrLtrBrk) / 100; // Jmh 20200925 added this to keep "ltrBrk" at a dynamic/reasonable value with respect to what the sender is doing
 			if (ShrtBrk[LtrCntr] < UsrLtrBrk)
 			{ // we're working with the last letter received was started before a normal letter break period
@@ -2363,12 +2306,12 @@ void dispMsg(char Msgbuf[50])
 			char str_ShrtFctr[6];
 			// sprintf(str_ShrtFctr,"%d.%d", int(ShrtFctr), int(1000*ShrtFctr));
 			char Ltr;
-			if (cnt < CPL)
-			{
-				Ltr = curChar;
-			}
-			else
-				Ltr = Pgbuf[cnt - (CPL)];
+			// if (cnt < CPL)
+			// {
+			// 	Ltr = curChar;
+			// }
+			// else
+				Ltr = DcddChrBuf[sizeof(DcddChrBuf)-2];
 			// sprintf(DeBugMsg, "%d %d \t%c%c%c %d/%d/%d/%d/%s   \t%d/%lu\t  \t%lu\t%d \t%s \n\r",LtrCntr, ShrtBrk[LtrCntr],'"', Ltr,'"', ShrtBrkA, ltrBrk, wordBrk, UsrLtrBrk, str_ShrtFctr, cursorX, cursorY,  cnt, xoffset, info1);
 			// printf(DeBugMsg);
 			// LtrCntr = 0;
@@ -2381,24 +2324,23 @@ void dispMsg(char Msgbuf[50])
 			i++;
 		}
 		msgpntr++;
-		cnt++;
-		/*Test to see if we just reached the end of the current display line*/
-		if ((cnt - offset) * fontW >= displayW)
-		{
-			curRow++;
-			cursorX = 0;
-			cursorY = curRow * (fontH + 10);
-			offset = cnt;
-			// tft.setCursor(cursorX, cursorY);//for esp32 version this will be handled elsewhere.
-			 if (curRow + 1 > row) {//20230805 restoring this "if" statement to support decoder/parser error corrections
-			 	scrollpg();
-			 }
-		}
-		else
-		{
-			cursorX = (cnt - offset) * fontW;
-			// newRow = false;
-		}
+		// cnt++;
+		// /*Test to see if we just reached the end of the current display line*/
+		// if ((cnt - offset) * fontW >= displayW)
+		// {
+		// 	curRow++;
+		// 	cursorX = 0;
+		// 	cursorY = curRow * (fontH + 10);
+		// 	offset = cnt;
+			
+		// 	//  if (curRow + 1 > row) {//20230805 restoring this "if" statement to support decoder/parser error corrections
+		// 	//  	scrollpg();
+		// 	//  }
+		// }
+		// else
+		// {
+		// 	cursorX = (cnt - offset) * fontW;
+		// }
 	}
 	LtrCntr = 0;
 	ChkDeadSpace();
@@ -2406,36 +2348,36 @@ void dispMsg(char Msgbuf[50])
 	// chkChrCmplt();
 }
 //////////////////////////////////////////////////////////////////////
-void scrollpg() {
-/* for the ESP32 BT Keybrd & CW decoder version this function will be addressed elesewhere
-	SO commented out references to 'tft.' to keep the esp32 compiler happy*/
-  //buttonEnabled =false;
-  curRow = 0;
-  cursorX = 0;
-  cursorY = 0;
-  cnt = 0;
-  offset = 0;
-  //enableDisplay(); // Not needed forESP32. This is a Blackpill/TouchScreen thing
-  //tft.fillRect(cursorX, cursorY, displayW, row * (fontH + 10), BLACK); //erase current page of text
-  //tft.setCursor(cursorX, cursorY);
-  while (Pgbuf[cnt] != 0 && curRow + 1 < row) { //print current page buffer and move current text up one line
-    Pgbuf[cnt] = Pgbuf[cnt + CPL]; //shift existing text character forward by one line
-    cnt++;
-    //if (((cnt) - offset)*fontW >= displayW) {
-	if (((cnt) - offset) >= CPL) {	
-      curRow++;
-      offset = cnt;
-    //   cursorX = 0;
-    //   cursorY = curRow * (fontH + 10);
-    }
-    // else cursorX = (cnt - offset) * fontW;
+// void scrollpg() {
+// /* for the ESP32 BT Keybrd & CW decoder version this function will be addressed elesewhere
+// 	SO commented out references to 'tft.' to keep the esp32 compiler happy*/
+//   //buttonEnabled =false;
+//   curRow = 0;
+//   cursorX = 0;
+//   cursorY = 0;
+//   cnt = 0;
+//   offset = 0;
+//   //enableDisplay(); // Not needed forESP32. This is a Blackpill/TouchScreen thing
+//   //tft.fillRect(cursorX, cursorY, displayW, row * (fontH + 10), BLACK); //erase current page of text
+//   //tft.setCursor(cursorX, cursorY);
+//   while (DcddChrBuf[cnt] != 0 && curRow + 1 < row) { //print current page buffer and move current text up one line
+//     DcddChrBuf[cnt] = DcddChrBuf[cnt + CPL]; //shift existing text character forward by one line
+//     cnt++;
+//     //if (((cnt) - offset)*fontW >= displayW) {
+// 	if (((cnt) - offset) >= CPL) {	
+//       curRow++;
+//       offset = cnt;
+//     //   cursorX = 0;
+//     //   cursorY = curRow * (fontH + 10);
+//     }
+//     // else cursorX = (cnt - offset) * fontW;
 
-  }//end While Loop
-  while (Pgbuf[cnt] != 0) { //finish cleaning up last line
-    Pgbuf[cnt] = Pgbuf[cnt + 26];
-    cnt++;
-  }
-}
+//   }//end While Loop
+//   while (DcddChrBuf[cnt] != 0) { //finish cleaning up last line
+//     DcddChrBuf[cnt] = DcddChrBuf[cnt + 26];
+//     cnt++;
+//   }
+// }
 /////////////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////
@@ -2497,16 +2439,16 @@ void showSpeed(void)
 		sprintf(buf, "%lu", avgDit); // sprintf ( buf, "%d", (int)lastDit1);
 		for (int i = 0; i < sizeof(tmpbuf); i++)
 		{
-			tmpbuf[i] = Pgbuf[i];
-			if (Pgbuf[i] == 0)
+			tmpbuf[i] = DcddChrBuf[i];
+			if (DcddChrBuf[i] == 0)
 				break;
 		}
 		tmpbuf[sizeof(tmpbuf) - 1] = 0;
 		sprintf(buf, "%s/%lu", tmpbuf, avgDah);
 		for (int i = 0; i < sizeof(tmpbuf); i++)
 		{
-			tmpbuf[i] = Pgbuf[i];
-			if (Pgbuf[i] == 0)
+			tmpbuf[i] = DcddChrBuf[i];
+			if (DcddChrBuf[i] == 0)
 				break;
 		}
 		tmpbuf[sizeof(tmpbuf) - 1] = 0;
@@ -2556,9 +2498,9 @@ void SftReset(void) // Not called in ESP32 version
 
 	showSpeed();
 
-	for (int i = 0; i < sizeof(Pgbuf); ++i)
-		Pgbuf[i] = 0;
-	cnt = 0;
+	for (int i = 0; i < sizeof(DcddChrBuf); ++i)
+		DcddChrBuf[i] = 0;
+	//cnt = 0;
 	curRow = 0;
 	offset = 0;
 	cursorX = 0;

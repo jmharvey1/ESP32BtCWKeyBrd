@@ -509,7 +509,7 @@ void Chk4KeyDwn(float NowLvl)
 		}
 		if(!GltchFlg){
 			//unsigned long FltrPrd = (unsigned long)(avgKeyDwn/4.0);//avgKeyDwn as measured above seems to be abt twice that of the avgDit //4.0
-			unsigned long FltrPrd = (unsigned long)(avgKeyDwn/5.0); ///4.0, was on one sender bridging some spaces that shouldn't have been brigged
+			unsigned long FltrPrd = (unsigned long)(avgKeyDwn/6.0); ///4.0, was on one sender bridging some spaces that shouldn't have been brigged
 			/*Some straight keys & Bug senders have unusually small dead space between their dits (and Dahs). 
 			When thats the case, use the DcodeCW's avgDeadspace to set the duration of the glitch period */
 			if(FltrPrd > ((float)avgDeadSpace)/2) FltrPrd = (unsigned long)(((float)avgDeadSpace)/2);
