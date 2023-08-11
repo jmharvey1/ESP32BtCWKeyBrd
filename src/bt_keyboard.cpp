@@ -1556,8 +1556,8 @@ char BTKeyboard::wait_for_ascii_char(bool forever)
     {
       return last_ch = 0x9E;
     }
-     /* special test for Left ctr+'g' */
-    if (((uint8_t)inf.modifier == 1) && ((inf.keys[0] == 10) || (inf.keys[1] == 10)))
+     /* special test for Left or Right ctr+'g' */
+    if (((uint8_t)inf.modifier == 1|| (uint8_t)inf.modifier == 16) && ((inf.keys[0] == 10) || (inf.keys[1] == 10)))
     {
       return last_ch = 0xA1;
     }

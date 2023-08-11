@@ -766,11 +766,8 @@ void app_main()
       //   printf("; PairFlgFALSE\n");
     }
     if (bt_keyboard.OpnEvntFlg && !bt_keyboard.trapFlg)// this gets set to true when the K380 KB generates corrupt keystroke data
-      //key = bt_keyboard.wait_for_ascii_char(!bt_keyboard.PairFlg);
       key = bt_keyboard.wait_for_ascii_char(true);// by setting to "true" this task/loop will wait 'forever' for a keyboard key press
     
-    //EnDsplInt = false; // no longer need timer driven display refresh; As its now being handled in the wait for BT_keybrd entry loop "wait_for_low_event()"
-
     /*test key entry & process as needed*/
     if (key != 0)
     {
