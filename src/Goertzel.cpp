@@ -105,7 +105,8 @@ float DimFctr = 1.2;
 float TSF = 1.2; //TSF = Tone Scale Factor; used as part of calc to set/determine Tone Signal to Noise ratio; Tone Component
 //float NSF = 1.4;//1.6;//1.24; //1.84; //1.55; //2.30;//2.85;//0.64; //NSF = Noise Scale Factor; used as part of calc to set determine Tone Signal to Noise ratio; Noise Component
 float NSF = 1.7;//1.8;//2.2;//1.6;
-float ClipLvl = 15000;//based on 20230714 configuration//100000;//150000;//1500000;
+float ClipLvlF = 18000;//based on 20230811 configuration//100000;//150000;//1500000;
+float ClipLvlS = 25000;//based on 20230811 configuration
 
 float NoiseFlr = 0;
 float SigDect = 0;//introduced primarily for Detecting Hi-speed CW keydown events
@@ -556,7 +557,9 @@ void Chk4KeyDwn(float NowLvl)
 	/*Added 'NowLvl' to better sync the LED with the incoming tone */
 	//	if (GudTone){
 	//if ((NowLvl > AdjSqlch) && !Scaning)
-	if(SlwFlg) ClipLvl = 20000;
+	float ClipLvl;
+	if(SlwFlg) ClipLvl = ClipLvlS;
+	else ClipLvl = ClipLvlF;
 	if(!state)
 	{
 		if (CurLvl > ClipLvl)

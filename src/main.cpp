@@ -651,14 +651,14 @@ void app_main()
   }
   /*initialize & start continuous DMA ADC conversion process*/
   continuous_adc_init(channel, sizeof(channel) / sizeof(adc_channel_t), &adc_handle);
-  xTaskCreate(GoertzelHandler, "Goertzel Task", 8192, NULL, 5, &GoertzelTaskHandle);//priority used to be 3
+  xTaskCreate(GoertzelHandler, "Goertzel Task", 8192, NULL, 5, &GoertzelTaskHandle); // priority used to be 3
 
   adc_continuous_evt_cbs_t cbs = {
       .on_conv_done = s_conv_done_cb,
   };
   ESP_ERROR_CHECK(adc_continuous_register_event_callbacks(adc_handle, &cbs, NULL));
   ESP_ERROR_CHECK(adc_continuous_start(adc_handle));
-  adcON =true;
+  adcON = true;
   xTaskNotifyGive(CWDecodeTaskHandle);
 
   // if (ModeCnt == 4)
@@ -683,9 +683,9 @@ void app_main()
   {
 #if 1 // 0 = scan codes retrieval, 1 = augmented ASCII retrieval
     /* note: this loop only completes when there is a key entery from a paired/connected Bluetooth Keyboard */
-    
-    vTaskDelay(1);//give the watchdogtimer a chance to reset
-          
+
+    vTaskDelay(1); // give the watchdogtimer a chance to reset
+
     if (setupFlg)
     /*if true, exit main loop and jump to "settings" screen */
     {
@@ -697,7 +697,7 @@ void app_main()
       if (ModeCnt != 4)
       {
         ESP_ERROR_CHECK(adc_continuous_stop(adc_handle)); // true; user has pressed Ctl+S key, & wants to configure default settings
-        adcON =false;
+        adcON = false;
         vTaskSuspend(GoertzelTaskHandle);
         ESP_LOGI(TAG1, "SUSPEND GoertzelHandler TASK");
         vTaskSuspend(CWDecodeTaskHandle);
@@ -712,7 +712,7 @@ void app_main()
       if (ModeCnt != 4)
       {
         ESP_ERROR_CHECK(adc_continuous_start(adc_handle));
-        adcON =true;
+        adcON = true;
         ESP_LOGI(TAG1, "RESUME CWDecodeTaskHandle TASK");
         vTaskResume(CWDecodeTaskHandle);
         ESP_LOGI(TAG1, "RESUME GoertzelHandler TASK");
@@ -720,37 +720,43 @@ void app_main()
         vTaskDelay(20);
       }
     }
-    
+
     /*Added this to support 'open' paired keyboard event*/
     switch (bt_keyboard.Adc_Sw)
     {
     case 1:
       bt_keyboard.Adc_Sw = 0;
-      ESP_LOGI(TAG1, "!!!adc_continuous_stop!!!");
-      ESP_ERROR_CHECK(adc_continuous_stop(adc_handle));
-      adcON =false;
-      vTaskSuspend(GoertzelTaskHandle);
-      ESP_LOGI(TAG1, "SUSPEND GoertzelHandler TASK");
-      vTaskSuspend(CWDecodeTaskHandle);
-      ESP_LOGI(TAG1, "SUSPEND CWDecodeTaskHandle TASK");
+      if (adcON)// added "if" just to make sure we're not gonna do something that doesn't need doing
+      {
+        ESP_LOGI(TAG1, "!!!adc_continuous_stop!!!");
+        ESP_ERROR_CHECK(adc_continuous_stop(adc_handle));
+        adcON = false;
+        vTaskSuspend(GoertzelTaskHandle);
+        ESP_LOGI(TAG1, "SUSPEND GoertzelHandler TASK");
+        vTaskSuspend(CWDecodeTaskHandle);
+        ESP_LOGI(TAG1, "SUSPEND CWDecodeTaskHandle TASK");
+      }
       break;
 
     case 2:
       bt_keyboard.Adc_Sw = 0;
-      ESP_LOGI(TAG1, "***adc_continuous_start***");
-      ESP_ERROR_CHECK(adc_continuous_start(adc_handle));
-      adcON =true;
-      ESP_LOGI(TAG1, "RESUME CWDecodeTaskHandle TASK");
-      vTaskResume(CWDecodeTaskHandle);
-      ESP_LOGI(TAG1, "RESUME GoertzelHandler TASK");
-      vTaskResume(GoertzelTaskHandle);
+      if (!adcON)// added "if" just to make sure we're not gonna do something that doesn't need doing
+      {
+        ESP_LOGI(TAG1, "***adc_continuous_start***");
+        ESP_ERROR_CHECK(adc_continuous_start(adc_handle));
+        adcON = true;
+        ESP_LOGI(TAG1, "RESUME CWDecodeTaskHandle TASK");
+        vTaskResume(CWDecodeTaskHandle);
+        ESP_LOGI(TAG1, "RESUME GoertzelHandler TASK");
+        vTaskResume(GoertzelTaskHandle);
+      }
       break;
 
     default:
       break;
     }
     uint8_t key = 0;
-    if (0)//set to '1' for flag debugging
+    if (0) // set to '1' for flag debugging
     {
       if (bt_keyboard.OpnEvntFlg)
         printf("OpnEvntFlgTRUE");
@@ -765,9 +771,9 @@ void app_main()
       // else
       //   printf("; PairFlgFALSE\n");
     }
-    if (bt_keyboard.OpnEvntFlg && !bt_keyboard.trapFlg)// this gets set to true when the K380 KB generates corrupt keystroke data
-      key = bt_keyboard.wait_for_ascii_char(true);// by setting to "true" this task/loop will wait 'forever' for a keyboard key press
-    
+    if (bt_keyboard.OpnEvntFlg && !bt_keyboard.trapFlg) // this gets set to true when the K380 KB generates corrupt keystroke data
+      key = bt_keyboard.wait_for_ascii_char(true);      // by setting to "true" this task/loop will wait 'forever' for a keyboard key press
+
     /*test key entry & process as needed*/
     if (key != 0)
     {
@@ -937,7 +943,7 @@ void ProcsKeyEntry(uint8_t keyVal)
     return;
   }
    else if ((keyVal == 0xA1))
-  { // Cntrl+"G"; auto-tune/ freqLocked
+  { // Cntrl+"G"; Sample interval 4ms / 8ms
     SlwFlg = !SlwFlg;
     DFault.SlwFlg = SlwFlg;
     vTaskDelay(20);
@@ -1023,22 +1029,22 @@ void ProcsKeyEntry(uint8_t keyVal)
     CWsndengn.LdMsg(Title, 20);
     return;
   }
-  else if ((keyVal ==  0xA1))
-  { /* special test for Left ctr+'g' 
-    reduce Goertzel gain*/
-    Grtzl_Gain = Grtzl_Gain/2;
-    if (Grtzl_Gain < 0.00390625) Grtzl_Gain  = 0.00390625;
-    DFault.Grtzl_Gain = Grtzl_Gain;
-    return;
-  }
-else if ((keyVal ==  0xA2))
-  { /* special test for Right ctr+'g' 
-    increase Goertzel gain*/
-    Grtzl_Gain = 2* Grtzl_Gain;
-    if (Grtzl_Gain > 1.0) Grtzl_Gain  = 1.0;
-    DFault.Grtzl_Gain = Grtzl_Gain;
-    return;
-  }
+  // else if ((keyVal ==  0xA1))
+  // { /* special test for Left ctr+'g' 
+  //   reduce Goertzel gain*/
+  //   Grtzl_Gain = Grtzl_Gain/2;
+  //   if (Grtzl_Gain < 0.00390625) Grtzl_Gain  = 0.00390625;
+  //   DFault.Grtzl_Gain = Grtzl_Gain;
+  //   return;
+  // }
+  // else if ((keyVal ==  0xA2))
+  // { /* special test for Right ctr+'g' 
+  //   increase Goertzel gain*/
+  //   Grtzl_Gain = 2* Grtzl_Gain;
+  //   if (Grtzl_Gain > 1.0) Grtzl_Gain  = 1.0;
+  //   DFault.Grtzl_Gain = Grtzl_Gain;
+  //   return;
+  // }
 
    
   if ((keyVal >= 97) & (keyVal <= 122))
