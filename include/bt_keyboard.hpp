@@ -191,7 +191,7 @@ class BTKeyboard
       pmsgbx = msgbx_ptr;//used mainly for error & debug reporting + scan/pairing reorting
       pDFault = Dft_ptr;
       trapFlg = false;
-      // PairFlg = false; //no longer used/needed
+      //PairFlg = false; //no longer used/needed
       Adc_Sw = 0;
       OpnEvntFlg = false;
     }
