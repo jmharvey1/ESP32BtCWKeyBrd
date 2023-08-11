@@ -22,6 +22,7 @@
 /*20230503 JMH Numerous mods to adapt the original code to work with thw ESP32 BT CW Keyboard applications*/
 /*20230507 JMH reversed 'TAB & TAB+Shift Assignments to make settings screen selection move in a 'Logical' order*/
 /*20230721 Fixed Crash issue related to BT Keyboard sending corrupted keystroke data; fix mostly containg bt_keyboard.hid callback code*/
+/*20230810 beta fix for crash linked to 1st time connection to previously 'paired keyboard. Requires stopping ADC sampling during the 'open' Keyboard event*/
 
 #define __BT_KEYBOARD__ 1
 #include "bt_keyboard.hpp"
@@ -672,14 +673,15 @@ void BTKeyboard::handle_bt_device_result(esp_bt_gap_cb_param_t *param)
 
 void BTKeyboard::bt_gap_event_handler(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *param)
 {
-  //printf("bt_gap_event_handler\n"); //JMH Diagnosstic testing
+  static const char *TAG1 = "bt_gap_event_handler";
+  //printf("bt_gap_event_handler Start\n"); //JMH Diagnosstic testing
   switch (event)
   {
   case ESP_BT_GAP_DISC_STATE_CHANGED_EVT:
   {
     ESP_LOGV(TAG, "BT GAP DISC_STATE %s", (param->disc_st_chg.state == ESP_BT_GAP_DISCOVERY_STARTED) ? "START" : "STOP");
     // if(pDFault->DeBug){
-    //   sprintf(msgbuf, "BT GAP DISC_STATE %s", (param->disc_st_chg.state == ESP_BT_GAP_DISCOVERY_STARTED) ? "START" : "STOP");
+    //sprintf(msgbuf, "BT GAP DISC_STATE %s", (param->disc_st_chg.state == ESP_BT_GAP_DISCOVERY_STARTED) ? "START" : "STOP"); //JMH Diagnosstic testing
     //   pmsgbx->dispMsg(msgbuf,TFT_WHITE);
     // }
     if (param->disc_st_chg.state == ESP_BT_GAP_DISCOVERY_STOPPED)
@@ -697,7 +699,7 @@ void BTKeyboard::bt_gap_event_handler(esp_bt_gap_cb_event_t event, esp_bt_gap_cb
     //ESP_LOGV(TAG, "BT GAP KEY_NOTIF passkey:%d", param->key_notif.passkey); // JMH changed %lu to %d 
     ESP_LOGV(TAG, "BT GAP KEY_NOTIF passkey:%lu", param->key_notif.passkey); // JMH changed for WINDOWS 10 version
     //   if(pDFault->DeBug){
-    //   sprintf(msgbuf, "BT GAP KEY_NOTIF passkey:%lu", param->key_notif.passkey);
+    //sprintf(msgbuf, "BT GAP KEY_NOTIF passkey:%lu", param->key_notif.passkey); //JMH Diagnosstic testing
     //   pmsgbx->dispMsg(msgbuf,TFT_WHITE);
     // }
     if (bt_keyboard->pairing_handler != nullptr)
@@ -706,19 +708,27 @@ void BTKeyboard::bt_gap_event_handler(esp_bt_gap_cb_event_t event, esp_bt_gap_cb
   case ESP_BT_GAP_MODE_CHG_EVT:
     ESP_LOGV(TAG, "BT GAP MODE_CHG_EVT mode:%d", param->mode_chg.mode);
     // if(pDFault->DeBug){
-    //   sprintf(msgbuf, "BT GAP MODE_CHG_EVT mode:%d", param->mode_chg.mode);
+    //sprintf(msgbuf, "BT GAP MODE_CHG_EVT mode:%d", param->mode_chg.mode); //JMH Diagnosstic testing
     //   pmsgbx->dispMsg(msgbuf,TFT_WHITE);
     // }
+
+    if((param->mode_chg.mode == 0) && !OpnEvntFlg && adcON){
+      ESP_LOGI(TAG1, "adc_continuous_stop");
+      //ESP_ERROR_CHECK(adc_continuous_stop(adc_handle));
+      adcON = false;
+      vTaskDelay(20);
+     
+    }
     break;
   default:
     ESP_LOGV(TAG, "BT GAP EVENT %s", bt_gap_evt_str(event));
     // if(pDFault->DeBug){
-    //   sprintf(msgbuf, "BT GAP EVENT %s", bt_gap_evt_str(event));
+    sprintf(msgbuf, "BT GAP EVENT %s", bt_gap_evt_str(event));
     //   pmsgbx->dispMsg(msgbuf,TFT_WHITE);
     // }
     break;
   }
-  //printf("bt_gap_event_handler EXIT\n"); //JMH Diagnosstic testing
+  //printf("bt_gap_event_handler: %s EXIT\n",msgbuf); //JMH Diagnosstic testing
 }
 
 void BTKeyboard::handle_ble_device_result(esp_ble_gap_cb_param_t *param)
@@ -812,6 +822,7 @@ void BTKeyboard::handle_ble_device_result(esp_ble_gap_cb_param_t *param)
 
 void BTKeyboard::ble_gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param)
 {
+  //printf("ble_gap_event_handler\n"); //JMH Diagnosstic testing
   switch (event)
   {
 
@@ -961,6 +972,7 @@ void BTKeyboard::ble_gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap
       break;
     }
   }
+  //printf("ble_gap_event_handler EXIT\n"); //JMH Diagnosstic testing
 } // jhm added this bracket
 esp_err_t BTKeyboard::start_bt_scan(uint32_t seconds)
 {
@@ -1154,19 +1166,20 @@ void BTKeyboard::devices_scan(int seconds_wait_time)
 
 void BTKeyboard::hidh_callback(void *handler_args, esp_event_base_t base, int32_t id, void *event_data)
 {
+  static const char *TAG1 = "hidh_callback";
   char temp[250];
   uint16_t clr = 0;
   temp[0] = 255;
   esp_hidh_event_t event = (esp_hidh_event_t)id;
   esp_hidh_event_data_t *param = (esp_hidh_event_data_t *)event_data;
-  bool talk = false; //set to true for hid callback debugging
+  bool talk = false; //set to true for hid callback debugging //JMH Diagnosstic testing
   if (mutex != NULL)
   {
     /* See if we can obtain the semaphore.  If the semaphore is not
     available wait 15 ticks to see if it becomes free. */
     if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE) //(TickType_t)15
     {
-      if(talk) printf("hidh_callback\n"); //JMH Diagnosstic testing
+      if(talk) printf("hidh_callback\n"); 
       switch (event)
       {
       case ESP_HIDH_OPEN_EVENT:
@@ -1317,8 +1330,15 @@ void BTKeyboard::hidh_callback(void *handler_args, esp_event_base_t base, int32_
           }
           else
             sprintf(temp, "OPEN: %02x:%02x:%02x:%02x:%02x:%02x", ESP_BD_ADDR_HEX(bda));
+
           clr = TFT_GREEN;
+          if(!OpnEvntFlg && !adcON){
+            ESP_LOGI(TAG1, "adc_continuous_start");
+            ESP_ERROR_CHECK(adc_continuous_start(adc_handle));
+            adcON = true;
+          }
           OpnEvntFlg = true;
+          
         }
         else
         {

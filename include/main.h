@@ -15,7 +15,7 @@
 #include "freertos/task.h"
 #include "freertos/semphr.h"
 #include "freertos/queue.h"
-//#include "driver/timer.h"
+#include "esp_adc/adc_continuous.h"
 #include <driver/gptimer.h>//JMH added for Windows 10 version
 //#include "gptimer.h"//JMH removed for Windows 10 version
 #include "esp_system.h"
@@ -58,12 +58,14 @@ extern char StrdTxt[20];
 extern char MyCall[10];
 extern char MemF2[80];
 extern bool clrbuf;
+extern bool adcON;
 extern COREDUMP_DRAM_ATTR uint8_t global_var;
 uint8_t Read_NVS_Str(const char *key, char *value);
 template <class T>
 uint8_t Read_NVS_Val(const char *key, T &value);
 uint8_t Write_NVS_Str(const char *key, char *value);
 uint8_t Write_NVS_Val(const char *key,  int value);
+extern adc_continuous_handle_t adc_handle;
 
 
 #endif /* INC_MAIN_H_ */

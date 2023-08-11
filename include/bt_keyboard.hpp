@@ -121,7 +121,7 @@ class BTKeyboard
 
     static void hidh_callback(void * handler_args, esp_event_base_t base, int32_t id, void * event_data);
 
-    static void  bt_gap_event_handler( esp_bt_gap_cb_event_t event,  esp_bt_gap_cb_param_t * param);
+    static void bt_gap_event_handler( esp_bt_gap_cb_event_t event,  esp_bt_gap_cb_param_t * param);
     static void ble_gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t * param);
 
     static const char *   ble_addr_type_str(esp_ble_addr_type_t ble_addr_type);
@@ -187,7 +187,7 @@ class BTKeyboard
     {
       pmsgbx = msgbx_ptr;//used mainly for error & debug reporting + scan/pairing reorting
       pDFault = Dft_ptr;
-      trapFlg = false;
+      trapFlg = true;
       PairFlg = false;
     }
 

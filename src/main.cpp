@@ -36,6 +36,7 @@
 /*20230801 Added Short/Long (4ms/8ms) sample interval; User selectable via Ctrl+g */
 /*20230804 Minor timing tweeks to  DecodeCW & Goertzel code*/
 /*20230807 rewrote sloppy string check code for ESP32; See CcodeCW.cpp */
+/*20230810 beta fix for crash linked to 1st time connection to previously 'paired keyboard. Requires stopping ADC sampling during the 'open' Keyboard event*/
 #include "sdkconfig.h" //added for timer support
 #include "globals.h"
 #include "main.h"
@@ -92,7 +93,7 @@ DF_t DFault;
 int DeBug = 1; // Debug factory default setting; 0 => Debug "OFF"; 1 => Debug "ON"
 char StrdTxt[20] = {'\0'};
 /*Factory Default Settings*/
-char RevDate[9] = "20230807";
+char RevDate[9] = "20230810";
 char MyCall[10] = {'K', 'W', '4', 'K', 'D'};
 char MemF2[80] = "VVV VVV TEST DE KW4KD";
 char MemF3[80] = "CQ CQ CQ DE KW4KD KW4KD";
@@ -108,6 +109,7 @@ bool UrTurn = true;
 bool WokeFlg = false;
 bool QuequeFulFlg = false;
 bool mutexFLG =false;
+bool adcON =false;
 //bool PairFlg = false;
 //bool trapFlg = false;
 volatile int DotClkstate = 0;
@@ -325,6 +327,7 @@ void GoertzelHandler(void *param)
           k = ((int)(p->type1.data) - BIAS);
           addSmpl(k, pos0, &Smpl_CntrA);
         }
+        /*logic to manage the number of data samples to take before going on to compute goertzel magnitudes*/
         if(SlwFlg && FrstPass){
           FrstPass = false;
         } else if(SlwFlg){
@@ -653,11 +656,13 @@ void app_main()
   };
   ESP_ERROR_CHECK(adc_continuous_register_event_callbacks(adc_handle, &cbs, NULL));
   ESP_ERROR_CHECK(adc_continuous_start(adc_handle));
+  adcON =true;
   xTaskNotifyGive(CWDecodeTaskHandle);
 
   if (ModeCnt == 4)
   {
     ESP_ERROR_CHECK(adc_continuous_stop(adc_handle));
+    adcON =false;
     vTaskSuspend(GoertzelTaskHandle);
     ESP_LOGI(TAG1, "SUSPEND GoertzelHandler TASK");
     vTaskSuspend(CWDecodeTaskHandle);
@@ -675,7 +680,7 @@ void app_main()
   while (true)
   {
 #if 1 // 0 = scan codes retrieval, 1 = augmented ASCII retrieval
-    /* note: this loop only completes when there is a key enter from the paired/connected Bluetooth Keyboard */
+    /* note: this loop only completes when there is a key entery from a paired/connected Bluetooth Keyboard */
     if(bt_keyboard.PairFlg)
     {
       bt_keyboard.PairFlg = false;
@@ -683,6 +688,7 @@ void app_main()
         ModeCnt = 4;
         printf("Pairing Flag Set\n");
         ESP_ERROR_CHECK(adc_continuous_stop(adc_handle));
+        adcON =false;
         vTaskSuspend(GoertzelTaskHandle);
         ESP_LOGI(TAG1, "SUSPEND GoertzelHandler TASK");
         vTaskSuspend(CWDecodeTaskHandle);
@@ -693,6 +699,7 @@ void app_main()
       }
     }
     vTaskDelay(1);//give the watchdogtimer a chance to reset
+          
     if (setupFlg)
     /*if true, exit main loop and jump to "settings" screen */
     {
@@ -704,6 +711,7 @@ void app_main()
       if (ModeCnt != 4)
       {
         ESP_ERROR_CHECK(adc_continuous_stop(adc_handle)); // true; user has pressed Ctl+S key, & wants to configure default settings
+        adcON =false;
         vTaskSuspend(GoertzelTaskHandle);
         ESP_LOGI(TAG1, "SUSPEND GoertzelHandler TASK");
         vTaskSuspend(CWDecodeTaskHandle);
@@ -718,6 +726,7 @@ void app_main()
       if (ModeCnt != 4)
       {
         ESP_ERROR_CHECK(adc_continuous_start(adc_handle));
+        adcON =true;
         ESP_LOGI(TAG1, "RESUME CWDecodeTaskHandle TASK");
         vTaskResume(CWDecodeTaskHandle);
         ESP_LOGI(TAG1, "RESUME GoertzelHandler TASK");
@@ -726,7 +735,13 @@ void app_main()
       }
     }
     uint8_t key = 0;
-
+    /*Added this to support 'open' paired keyboard event*/
+    if(!adcON && bt_keyboard.trapFlg)
+    {
+      ESP_LOGI(TAG1, "!!!adc_continuous_stop!!!");
+      ESP_ERROR_CHECK(adc_continuous_stop(adc_handle));
+      bt_keyboard.trapFlg = false;// set to false so that this if statement only fires once
+    }
     if (!bt_keyboard.trapFlg)// this gets set to true when the K380 KB generates corrupt keystroke data
       key = bt_keyboard.wait_for_ascii_char(!bt_keyboard.PairFlg);
     
@@ -973,6 +988,7 @@ void ProcsKeyEntry(uint8_t keyVal)
       ESP_LOGI(TAG1, "RESUME GoertzelHandler TASK");
       vTaskResume(GoertzelTaskHandle);
       ESP_ERROR_CHECK(adc_continuous_start(adc_handle));
+      adcON =true;
       vTaskDelay(20);
     }
     if (ModeCnt > 3)
@@ -999,6 +1015,7 @@ void ProcsKeyEntry(uint8_t keyVal)
       ESP_LOGI(TAG1, "RESUME GoertzelHandler TASK");
       vTaskResume(GoertzelTaskHandle);
       ESP_ERROR_CHECK(adc_continuous_start(adc_handle));
+      adcON =true;
       vTaskDelay(20);
     }
     ModeCnt--;

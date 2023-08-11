@@ -19,6 +19,7 @@ extern uint8_t GudSig;
 extern float SqlchLvl;
 extern float CurNoise;
 extern float TARGET_FREQUENCYC;
+extern float AvgSmblDedSpc;
 extern volatile unsigned long avgDit;
 extern volatile unsigned long avgDeadSpace;
 extern float curRatio;

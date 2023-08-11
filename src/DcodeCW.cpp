@@ -168,6 +168,7 @@ volatile unsigned long DitVar = 0;	 // average 'Dit' duration
 volatile unsigned long avgDah = 240; // average 'Dah' duration
 volatile unsigned long lastDah = avgDah;
 float lastDit = (float)avgDit;
+float AvgSmblDedSpc =  (float)avgDit;
 
 volatile unsigned long avgDeadSpace = avgDit;
 // volatile unsigned long wordBrk = avgDah ;
@@ -213,6 +214,7 @@ void StartDecoder(TFTMsgBox *pttftmsgbx)
 		PrdStack[i] = 1200 / 15;
 	}
 	wordBrk = ((5 * wordBrk) + (4 * avgDeadSpace)) / 6;
+	AvgSmblDedSpc =  avgDeadSpace;
 	
 } /* END SetUp Code */
 /////////////////////////////////////////
@@ -1108,6 +1110,7 @@ void WPMdefault(void)
 {
 	avgDit = 80.0; // average 'Dit' duration
 	avgDeadSpace = avgDit;
+	AvgSmblDedSpc = avgDit;
 	avgDah = 240.0;
 	AvgLtrBrk = avgDah;
 	wpm = CalcWPM(avgDit, avgDah, avgDeadSpace);
@@ -1197,7 +1200,7 @@ void SetLtrBrk(void)
 	unsigned long ltrBrka;
 	unsigned long ltrBrkb;
 	char tmpbuf[50];
-	bool dbgFLg = false;
+	bool dbgFLg = false;// true; //
 	if (dbgFLg)
 		sprintf(PrntBuf, " ");
 	/* if (!LtrBrkFlg)
@@ -1350,6 +1353,8 @@ void SetLtrBrk(void)
 	{
 		wordBrk = int(1.1 * float(ltrBrk));
 	}
+	/*Now work out what the average intersymbol space time is*/
+	if((3.18*(float)deadSpace)< (float)avgDah) AvgSmblDedSpc = (19*AvgSmblDedSpc+ (float)deadSpace)/20;
 	/*Set dbgFLg = true, when diagnosing letter break timing */
 	if (dbgFLg)
 	{
@@ -1362,7 +1367,7 @@ void SetLtrBrk(void)
 		}
 		if (slop < 4)
 		{
-			sprintf(PrntBuf, "%s\t%d; %u; %u; %u; %u; %u\n\r ", tmpbuf, (uint16_t)ltrBrk, (uint16_t)deadSpace, (uint16_t)SpaceStk[Bitpos - 1], (uint16_t)space, (uint16_t)avgDeadSpace, (uint16_t)avgDah);
+			sprintf(PrntBuf, "%s\t%d; %u; %u; %u; %u; %u; %u\n\r ", tmpbuf, (uint16_t)ltrBrk, (uint16_t)deadSpace, (uint16_t)SpaceStk[Bitpos - 1], (uint16_t)space, (uint16_t)avgDeadSpace, (uint16_t)AvgSmblDedSpc, (uint16_t)avgDah);
 			printf(PrntBuf);
 		}
 	}
