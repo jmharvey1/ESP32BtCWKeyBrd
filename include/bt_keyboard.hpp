@@ -65,7 +65,7 @@ class BTKeyboard
       uint8_t     keys[MAX_KEY_COUNT];
     };
     bool trapFlg;
-    bool PairFlg;
+    //bool PairFlg;  //no longer used/needed
     bool OpnEvntFlg;
     int  Adc_Sw;
 
@@ -190,8 +190,8 @@ class BTKeyboard
     {
       pmsgbx = msgbx_ptr;//used mainly for error & debug reporting + scan/pairing reorting
       pDFault = Dft_ptr;
-      trapFlg = true;
-      PairFlg = false;
+      trapFlg = false;
+      // PairFlg = false; //no longer used/needed
       Adc_Sw = 0;
       OpnEvntFlg = false;
     }

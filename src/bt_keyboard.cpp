@@ -1131,8 +1131,8 @@ void BTKeyboard::devices_scan(int seconds_wait_time)
     if (cr)
     {
       // open the last result
-      bt_keyboard->PairFlg = true;//JMH probably not the smartest place to put this
-      vTaskDelay(200/portTICK_PERIOD_MS);//pause long enough for flag change to take effect
+      // bt_keyboard->PairFlg = true;//JMH probably not the smartest place to put this
+      // vTaskDelay(200/portTICK_PERIOD_MS);//pause long enough for flag change to take effect
       sprintf(msgbuf, "Enter PAIRING code for %s\n", cr->name);
 
       esp_hidh_dev_open(cr->bda, cr->transport, cr->ble.addr_type);

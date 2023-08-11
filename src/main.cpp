@@ -683,23 +683,7 @@ void app_main()
   {
 #if 1 // 0 = scan codes retrieval, 1 = augmented ASCII retrieval
     /* note: this loop only completes when there is a key entery from a paired/connected Bluetooth Keyboard */
-    if(bt_keyboard.PairFlg)
-    {
-      bt_keyboard.PairFlg = false;
-      if(ModeCnt != 4){
-        ModeCnt = 4;
-        printf("Pairing Flag Set\n");
-        ESP_ERROR_CHECK(adc_continuous_stop(adc_handle));
-        adcON =false;
-        vTaskSuspend(GoertzelTaskHandle);
-        ESP_LOGI(TAG1, "SUSPEND GoertzelHandler TASK");
-        vTaskSuspend(CWDecodeTaskHandle);
-        ESP_LOGI(TAG1, "SUSPEND CWDecodeTaskHandle TASK");
-        tftmsgbx.dispStat("DECODER SUSPENDED", TFT_YELLOW);
-        int key = bt_keyboard.wait_for_ascii_char(false);// added this to keep the watchdogtimer happy
-
-      }
-    }
+    
     vTaskDelay(1);//give the watchdogtimer a chance to reset
           
     if (setupFlg)
@@ -766,8 +750,24 @@ void app_main()
       break;
     }
     uint8_t key = 0;
+    if (0)//set to '1' for flag debugging
+    {
+      if (bt_keyboard.OpnEvntFlg)
+        printf("OpnEvntFlgTRUE");
+      else
+        printf("OpnEvntFlgFALSE");
+      if (bt_keyboard.trapFlg)
+        printf("; trapFlgTRUE\n");
+      else
+        printf("; trapFlgFALSE\n");
+      // if (bt_keyboard.PairFlg)
+      //   printf("; PairFlgTRUE\n");
+      // else
+      //   printf("; PairFlgFALSE\n");
+    }
     if (bt_keyboard.OpnEvntFlg && !bt_keyboard.trapFlg)// this gets set to true when the K380 KB generates corrupt keystroke data
-      key = bt_keyboard.wait_for_ascii_char(!bt_keyboard.PairFlg);
+      //key = bt_keyboard.wait_for_ascii_char(!bt_keyboard.PairFlg);
+      key = bt_keyboard.wait_for_ascii_char(true);// by setting to "true" this task/loop will wait 'forever' for a keyboard key press
     
     //EnDsplInt = false; // no longer need timer driven display refresh; As its now being handled in the wait for BT_keybrd entry loop "wait_for_low_event()"
 
@@ -795,62 +795,14 @@ void app_main()
 } /*End Main loop*/
 
 /*Timer interrupt ISRs*/
-// void DsplTmr_callback(TimerHandle_t xtimer)
-// {
-//   uint8_t state;
-//   BaseType_t TaskWoke;
 
-//   if (mutex != NULL)
-//   {
-//     /* See if we can obtain the semaphore.  If the semaphore is not
-//     available wait 10 ticks to see if it becomes free. */
-//     //if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE)
-//     if (xSemaphoreTakeFromISR(mutex,  &TaskWoke) == pdTRUE)
-//     {
-//       /* We were able to obtain the semaphore and can now access the
-//       shared resource. */
-//       mutexFLG =true;
-//       tftmsgbx.dispMsg2();
-//       /* Pull accumulated "state" values from que and pass on to the tftmsgbx method "IntrCrsr"*/
-//       while (xQueueReceiveFromISR(state_que, (void *)&state, &TaskWoke) == pdTRUE)
-//         tftmsgbx.IntrCrsr(state);
-//       /* We have finished accessing the shared resource.  Release the
-//       semaphore. */
-//       MutexbsyCnt = 0;
-//       xSemaphoreGiveFromISR(mutex, NULL);
-//       //xSemaphoreGive(mutex);
-//       mutexFLG =false;
-//     }
-//   }
-// }
 void DsplTmr_callback(TimerHandle_t xtimer)
 {
   uint8_t state;
   BaseType_t TaskWoke;
   BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-
-  // if (mutex != NULL)
-  // {
-  //   /* See if we can obtain the semaphore.  If the semaphore is not
-  //   available wait 10 ticks to see if it becomes free. */
-  //   //if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE)
-  //   if (xSemaphoreTakeFromISR(mutex,  &TaskWoke) == pdTRUE)
-  //   {
-      /* We were able to obtain the semaphore and can now access the
-      shared resource. */
-      //mutexFLG =true;
-      //tftmsgbx.dispMsg2();
-      //vTaskResume(DsplUpDtTaskHandle);
-      //configASSERT(DsplUpDtTaskHandle != NULL); // only need the configASSERT() for initial testing 
-      vTaskNotifyGiveFromISR(DsplUpDtTaskHandle, &xHigherPriorityTaskWoken); // start DisplayUpDt Task
-      if (xHigherPriorityTaskWoken == pdTRUE) portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
-  //     /* We have finished accessing the shared resource.  Release the
-  //     semaphore. */
-  //     xSemaphoreGiveFromISR(mutex, NULL);
-  //     //xSemaphoreGive(mutex);
-  //     mutexFLG =false;
-  //   }
-  // }
+  vTaskNotifyGiveFromISR(DsplUpDtTaskHandle, &xHigherPriorityTaskWoken); // start DisplayUpDt Task
+  if (xHigherPriorityTaskWoken == pdTRUE) portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
 }
 /*                                          */
 /* DotClk timer ISR                 */
@@ -998,23 +950,19 @@ void ProcsKeyEntry(uint8_t keyVal)
   }
   else if ((keyVal == 0x9E))
   { // LEFT Cntrl+"D"; Decode Modef()
-    /* manual manipulation of samlpe rate setting */
-     /* SAMPLING_RATE +=100;
-     InitGoertzel();
-     showSpeed();
-     vTaskDelay(80); */
+    
     /*Normal setup */
     ModeCnt++;
-    if (ModeCnt > 4)
-    {
-      ESP_LOGI(TAG1, "RESUME CWDecodeTaskHandle TASK");
-      vTaskResume(CWDecodeTaskHandle);
-      ESP_LOGI(TAG1, "RESUME GoertzelHandler TASK");
-      vTaskResume(GoertzelTaskHandle);
-      ESP_ERROR_CHECK(adc_continuous_start(adc_handle));
-      adcON =true;
-      vTaskDelay(20);
-    }
+    // if (ModeCnt > 4)
+    // {
+    //   ESP_LOGI(TAG1, "RESUME CWDecodeTaskHandle TASK");
+    //   vTaskResume(CWDecodeTaskHandle);
+    //   ESP_LOGI(TAG1, "RESUME GoertzelHandler TASK");
+    //   vTaskResume(GoertzelTaskHandle);
+    //   ESP_ERROR_CHECK(adc_continuous_start(adc_handle));
+    //   adcON =true;
+    //   vTaskDelay(20);
+    // }
     if (ModeCnt > 3)
       ModeCnt = 0;
     DFault.ModeCnt = ModeCnt;
@@ -1026,22 +974,18 @@ void ProcsKeyEntry(uint8_t keyVal)
   }
   else if ((keyVal == 0xA0))
   { // RIGHT Cntrl+"D"; Decode Modef()
-    /* manual manipulation of samlpe rate setting */
-    /* SAMPLING_RATE -=100;
-    InitGoertzel();
-    showSpeed();
-    vTaskDelay(80); */
+    
     /*Normal setup */
-    if (ModeCnt == 4)
-    {
-      ESP_LOGI(TAG1, "RESUME CWDecodeTaskHandle TASK");
-      vTaskResume(CWDecodeTaskHandle);
-      ESP_LOGI(TAG1, "RESUME GoertzelHandler TASK");
-      vTaskResume(GoertzelTaskHandle);
-      ESP_ERROR_CHECK(adc_continuous_start(adc_handle));
-      adcON =true;
-      vTaskDelay(20);
-    }
+    // if (ModeCnt == 4)
+    // {
+    //   ESP_LOGI(TAG1, "RESUME CWDecodeTaskHandle TASK");
+    //   vTaskResume(CWDecodeTaskHandle);
+    //   ESP_LOGI(TAG1, "RESUME GoertzelHandler TASK");
+    //   vTaskResume(GoertzelTaskHandle);
+    //   ESP_ERROR_CHECK(adc_continuous_start(adc_handle));
+    //   adcON =true;
+    //   vTaskDelay(20);
+    // }
     ModeCnt--;
     if (ModeCnt < 0)
       ModeCnt = 3;
