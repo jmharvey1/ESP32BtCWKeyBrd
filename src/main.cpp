@@ -37,6 +37,7 @@
 /*20230804 Minor timing tweeks to  DecodeCW & Goertzel code*/
 /*20230807 rewrote sloppy string check code for ESP32; See CcodeCW.cpp */
 /*20230810 beta fix for crash linked to 1st time connection to previously 'paired keyboard. Requires stopping ADC sampling during the 'open' Keyboard event*/
+/*20230811 beta2 fix for crash linked to 1st time connection to previously 'paired keyboard. Requires stopping ADC sampling during the 'open' Keyboard event*/
 #include "sdkconfig.h" //added for timer support
 #include "globals.h"
 #include "main.h"
@@ -93,8 +94,8 @@ DF_t DFault;
 int DeBug = 1; // Debug factory default setting; 0 => Debug "OFF"; 1 => Debug "ON"
 char StrdTxt[20] = {'\0'};
 /*Factory Default Settings*/
-char RevDate[9] = "20230810";
-char MyCall[10] = {'K', 'W', '4', 'K', 'D'};
+char RevDate[9] = "20230811";
+char MyCall[10] = "KW4KD";
 char MemF2[80] = "VVV VVV TEST DE KW4KD";
 char MemF3[80] = "CQ CQ CQ DE KW4KD KW4KD";
 char MemF4[80] = "TU 73 ES GL";
@@ -487,7 +488,7 @@ void pairing_handler(uint32_t pid)
 void app_main()
 {
 
-  ModeCnt = 4;
+  ModeCnt = 0;
   /* coredump crash test code */
   /*  vTaskDelay(10000/portTICK_PERIOD_MS);
   for(int i = 25; i <0; i--){
@@ -596,6 +597,7 @@ void app_main()
     DFault.SlwFlg = SlwFlg;
     sprintf(Title, "\n        No stored USER params Found\n   Using FACTORY values until params are\n   'Saved' via the Settings Screen\n");
     tftmsgbx.dispMsg(Title, TFT_ORANGE);
+    bt_keyboard.trapFlg = false;
   }
   else
   {
@@ -659,17 +661,17 @@ void app_main()
   adcON =true;
   xTaskNotifyGive(CWDecodeTaskHandle);
 
-  if (ModeCnt == 4)
-  {
-    ESP_ERROR_CHECK(adc_continuous_stop(adc_handle));
-    adcON =false;
-    vTaskSuspend(GoertzelTaskHandle);
-    ESP_LOGI(TAG1, "SUSPEND GoertzelHandler TASK");
-    vTaskSuspend(CWDecodeTaskHandle);
-    ESP_LOGI(TAG1, "SUSPEND CWDecodeTaskHandle TASK");
-    tftmsgbx.dispStat("DECODER SUSPENDED", TFT_YELLOW);
-    vTaskDelay(20);
-  }
+  // if (ModeCnt == 4)
+  // {
+  //   ESP_ERROR_CHECK(adc_continuous_stop(adc_handle));
+  //   adcON =false;
+  //   vTaskSuspend(GoertzelTaskHandle);
+  //   ESP_LOGI(TAG1, "SUSPEND GoertzelHandler TASK");
+  //   vTaskSuspend(CWDecodeTaskHandle);
+  //   ESP_LOGI(TAG1, "SUSPEND CWDecodeTaskHandle TASK");
+  //   tftmsgbx.dispStat("DECODER SUSPENDED", TFT_YELLOW);
+  //   vTaskDelay(20);
+  // }
   vTaskDelay(200 / portTICK_PERIOD_MS);
   // uint32_t freq = 48*1000;
   // uint32_t interval = APB_CLK_FREQ / (ADC_LL_CLKM_DIV_NUM_DEFAULT + ADC_LL_CLKM_DIV_A_DEFAULT / ADC_LL_CLKM_DIV_B_DEFAULT + 1) / 2 / freq;
@@ -734,15 +736,37 @@ void app_main()
         vTaskDelay(20);
       }
     }
-    uint8_t key = 0;
+    
     /*Added this to support 'open' paired keyboard event*/
-    if(!adcON && bt_keyboard.trapFlg)
+    switch (bt_keyboard.Adc_Sw)
     {
+    case 1:
+      bt_keyboard.Adc_Sw = 0;
       ESP_LOGI(TAG1, "!!!adc_continuous_stop!!!");
       ESP_ERROR_CHECK(adc_continuous_stop(adc_handle));
-      bt_keyboard.trapFlg = false;// set to false so that this if statement only fires once
+      adcON =false;
+      vTaskSuspend(GoertzelTaskHandle);
+      ESP_LOGI(TAG1, "SUSPEND GoertzelHandler TASK");
+      vTaskSuspend(CWDecodeTaskHandle);
+      ESP_LOGI(TAG1, "SUSPEND CWDecodeTaskHandle TASK");
+      break;
+
+    case 2:
+      bt_keyboard.Adc_Sw = 0;
+      ESP_LOGI(TAG1, "***adc_continuous_start***");
+      ESP_ERROR_CHECK(adc_continuous_start(adc_handle));
+      adcON =true;
+      ESP_LOGI(TAG1, "RESUME CWDecodeTaskHandle TASK");
+      vTaskResume(CWDecodeTaskHandle);
+      ESP_LOGI(TAG1, "RESUME GoertzelHandler TASK");
+      vTaskResume(GoertzelTaskHandle);
+      break;
+
+    default:
+      break;
     }
-    if (!bt_keyboard.trapFlg)// this gets set to true when the K380 KB generates corrupt keystroke data
+    uint8_t key = 0;
+    if (bt_keyboard.OpnEvntFlg && !bt_keyboard.trapFlg)// this gets set to true when the K380 KB generates corrupt keystroke data
       key = bt_keyboard.wait_for_ascii_char(!bt_keyboard.PairFlg);
     
     //EnDsplInt = false; // no longer need timer driven display refresh; As its now being handled in the wait for BT_keybrd entry loop "wait_for_low_event()"

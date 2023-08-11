@@ -23,6 +23,7 @@
 /*20230507 JMH reversed 'TAB & TAB+Shift Assignments to make settings screen selection move in a 'Logical' order*/
 /*20230721 Fixed Crash issue related to BT Keyboard sending corrupted keystroke data; fix mostly containg bt_keyboard.hid callback code*/
 /*20230810 beta fix for crash linked to 1st time connection to previously 'paired keyboard. Requires stopping ADC sampling during the 'open' Keyboard event*/
+/*20230811 added bt_keyboard->Adc_Sw & bt_keyboard->OpnEvntFlg params to manage ADC sampling during connecting to a previously 'paired' keyboard*/
 
 #define __BT_KEYBOARD__ 1
 #include "bt_keyboard.hpp"
@@ -66,7 +67,7 @@ const char BTKeyboard::shift_trans_dict[] =
 static BTKeyboard *bt_keyboard = nullptr;
 
 char msgbuf[256];
-bool OpnEvntFlg = false;
+
 
 const char *
 BTKeyboard::ble_addr_type_str(esp_ble_addr_type_t ble_addr_type)
@@ -712,12 +713,10 @@ void BTKeyboard::bt_gap_event_handler(esp_bt_gap_cb_event_t event, esp_bt_gap_cb
     //   pmsgbx->dispMsg(msgbuf,TFT_WHITE);
     // }
 
-    if((param->mode_chg.mode == 0) && !OpnEvntFlg && adcON){
+    if((param->mode_chg.mode == 0) && !bt_keyboard->OpnEvntFlg && adcON){
       ESP_LOGI(TAG1, "adc_continuous_stop");
-      //ESP_ERROR_CHECK(adc_continuous_stop(adc_handle));
-      adcON = false;
+      bt_keyboard->Adc_Sw = 1;
       vTaskDelay(20);
-     
     }
     break;
   default:
@@ -1086,7 +1085,7 @@ void BTKeyboard::devices_scan(int seconds_wait_time)
 {
   size_t results_len = 0;
   esp_hid_scan_result_t *results = NULL;
-  OpnEvntFlg = false;
+ // bt_keyboard->OpnEvntFlg = false;
   ESP_LOGV(TAG, "SCAN...");
   sprintf(msgbuf, "LOOKing for New Keyboard...\n");
   pmsgbx->dispMsg(msgbuf, TFT_YELLOW);
@@ -1150,7 +1149,7 @@ void BTKeyboard::devices_scan(int seconds_wait_time)
   }
   else
   {
-    if (OpnEvntFlg)
+    if (bt_keyboard->OpnEvntFlg)
     {
       sprintf(msgbuf, "Keyboard Ready...\n");
       pmsgbx->dispMsg(msgbuf, TFT_YELLOW);
@@ -1332,12 +1331,11 @@ void BTKeyboard::hidh_callback(void *handler_args, esp_event_base_t base, int32_
             sprintf(temp, "OPEN: %02x:%02x:%02x:%02x:%02x:%02x", ESP_BD_ADDR_HEX(bda));
 
           clr = TFT_GREEN;
-          if(!OpnEvntFlg && !adcON){
+          if(!bt_keyboard->OpnEvntFlg && !adcON){
             ESP_LOGI(TAG1, "adc_continuous_start");
-            ESP_ERROR_CHECK(adc_continuous_start(adc_handle));
-            adcON = true;
+            bt_keyboard->Adc_Sw = 2;
           }
-          OpnEvntFlg = true;
+          bt_keyboard->OpnEvntFlg = true;
           
         }
         else

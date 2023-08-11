@@ -19,6 +19,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+/*20230811 added bt_keyboard->Adc_Sw & bt_keyboard->OpnEvntFlg params to manage ADC sampling during opening a previously 'paired' keyboard*/
 
 #pragma once
 
@@ -65,6 +66,8 @@ class BTKeyboard
     };
     bool trapFlg;
     bool PairFlg;
+    bool OpnEvntFlg;
+    int  Adc_Sw;
 
   private:
 
@@ -189,6 +192,8 @@ class BTKeyboard
       pDFault = Dft_ptr;
       trapFlg = true;
       PairFlg = false;
+      Adc_Sw = 0;
+      OpnEvntFlg = false;
     }
 
     bool setup(pid_handler * handler = nullptr);
