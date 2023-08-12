@@ -735,6 +735,7 @@ void app_main()
         ESP_LOGI(TAG1, "SUSPEND GoertzelHandler TASK");
         vTaskSuspend(CWDecodeTaskHandle);
         ESP_LOGI(TAG1, "SUSPEND CWDecodeTaskHandle TASK");
+        //vTaskSuspend(DsplUpDtTaskHandle);
       }
       break;
 
@@ -749,6 +750,7 @@ void app_main()
         vTaskResume(CWDecodeTaskHandle);
         ESP_LOGI(TAG1, "RESUME GoertzelHandler TASK");
         vTaskResume(GoertzelTaskHandle);
+        //vTaskResume(DsplUpDtTaskHandle);
       }
       break;
 
@@ -772,7 +774,7 @@ void app_main()
       //   printf("; PairFlgFALSE\n");
     }
     if (bt_keyboard.OpnEvntFlg && !bt_keyboard.trapFlg) // this gets set to true when the K380 KB generates corrupt keystroke data
-      key = bt_keyboard.wait_for_ascii_char(true);      // by setting to "true" this task/loop will wait 'forever' for a keyboard key press
+      key = bt_keyboard.wait_for_ascii_char();    //true  // by setting to "true" this task/loop will wait 'forever' for a keyboard key press
 
     /*test key entry & process as needed*/
     if (key != 0)
@@ -801,8 +803,8 @@ void app_main()
 
 void DsplTmr_callback(TimerHandle_t xtimer)
 {
-  uint8_t state;
-  BaseType_t TaskWoke;
+  // uint8_t state;
+  // BaseType_t TaskWoke;
   BaseType_t xHigherPriorityTaskWoken = pdFALSE;
   vTaskNotifyGiveFromISR(DsplUpDtTaskHandle, &xHigherPriorityTaskWoken); // start DisplayUpDt Task
   if (xHigherPriorityTaskWoken == pdTRUE) portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
