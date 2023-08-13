@@ -38,6 +38,7 @@
 /*20230807 rewrote sloppy string check code for ESP32; See CcodeCW.cpp */
 /*20230810 beta fix for crash linked to 1st time connection to previously 'paired keyboard. Requires stopping ADC sampling during the 'open' Keyboard event*/
 /*20230811 beta2 fix for crash linked to 1st time connection to previously 'paired keyboard. Requires stopping ADC sampling during the 'open' Keyboard event*/
+/*20230812 fix crash when using backspace key to delete unsent text */
 #include "sdkconfig.h" //added for timer support
 #include "globals.h"
 #include "main.h"
@@ -94,7 +95,7 @@ DF_t DFault;
 int DeBug = 1; // Debug factory default setting; 0 => Debug "OFF"; 1 => Debug "ON"
 char StrdTxt[20] = {'\0'};
 /*Factory Default Settings*/
-char RevDate[9] = "20230811";
+char RevDate[9] = "20230812";
 char MyCall[10] = "KW4KD";
 char MemF2[80] = "VVV VVV TEST DE KW4KD";
 char MemF3[80] = "CQ CQ CQ DE KW4KD KW4KD";
@@ -854,185 +855,217 @@ void ProcsKeyEntry(uint8_t keyVal)
   // tftmsgbx.dispMsg(Title, TFT_GOLD);
   // return;
   if (keyVal == 0x8)
-  { //"BACKSpace" key pressed
-    int ChrCnt = CWsndengn.Delete();
+  {                                    //"BACKSpace" key pressed
+    int ChrCnt = CWsndengn.Delete(); // test to see if there's an "unsent" character that can be deleted
     if (ChrCnt > 0)
-      tftmsgbx.Delete(ChrCnt);
+    {
+      if (adcON) // added "if" just to make sure we're not gonna do something that doesn't need doing
+      {
+        // ESP_LOGI(TAG1, "!!!adc_continuous_stop!!!");
+        ESP_ERROR_CHECK(adc_continuous_stop(adc_handle));
+        adcON = false;
+        vTaskSuspend(GoertzelTaskHandle);
+        // ESP_LOGI(TAG1, "SUSPEND GoertzelHandler TASK");
+        // vTaskSuspend(CWDecodeTaskHandle);
+        // ESP_LOGI(TAG1, "SUSPEND CWDecodeTaskHandle TASK");
+      }
+      if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE) //wait forever
+      {
+        /* We were able to obtain the semaphore and can now access the
+        shared resource. */
+        mutexFLG = true;
+        tftmsgbx.Delete(ChrCnt);
+        /* We have finished accessing the shared resource.  Release the
+        semaphore. */
+        xSemaphoreGive(mutex);
+        mutexFLG = false;
+      }
+      if (!adcON) // added "if" just to make sure we're not gonna do something that doesn't need doing
+      {
+        // ESP_LOGI(TAG1, "***adc_continuous_start***");
+        ESP_ERROR_CHECK(adc_continuous_start(adc_handle));
+        adcON = true;
+        // ESP_LOGI(TAG1, "RESUME CWDecodeTaskHandle TASK");
+        // vTaskResume(CWDecodeTaskHandle);
+        // ESP_LOGI(TAG1, "RESUME GoertzelHandler TASK");
+        vTaskResume(GoertzelTaskHandle);
+      }
+    }
     return;
   }
   else if (keyVal == 0x98)
   { // PG/arrow UP
-    CWsndengn.IncWPM();
-    DFault.WPM = CWsndengn.GetWPM();
-    return;
+      CWsndengn.IncWPM();
+      DFault.WPM = CWsndengn.GetWPM();
+      return;
   }
   else if (keyVal == 0x97)
   { // PG/arrow DOWN
-    CWsndengn.DecWPM();
-    DFault.WPM = CWsndengn.GetWPM();
-    return;
+      CWsndengn.DecWPM();
+      DFault.WPM = CWsndengn.GetWPM();
+      return;
   }
   else if (keyVal == 0x8C)
   { // F12 key (Alternate action SOT [Send On type])
-    CWsndengn.SOTmode();
-    return;
+      CWsndengn.SOTmode();
+      return;
   }
   else if (keyVal == 0x81)
   { // F1 key (store TEXT)
-    CWsndengn.StrTxtmode();
-    return;
+      CWsndengn.StrTxtmode();
+      return;
   }
   else if (keyVal == 0x82)
   { // F2 key (Send MemF2)
-    if (CWsndengn.IsActv() && !CWsndengn.LstNtrySpc())
+      if (CWsndengn.IsActv() && !CWsndengn.LstNtrySpc())
       CWsndengn.AddNewChar(&SpcChr);
-    CWsndengn.LdMsg(DFault.MemF2, sizeof(DFault.MemF2));
-    return;
+      CWsndengn.LdMsg(DFault.MemF2, sizeof(DFault.MemF2));
+      return;
   }
   else if (keyVal == 0x83)
   { // F3 key (Send MemF3)
-    if (CWsndengn.IsActv() && !CWsndengn.LstNtrySpc())
+      if (CWsndengn.IsActv() && !CWsndengn.LstNtrySpc())
       CWsndengn.AddNewChar(&SpcChr);
-    CWsndengn.LdMsg(DFault.MemF3, sizeof(DFault.MemF3));
-    return;
+      CWsndengn.LdMsg(DFault.MemF3, sizeof(DFault.MemF3));
+      return;
   }
   else if (keyVal == 0x84)
   { // F4 key (Send MemF4)
-    if (CWsndengn.IsActv() && !CWsndengn.LstNtrySpc())
+      if (CWsndengn.IsActv() && !CWsndengn.LstNtrySpc())
       CWsndengn.AddNewChar(&SpcChr);
-    CWsndengn.LdMsg(DFault.MemF4, sizeof(DFault.MemF4));
-    return;
+      CWsndengn.LdMsg(DFault.MemF4, sizeof(DFault.MemF4));
+      return;
   }
   else if (keyVal == 0x85)
   { // F5 key (Send MemF5)
-    if (CWsndengn.IsActv() && !CWsndengn.LstNtrySpc())
+      if (CWsndengn.IsActv() && !CWsndengn.LstNtrySpc())
       CWsndengn.AddNewChar(&SpcChr);
-    CWsndengn.LdMsg(DFault.MemF5, sizeof(DFault.MemF5));
-    return;
+      CWsndengn.LdMsg(DFault.MemF5, sizeof(DFault.MemF5));
+      return;
   }
   else if (keyVal == 0x95)
   { // Right Arrow Key (Alternate action SOT [Send On type])
-    CWsndengn.SOTmode();
-    return;
+      CWsndengn.SOTmode();
+      return;
   }
   else if (keyVal == 0x96)
   { // Left Arrow Key (store TEXT)
-    CWsndengn.StrTxtmode();
-    return;
+      CWsndengn.StrTxtmode();
+      return;
   }
   else if (keyVal == 0x1B)
   { // ESC key (Kill Send)
-    CWsndengn.AbortSnd();
-    return;
+      CWsndengn.AbortSnd();
+      return;
   }
   else if ((keyVal == 0x9B))
   { // Cntrl+"T"
-    CWsndengn.Tune();
-    return;
+      CWsndengn.Tune();
+      return;
   }
   else if ((keyVal == 0x9C))
   { // Cntrl+"S"
-    setupFlg = !setupFlg;
-    return;
+      setupFlg = !setupFlg;
+      return;
   }
   else if ((keyVal == 0x9D))
   { // Cntrl+"F"; auto-tune/ freqLocked
-    AutoTune = !AutoTune;
-    DFault.AutoTune = AutoTune;
-    vTaskDelay(20);
-    showSpeed();
-    vTaskDelay(250);
-    return;
+      AutoTune = !AutoTune;
+      DFault.AutoTune = AutoTune;
+      vTaskDelay(20);
+      showSpeed();
+      vTaskDelay(250);
+      return;
   }
-   else if ((keyVal == 0xA1))
+  else if ((keyVal == 0xA1))
   { // Cntrl+"G"; Sample interval 4ms / 8ms
-    SlwFlg = !SlwFlg;
-    DFault.SlwFlg = SlwFlg;
-    vTaskDelay(20);
-    showSpeed();
-    vTaskDelay(250);
-    return;
+      SlwFlg = !SlwFlg;
+      DFault.SlwFlg = SlwFlg;
+      vTaskDelay(20);
+      showSpeed();
+      vTaskDelay(250);
+      return;
   }
   else if ((keyVal == 0x9E))
   { // LEFT Cntrl+"D"; Decode Modef()
-    
-    /*Normal setup */
-    ModeCnt++;
-    // if (ModeCnt > 4)
-    // {
-    //   ESP_LOGI(TAG1, "RESUME CWDecodeTaskHandle TASK");
-    //   vTaskResume(CWDecodeTaskHandle);
-    //   ESP_LOGI(TAG1, "RESUME GoertzelHandler TASK");
-    //   vTaskResume(GoertzelTaskHandle);
-    //   ESP_ERROR_CHECK(adc_continuous_start(adc_handle));
-    //   adcON =true;
-    //   vTaskDelay(20);
-    // }
-    if (ModeCnt > 3)
+
+      /*Normal setup */
+      ModeCnt++;
+      // if (ModeCnt > 4)
+      // {
+      //   ESP_LOGI(TAG1, "RESUME CWDecodeTaskHandle TASK");
+      //   vTaskResume(CWDecodeTaskHandle);
+      //   ESP_LOGI(TAG1, "RESUME GoertzelHandler TASK");
+      //   vTaskResume(GoertzelTaskHandle);
+      //   ESP_ERROR_CHECK(adc_continuous_start(adc_handle));
+      //   adcON =true;
+      //   vTaskDelay(20);
+      // }
+      if (ModeCnt > 3)
       ModeCnt = 0;
-    DFault.ModeCnt = ModeCnt;
-    SetModFlgs(ModeCnt);
-    vTaskDelay(20);
-    showSpeed();
-    vTaskDelay(250);
-    return;
+      DFault.ModeCnt = ModeCnt;
+      SetModFlgs(ModeCnt);
+      vTaskDelay(20);
+      showSpeed();
+      vTaskDelay(250);
+      return;
   }
   else if ((keyVal == 0xA0))
   { // RIGHT Cntrl+"D"; Decode Modef()
-    
-    /*Normal setup */
-    // if (ModeCnt == 4)
-    // {
-    //   ESP_LOGI(TAG1, "RESUME CWDecodeTaskHandle TASK");
-    //   vTaskResume(CWDecodeTaskHandle);
-    //   ESP_LOGI(TAG1, "RESUME GoertzelHandler TASK");
-    //   vTaskResume(GoertzelTaskHandle);
-    //   ESP_ERROR_CHECK(adc_continuous_start(adc_handle));
-    //   adcON =true;
-    //   vTaskDelay(20);
-    // }
-    ModeCnt--;
-    if (ModeCnt < 0)
+
+      /*Normal setup */
+      // if (ModeCnt == 4)
+      // {
+      //   ESP_LOGI(TAG1, "RESUME CWDecodeTaskHandle TASK");
+      //   vTaskResume(CWDecodeTaskHandle);
+      //   ESP_LOGI(TAG1, "RESUME GoertzelHandler TASK");
+      //   vTaskResume(GoertzelTaskHandle);
+      //   ESP_ERROR_CHECK(adc_continuous_start(adc_handle));
+      //   adcON =true;
+      //   vTaskDelay(20);
+      // }
+      ModeCnt--;
+      if (ModeCnt < 0)
       ModeCnt = 3;
-    DFault.ModeCnt = ModeCnt;
-    SetModFlgs(ModeCnt);
-    vTaskDelay(20);
-    showSpeed();
-    vTaskDelay(250);
-    return;
+      DFault.ModeCnt = ModeCnt;
+      SetModFlgs(ModeCnt);
+      vTaskDelay(20);
+      showSpeed();
+      vTaskDelay(250);
+      return;
   }
   else if ((keyVal == 0x9F))
   { // Cntrl+"P"; CW decode ADC plot Enable/Disable
-    PlotFlg = !PlotFlg;
-    // DFault.AutoTune = AutoTune;
-    vTaskDelay(250);
-    return;
+      PlotFlg = !PlotFlg;
+      // DFault.AutoTune = AutoTune;
+      vTaskDelay(250);
+      return;
   }
   else if ((keyVal == 0xD))
   { // "ENTER" Key send myCallSign
-    if (CWsndengn.IsActv() && !CWsndengn.LstNtrySpc())
+      if (CWsndengn.IsActv() && !CWsndengn.LstNtrySpc())
       CWsndengn.AddNewChar(&SpcChr);
-    CWsndengn.LdMsg(DFault.MyCall, sizeof(DFault.MyCall));
-    return;
+      CWsndengn.LdMsg(DFault.MyCall, sizeof(DFault.MyCall));
+      return;
   }
   else if ((keyVal == 0x9A))
   { // "Cntrl+ENTER" send StrdTxt call
-    if (CWsndengn.IsActv() && !CWsndengn.LstNtrySpc())
+      if (CWsndengn.IsActv() && !CWsndengn.LstNtrySpc())
       CWsndengn.AddNewChar(&SpcChr);
-    CWsndengn.LdMsg(StrdTxt, 20);
-    return;
+      CWsndengn.LdMsg(StrdTxt, 20);
+      return;
   }
   else if ((keyVal == 0x99))
   { // "shift+ENTER" send both calls (StrdTxt & MyCall)
-    if (CWsndengn.IsActv() && !CWsndengn.LstNtrySpc())
+      if (CWsndengn.IsActv() && !CWsndengn.LstNtrySpc())
       CWsndengn.AddNewChar(&SpcChr);
-    // char buf[20]="";
-    sprintf(Title, "%s DE %s", StrdTxt, DFault.MyCall);
-    CWsndengn.LdMsg(Title, 20);
-    return;
+      // char buf[20]="";
+      sprintf(Title, "%s DE %s", StrdTxt, DFault.MyCall);
+      CWsndengn.LdMsg(Title, 20);
+      return;
   }
   // else if ((keyVal ==  0xA1))
-  // { /* special test for Left ctr+'g' 
+  // { /* special test for Left ctr+'g'
   //   reduce Goertzel gain*/
   //   Grtzl_Gain = Grtzl_Gain/2;
   //   if (Grtzl_Gain < 0.00390625) Grtzl_Gain  = 0.00390625;
@@ -1040,7 +1073,7 @@ void ProcsKeyEntry(uint8_t keyVal)
   //   return;
   // }
   // else if ((keyVal ==  0xA2))
-  // { /* special test for Right ctr+'g' 
+  // { /* special test for Right ctr+'g'
   //   increase Goertzel gain*/
   //   Grtzl_Gain = 2* Grtzl_Gain;
   //   if (Grtzl_Gain > 1.0) Grtzl_Gain  = 1.0;
@@ -1048,33 +1081,32 @@ void ProcsKeyEntry(uint8_t keyVal)
   //   return;
   // }
 
-   
   if ((keyVal >= 97) & (keyVal <= 122))
   {
-    keyVal = keyVal - 32;
+      keyVal = keyVal - 32;
   }
   char Ltr2Bsent = (char)keyVal;
   switch (Ltr2Bsent)
   {
   case '=':
-    addspce = true; //<BT>
-    break;
+      addspce = true; //<BT>
+      break;
   case '+':
-    addspce = true; //<KN>
-    break;
+      addspce = true; //<KN>
+      break;
   case '%':
-    addspce = true;
-    ; //<SK>
-    break;
+      addspce = true;
+      ; //<SK>
+      break;
   case '>':
-    addspce = true; //<BT>
-    break;
+      addspce = true; //<BT>
+      break;
   case '<':
-    addspce = true; //<BT>
-    break;
+      addspce = true; //<BT>
+      break;
   }
   if (addspce && CWsndengn.IsActv() && !CWsndengn.LstNtrySpc())
-    CWsndengn.AddNewChar(&SpcChr);
+      CWsndengn.AddNewChar(&SpcChr);
   CWsndengn.AddNewChar(&Ltr2Bsent);
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
