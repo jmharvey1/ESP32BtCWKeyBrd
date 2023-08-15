@@ -11,6 +11,7 @@
  * 20230729 Changed letter break scheme to now be driven from the Goertzel side of the house
  * 20230731 Now launching the chkChrCmplt() strickly from goertzel/Chk4KeyDwn() task/routine
  * 20230807 rewrote sloppy string check code for ESP32; Now using a small buffer,"DcddChrBuf" in place of the pagebuffer used in the STM serries
+ * 20230815 revised Bg2 timing & rewote ltrbreak debugging output code
  */
 
 // #include <SetUpCwDecoder.h>
@@ -99,7 +100,7 @@ bool Bug3 = false;
 bool badLtrBrk = false;
 bool dletechar = false;
 bool ConcatSymbl = false;
-bool Test = false; // if "true", use Arduino ide Serial Monitor to see output/results
+bool Test = false;//true;// // if "true", use Arduino ide Serial Monitor to see output/results
 bool SCD = false; // false;//true; //Sloppy Code Debugging ('Bg1'); if "true", use ide Serial Monitor to see output/results
 bool FrstSymbl = false;
 bool chkStatsMode = true;
@@ -1193,6 +1194,21 @@ void ChkDeadSpace(void)
 }
 
 ///////////////////////////////////////////////////////////////////////
+void DbgRptr(bool dbgFLg, char pBuf[], char pStr[]){
+	// char tmpbuf[25];
+	if(!dbgFLg) return;
+	/* for (int p = 0; p < sizeof(tmpbuf); p++)
+	{
+		tmpbuf[p] = PrntBuf[p];
+		if (tmpbuf[p] == 0)
+			break;
+	} */
+	// sprintf(tmpbuf, "%s", pBuf);
+	//sprintf(&pBuf, "%s%s",tmpbuf, pStr);
+	printf(pStr);
+
+}
+///////////////////////////////////////////////////////////////////////
 /*In the ESP32 version this gets fired every or 8ms while the key is DOWN */
 /*it quits running(getting updated when the key is up)*/
 void SetLtrBrk(void)
@@ -1200,13 +1216,14 @@ void SetLtrBrk(void)
 	unsigned long ltrBrka;
 	unsigned long ltrBrkb;
 	char tmpbuf[50];
-	bool dbgFLg = false;// true; //
-	if (dbgFLg)
-		sprintf(PrntBuf, " ");
-	/* if (!LtrBrkFlg)
-		return;
-	// Just detected the start of a new keyUp event
-	LtrBrkFlg = false; */
+	char Str[5];
+	bool dbgFLg = false;//true; // 
+	char StrBuf[25];
+	int slop = pdTICKS_TO_MS(xTaskGetTickCount()) - noSigStrt;
+	if (slop >= 4) dbgFLg = false; //regardles of original setting, kill debug output after 1st print following key up state
+	sprintf(Str, " ");
+	DbgRptr(dbgFLg, StrBuf, Str);
+
 	if (Bug3)
 	{
 		if (LtrCntr < 9)
@@ -1215,55 +1232,30 @@ void SetLtrBrk(void)
 		{
 			ShrtBrk[i] = ShrtBrk[i - 1];
 		}
-
-		if (dbgFLg)
-			sprintf(PrntBuf, "Bg1:");
+		sprintf(Str, "Bg1:");
+		DbgRptr(dbgFLg, StrBuf, Str);
 	}
 	// Figure out how much time to allow for a letter break
 
 	if (Bug2)
 	{
 		space = ((9 * space) + (3 * avgDeadSpace)) / 10;
-		if (dbgFLg)
-		{
-			for (int p = 0; p < sizeof(tmpbuf); p++)
-			{
-				tmpbuf[p] = PrntBuf[p];
-				if (tmpbuf[p] == 0)
-					break;
-			}
-			sprintf(PrntBuf, "%sBg3:", tmpbuf);
-		}
+		sprintf(Str, "Bg3:");
+		DbgRptr(dbgFLg, StrBuf, Str);
 	}
 	else
 	{
 		if (avgDeadSpace > avgDit)
 		{
 			space = avgDeadSpace; //((3*space)+avgDeadSpace)/4; //20190717 jmh - Changed to averaging space value to reduce chance of glitches causing mid character letter breaks
-			if (dbgFLg)
-			{
-				for (int p = 0; p < sizeof(tmpbuf); p++)
-				{
-					tmpbuf[p] = PrntBuf[p];
-					if (tmpbuf[p] == 0)
-						break;
-				}
-				sprintf(PrntBuf, "%s+", tmpbuf);
-			}
+			sprintf(Str, "+");
+			DbgRptr(dbgFLg, StrBuf, Str);
 		}
 		else
 		{
 			space = ((3 * space) + avgDit) / 4; // 20190717 jmh - Changed to averaging space value to reduce chance of glitches causing mid character letter breaks
-			if (dbgFLg)
-			{
-				for (int p = 0; p < sizeof(tmpbuf); p++)
-				{
-					tmpbuf[p] = PrntBuf[p];
-					if (tmpbuf[p] == 0)
-						break;
-				}
-				sprintf(PrntBuf, "%s-", tmpbuf);
-			}
+			sprintf(Str, "-");
+			DbgRptr(dbgFLg, StrBuf, Str);
 		}
 	}
 
@@ -1273,75 +1265,54 @@ void SetLtrBrk(void)
 		if (BugMode)
 		{ // use special case spacing
 			// ltrBrk = int(1.0 * (float(space))); // 20221022 assume this is part of a dit series
-			ltrBrk = int(1.9 * (float(space))); // 20230802 trying this value for ESP32 processing
-
-			if (dbgFLg)
-			{
-				for (int p = 0; p < sizeof(tmpbuf); p++)
-				{
-					tmpbuf[p] = PrntBuf[p];
-					if (tmpbuf[p] == 0)
-						break;
-				}
-				sprintf(PrntBuf, "%s!:", tmpbuf);
-			}
-
+			// ltrBrk = int(1.9 * (float(space))); // 20230802 trying this value for ESP32 processing
+			// ltrBrk = int(1.7 * (float(AvgSmblDedSpc))); // 20230814 trying this value for ESP32 processing
+			ltrBrk = int(2.9 * (float(AvgSmblDedSpc))); // 20230815 trying this value for ESP32 processing
+			sprintf(Str, "!:");
+			DbgRptr(dbgFLg, StrBuf, Str);
+		
 			if (((DeCodeVal & 1) == 1) && (DeCodeVal > 3))
-			{										// this dead space interval appears to be an mid-character event AND the last symbol detected was a "DAH".
-				ltrBrk = int(2.7 * (float(space))); // 2.5 20230801 trying this value for ESP32 processing
-				if (dbgFLg)
-				{
-					for (int p = 0; p < sizeof(tmpbuf); p++)
-					{
-						tmpbuf[p] = PrntBuf[p];
-						if (tmpbuf[p] == 0)
-							break;
-					}
-
-					sprintf(PrntBuf, "%sA:", tmpbuf);
-				}
+			{ // this dead space interval appears to be an mid-character event AND the last symbol detected was a "DAH".
+				// ltrBrk = int(2.7 * (float(space))); // 2.5 20230801 trying this value for ESP32 processing
+				// ltrBrk = int(2.1 * (float(AvgSmblDedSpc))); // 20230814 trying this value for ESP32 processing
+				ltrBrk = int(0.56 * (float(avgDah))); // 20230815 trying this value for ESP32 processing
+				sprintf(Str, "A:");
+				DbgRptr(dbgFLg, StrBuf, Str);
 			}
 			else if ((deadSpace < wordBrk) && (DeCodeVal == 3))
 			{ // the first symbol sent is a dash
 				// At this point(time) the letter looks like a "T", but it could be the beginning of something else;i.e., "N"
-				ltrBrka = long(float(avgDah) * 0.90);
+				ltrBrka = long(float(avgDah) * 0.70);	   // 20230814 trying this value for ESP32 processing; used to be *0.90
 				ltrBrkb = long(float(avgDeadSpace) * 1.7); // 20230802 changed x factor from 1.5 to 1.9;; trying to get "kt" to come out as "Y"
 				if (ltrBrka >= ltrBrkb)
 				{ // hold on, new ltrBrk interval seems short
 					ltrBrk = ltrBrka;
-					if (dbgFLg)
-					{
-						for (int p = 0; p < sizeof(tmpbuf); p++)
-						{
-							tmpbuf[p] = PrntBuf[p];
-							if (tmpbuf[p] == 0)
-								break;
-						}
-
-						sprintf(PrntBuf, "%sB:", tmpbuf);
-					}
+					sprintf(Str, "B:");
+					DbgRptr(dbgFLg, StrBuf, Str);
 				}
 				else
 				{
 					ltrBrk = ltrBrkb;
-
-					if (dbgFLg)
-					{
-						for (int p = 0; p < sizeof(tmpbuf); p++)
-						{
-							tmpbuf[p] = PrntBuf[p];
-							if (tmpbuf[p] == 0)
-								break;
-						}
-
-						sprintf(PrntBuf, "%sC:", tmpbuf);
-					}
+					sprintf(Str, "C:");
+					DbgRptr(dbgFLg, StrBuf, Str);
 				}
 			}
 		}
 		else if (Bug2)
 		{
-			ltrBrk = int(1.6 * (float(avgDit))); // int(2.0 * (float(avgDit))); //
+			/*20230814 New strategy*/
+			if ((DeCodeVal & 1) == 1)
+			{
+				ltrBrk = int(0.8 * (float(avgDah))); // last synbol is a "dah"
+				sprintf(Str, "D:");
+				DbgRptr(dbgFLg, StrBuf, Str);
+			}
+			else
+			{
+				ltrBrk = int(1.6 * (float(avgDit))); // int(2.0 * (float(avgDit)));  //last synbol is a "dit"
+				sprintf(Str, "E:");
+				DbgRptr(dbgFLg, StrBuf, Str);
+			}
 		}
 	}
 	else // if here, setup "letter break" timing for speeds greater than 35 wpm
@@ -1354,22 +1325,14 @@ void SetLtrBrk(void)
 		wordBrk = int(1.1 * float(ltrBrk));
 	}
 	/*Now work out what the average intersymbol space time is*/
-	if((3.18*(float)deadSpace)< (float)avgDah) AvgSmblDedSpc = (19*AvgSmblDedSpc+ (float)deadSpace)/20;
+	if ((3.18 * (float)deadSpace) < (float)avgDah)
+		AvgSmblDedSpc = (19 * AvgSmblDedSpc + (float)deadSpace) / 20;
 	/*Set dbgFLg = true, when diagnosing letter break timing */
 	if (dbgFLg)
 	{
-		int slop = pdTICKS_TO_MS(xTaskGetTickCount()) - noSigStrt;
-		for (int p = 0; p < sizeof(tmpbuf); p++)
-		{
-			tmpbuf[p] = PrntBuf[p];
-			if (tmpbuf[p] == 0)
-				break;
-		}
-		if (slop < 4)
-		{
-			sprintf(PrntBuf, "%s\t%d; %u; %u; %u; %u; %u; %u\n\r ", tmpbuf, (uint16_t)ltrBrk, (uint16_t)deadSpace, (uint16_t)SpaceStk[Bitpos - 1], (uint16_t)space, (uint16_t)avgDeadSpace, (uint16_t)AvgSmblDedSpc, (uint16_t)avgDah);
+			sprintf(PrntBuf, "\t%d; %u; %u; %u; %u; %u; %u\n\r",
+					(uint16_t)ltrBrk, (uint16_t)deadSpace, (uint16_t)SpaceStk[Bitpos - 1], (uint16_t)space, (uint16_t)avgDeadSpace, (uint16_t)AvgSmblDedSpc, (uint16_t)avgDah);
 			printf(PrntBuf);
-		}
 	}
 	letterBrk = ltrBrk + pdTICKS_TO_MS(xTaskGetTickCount()); // ESP32/Goertzel driven method
 

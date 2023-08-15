@@ -369,12 +369,14 @@ void ComputeMags(unsigned long now){
 		
 		AdjSqlch = CurNoise;
 		if(SlwFlg) AdjSqlch = 1.20*AdjSqlch; 
+		 
 		
 	}else{
 		AdjSqlch = SqlchLvl;
 		GudSig = 1;
 		SkipCnt1 =0;
 	}
+	if(AdjSqlch < 1500) AdjSqlch = 1500; //20230814 make sure squelch lvl is always above the "no input signal" level; this stops the decoder from generating random characters when no signal is applied
 	if((NoiseFlr>CurNoise)&& ((NoiseFlr/SigPk)>0.65)){
 			GudSig = 1;
 			SkipCnt1 =0;

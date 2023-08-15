@@ -392,6 +392,7 @@ void KeyEvntSR(uint8_t Kstate, unsigned long EvntTime);// keydown state =0; Keyu
 void Dcodeloop(void);
 void WPMdefault(void);
 void ChkDeadSpace(void);
+void DbgRptr(bool dbgFLg, char pBuf[], char pStr[]);
 void SetLtrBrk(void);
 void chkChrCmplt(void);
 int CalcAvgPrd(unsigned long thisdur);

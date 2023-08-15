@@ -39,6 +39,8 @@
 /*20230810 beta fix for crash linked to 1st time connection to previously 'paired keyboard. Requires stopping ADC sampling during the 'open' Keyboard event*/
 /*20230811 beta2 fix for crash linked to 1st time connection to previously 'paired keyboard. Requires stopping ADC sampling during the 'open' Keyboard event*/
 /*20230812 fix crash when using backspace key to delete unsent text */
+/*20230814  changed ltrbrk timing for slow speed Bg2 mode */
+/*20230815 revised Bg2 timing & rewote ltrbreak debugging output code */
 #include "sdkconfig.h" //added for timer support
 #include "globals.h"
 #include "main.h"
@@ -95,7 +97,7 @@ DF_t DFault;
 int DeBug = 1; // Debug factory default setting; 0 => Debug "OFF"; 1 => Debug "ON"
 char StrdTxt[20] = {'\0'};
 /*Factory Default Settings*/
-char RevDate[9] = "20230812";
+char RevDate[9] = "20230815";
 char MyCall[10] = "KW4KD";
 char MemF2[80] = "VVV VVV TEST DE KW4KD";
 char MemF3[80] = "CQ CQ CQ DE KW4KD KW4KD";
