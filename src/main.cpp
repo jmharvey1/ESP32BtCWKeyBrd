@@ -41,6 +41,7 @@
 /*20230812 fix crash when using backspace key to delete unsent text */
 /*20230814  changed ltrbrk timing for slow speed Bg2 mode */
 /*20230815 revised Bg2 timing & rewote ltrbreak debugging output code */
+/*2023081  fixed pairing crash linked to display SPI conflcit during BT pairing event */
 #include "sdkconfig.h" //added for timer support
 #include "globals.h"
 #include "main.h"
@@ -97,7 +98,7 @@ DF_t DFault;
 int DeBug = 1; // Debug factory default setting; 0 => Debug "OFF"; 1 => Debug "ON"
 char StrdTxt[20] = {'\0'};
 /*Factory Default Settings*/
-char RevDate[9] = "20230815";
+char RevDate[9] = "20230818";
 char MyCall[10] = "KW4KD";
 char MemF2[80] = "VVV VVV TEST DE KW4KD";
 char MemF3[80] = "CQ CQ CQ DE KW4KD KW4KD";
@@ -118,7 +119,7 @@ bool adcON =false;
 //bool trapFlg = false;
 volatile int DotClkstate = 0;
 volatile int CurHiWtrMrk = 0;
-static const uint8_t state_que_len = 50;
+static const uint8_t state_que_len = 100;//50;
 static QueueHandle_t state_que;
 //static const uint8_t Sampl_que_len = 6 * Goertzel_SAMPLE_CNT;
 //static QueueHandle_t Sampl_que;
@@ -150,6 +151,7 @@ static TaskHandle_t GoertzelTaskHandle;
 static TaskHandle_t DsplUpDtTaskHandle = NULL;
 static TaskHandle_t CWDecodeTaskHandle = NULL;
 static const char *TAG1 = "ADC_Config";
+static const char *TAG2 = "PAIR_EVT";
 uint32_t ret_num = 0;
 uint8_t result[Goertzel_SAMPLE_CNT * SOC_ADC_DIGI_RESULT_BYTES] = {0};
 //uint32_t CB_CNtr = 0;
@@ -478,14 +480,14 @@ void IRAM_ATTR DotClk_ISR(void *arg);
 
 void pairing_handler(uint32_t pid)
 {
-  // PairFlg = true;
-  // vTaskDelay(200 / portTICK_PERIOD_MS);
   sprintf(Title, "Please enter the following pairing code,\n");
   tftmsgbx.dispMsg(Title, TFT_WHITE);
   sprintf(Title, "followed with ENTER on your keyboard: \n");
   tftmsgbx.dispMsg(Title, TFT_WHITE);
   sprintf(Title, "%d \n", (int)pid);
   tftmsgbx.dispMsg(Title, TFT_BLUE);
+  bt_keyboard.PairFlg = true;
+  vTaskDelay(100 / portTICK_PERIOD_MS);
 }
 
 void app_main()
@@ -682,6 +684,7 @@ void app_main()
   // sprintf(buf, "interval: %d\n", (int)interval);
 
   /* main CW keyboard loop*/
+  bool inPrgsFlg = false;
   while (true)
   {
 #if 1 // 0 = scan codes retrieval, 1 = augmented ASCII retrieval
@@ -724,12 +727,12 @@ void app_main()
       }
     }
 
-    /*Added this to support 'open' paired keyboard event*/
+    /*Added this to support 'open' paired BT keyboard event*/
     switch (bt_keyboard.Adc_Sw)
     {
-    case 1:
+    case 1: // need to shut down all other spi activities, so the pending BT event has exclusive access to SPI
       bt_keyboard.Adc_Sw = 0;
-      if (adcON)// added "if" just to make sure we're not gonna do something that doesn't need doing
+      if (adcON) // added "if" just to make sure we're not gonna do something that doesn't need doing
       {
         ESP_LOGI(TAG1, "!!!adc_continuous_stop!!!");
         ESP_ERROR_CHECK(adc_continuous_stop(adc_handle));
@@ -738,13 +741,15 @@ void app_main()
         ESP_LOGI(TAG1, "SUSPEND GoertzelHandler TASK");
         vTaskSuspend(CWDecodeTaskHandle);
         ESP_LOGI(TAG1, "SUSPEND CWDecodeTaskHandle TASK");
-        //vTaskSuspend(DsplUpDtTaskHandle);
+        // vTaskSuspend(DsplUpDtTaskHandle);
       }
+      // vTaskDelay(600 / portTICK_PERIOD_MS);
+      // if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE)  mutexFLG = true;
       break;
 
-    case 2:
+    case 2: // BT event complete restore/resume all other spi activities
       bt_keyboard.Adc_Sw = 0;
-      if (!adcON)// added "if" just to make sure we're not gonna do something that doesn't need doing
+      if (!adcON) // added "if" just to make sure we're not gonna do something that doesn't need doing
       {
         ESP_LOGI(TAG1, "***adc_continuous_start***");
         ESP_ERROR_CHECK(adc_continuous_start(adc_handle));
@@ -753,12 +758,26 @@ void app_main()
         vTaskResume(CWDecodeTaskHandle);
         ESP_LOGI(TAG1, "RESUME GoertzelHandler TASK");
         vTaskResume(GoertzelTaskHandle);
-        //vTaskResume(DsplUpDtTaskHandle);
-      }
-      break;
+        if (bt_keyboard.PairFlg && inPrgsFlg)
+        {
+          xTimerStart(DisplayTmr, portMAX_DELAY);
+          //vTaskResume(DsplUpDtTaskHandle);
+          bt_keyboard.PairFlg = false;
+          inPrgsFlg = false;
+          ESP_LOGI(TAG2, "Pairing Complete; Display ON");
+        }
+        break;
 
-    default:
-      break;
+      default:
+        break;
+      }
+    }  //end switch
+    if (bt_keyboard.PairFlg && !inPrgsFlg)
+    {
+      xTimerStop(DisplayTmr, portMAX_DELAY);
+      //vTaskSuspend(DsplUpDtTaskHandle);
+      ESP_LOGI(TAG2, "Pairing Start; Display OFF");
+      inPrgsFlg = true;
     }
     uint8_t key = 0;
     if (0) // set to '1' for flag debugging
@@ -771,13 +790,12 @@ void app_main()
         printf("; trapFlgTRUE\n");
       else
         printf("; trapFlgFALSE\n");
-      // if (bt_keyboard.PairFlg)
-      //   printf("; PairFlgTRUE\n");
+
       // else
       //   printf("; PairFlgFALSE\n");
     }
     if (bt_keyboard.OpnEvntFlg && !bt_keyboard.trapFlg) // this gets set to true when the K380 KB generates corrupt keystroke data
-      key = bt_keyboard.wait_for_ascii_char();    //true  // by setting to "true" this task/loop will wait 'forever' for a keyboard key press
+      key = bt_keyboard.wait_for_ascii_char();          // true  // by setting to "true" this task/loop will wait 'forever' for a keyboard key press
 
     /*test key entry & process as needed*/
     if (key != 0)
