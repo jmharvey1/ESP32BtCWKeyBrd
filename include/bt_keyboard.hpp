@@ -65,7 +65,7 @@ class BTKeyboard
       uint8_t     keys[MAX_KEY_COUNT];
     };
     bool trapFlg;
-    //bool PairFlg;  //no longer used/needed
+    bool PairFlg;   //used during pairing event to start/stop Display SPI calls
     bool OpnEvntFlg;
     int  Adc_Sw;
 
@@ -188,10 +188,10 @@ class BTKeyboard
       pairing_handler(nullptr),
       caps_lock(false)
     {
-      pmsgbx = msgbx_ptr;//used mainly for error & debug reporting + scan/pairing reorting
+      pmsgbx = msgbx_ptr;//used mainly for error & debug reporting + scan/pairing  //used during pairing event to start/stop Display SPI callsreorting
       pDFault = Dft_ptr;
       trapFlg = false;
-      //PairFlg = false; //no longer used/needed
+      PairFlg = false; //used during pairing event to start/stop Display SPI calls
       Adc_Sw = 0;
       OpnEvntFlg = false;
     }
