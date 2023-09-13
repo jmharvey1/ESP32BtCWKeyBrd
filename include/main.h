@@ -34,6 +34,7 @@ struct DF_t
 	bool AutoTune;
 	float Grtzl_Gain;
 	bool SlwFlg;
+	bool NoisFlg;
 };
 
 // typedef struct {

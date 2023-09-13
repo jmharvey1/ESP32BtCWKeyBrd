@@ -38,7 +38,11 @@ Special Keys & their functions:
 2. Left Ctrl+f: index through select tone tune modes
         FF  (Fixed Frequency)
         AF  (Auto-Tune 500 to 900Hz)
-3. Left Ctrl-P:  Plot On/off        
+3. Left Ctrl+G: index through 3 tone detect modes
+        Nmf Fast Sample mode (4ms)
+        Nms Slow Sample mode (8ms)
+        Nmn Noisy signal mode (8ms sample period + damped Squech leveling)
+4. Left Ctrl+P:  Plot On/off        
 
 
 

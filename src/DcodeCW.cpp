@@ -12,6 +12,7 @@
  * 20230731 Now launching the chkChrCmplt() strickly from goertzel/Chk4KeyDwn() task/routine
  * 20230807 rewrote sloppy string check code for ESP32; Now using a small buffer,"DcddChrBuf" in place of the pagebuffer used in the STM serries
  * 20230815 revised Bg2 timing & rewote ltrbreak debugging output code
+ * 20230913 increased eeettt count before WPM reset.
  */
 
 // #include <SetUpCwDecoder.h>
@@ -1317,7 +1318,7 @@ void SetLtrBrk(void)
 	}
 	else // if here, setup "letter break" timing for speeds greater than 35 wpm
 	{
-		ltrBrk = ((15 * ltrBrk) + (0.5 * avgDah)) / 16;
+		ltrBrk = ((15 * ltrBrk) + (0.75 * avgDah)) / 16;// 20230913 changed from 0.5 to 0.75 to stop premature letter breaks
 	}
 
 	if (ltrBrk > wordBrk)
@@ -2002,7 +2003,7 @@ void DisplayChar(unsigned int decodeval)
 			++badCodeCnt;
 		else if (decodeval != 255)
 			badCodeCnt = 0;
-		if (badCodeCnt > 5 && wpm > 25)
+		if (badCodeCnt > 10 && wpm > 25)// 20230913 changed count from 5 to 10
 		{ // do an auto reset back to 15wpm
 			WPMdefault();
 		}
@@ -2398,6 +2399,8 @@ void showSpeed(void)
 			sprintf(tmpbufB, "s");
 		else
 			sprintf(tmpbufB, "f");
+		if (NoisFlg)
+			sprintf(tmpbufB, "n");
 		DFault.TRGT_FREQ = (int)TARGET_FREQUENCYC;																					 // update the default setting with the current Geortzel center frequency; Can & will change while in the AUTO-Tune mode
 		sprintf(buf, "%d/%d.%d WPM FREQ %dHz %s %s%s", wpm, ratioInt, ratioDecml, int(TARGET_FREQUENCYC), tmpbuf, tmpbufA, tmpbufB); // normal ESP32 CW deoder status display
 		// sprintf(buf, "SI %dms  FREQ %dHz %s %s", SI, int(TARGET_FREQUENCYC), tmpbuf, tmpbufA); //un-comment for diagnositic testing only;; Shws ADC sample interval

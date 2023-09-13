@@ -314,7 +314,7 @@
                 "IDF_VER=\"5.0.1\"",
                 "_GNU_SOURCE",
                 "configENABLE_FREERTOS_DEBUG_OCDAWARE=1",
-                "PLATFORMIO=60110",
+                "PLATFORMIO=60111",
                 "ARDUINO_uPesy_WROOM",
                 "CORE_DEBUG_LEVEL=ESP_LOG_VERBOSE",
                 ""

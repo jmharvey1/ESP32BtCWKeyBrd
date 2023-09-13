@@ -39,9 +39,9 @@
 /*20230810 beta fix for crash linked to 1st time connection to previously 'paired keyboard. Requires stopping ADC sampling during the 'open' Keyboard event*/
 /*20230811 beta2 fix for crash linked to 1st time connection to previously 'paired keyboard. Requires stopping ADC sampling during the 'open' Keyboard event*/
 /*20230812 fix crash when using backspace key to delete unsent text */
-/*20230814  changed ltrbrk timing for slow speed Bg2 mode */
+/*20230814 changed ltrbrk timing for slow speed Bg2 mode */
 /*20230815 revised Bg2 timing & rewote ltrbreak debugging output code */
-/*2023081  fixed pairing crash linked to display SPI conflcit during BT pairing event */
+/*20230818 fixed pairing crash linked to display SPI conflcit during BT pairing event */
 #include "sdkconfig.h" //added for timer support
 #include "globals.h"
 #include "main.h"
@@ -98,7 +98,7 @@ DF_t DFault;
 int DeBug = 1; // Debug factory default setting; 0 => Debug "OFF"; 1 => Debug "ON"
 char StrdTxt[20] = {'\0'};
 /*Factory Default Settings*/
-char RevDate[9] = "20230818";
+char RevDate[9] = "20230913";
 char MyCall[10] = "KW4KD";
 char MemF2[80] = "VVV VVV TEST DE KW4KD";
 char MemF3[80] = "CQ CQ CQ DE KW4KD KW4KD";
@@ -600,6 +600,7 @@ void app_main()
     DFault.TRGT_FREQ = (int)TARGET_FREQUENCYC;
     DFault.Grtzl_Gain = Grtzl_Gain;
     DFault.SlwFlg = SlwFlg;
+    DFault.NoisFlg = NoisFlg;
     sprintf(Title, "\n        No stored USER params Found\n   Using FACTORY values until params are\n   'Saved' via the Settings Screen\n");
     tftmsgbx.dispMsg(Title, TFT_ORANGE);
     bt_keyboard.trapFlg = false;
@@ -623,9 +624,12 @@ void app_main()
     DFault.AutoTune = (bool)strdAT;
     Rstat = Read_NVS_Val("SlwFlg", strdAT);
     DFault.SlwFlg = (bool)strdAT;
+    Rstat = Read_NVS_Val("NoisFlg", strdAT);
+    DFault.NoisFlg = (bool)strdAT;
     /*pass the decoder setting(s) back to their global counterpart(s) */
     AutoTune = DFault.AutoTune;
     SlwFlg = DFault.SlwFlg;
+    NoisFlg = DFault.NoisFlg;
     ModeCnt = DFault.ModeCnt;
     TARGET_FREQUENCYC = (float)DFault.TRGT_FREQ;
     Grtzl_Gain = DFault.Grtzl_Gain;
@@ -999,8 +1003,28 @@ void ProcsKeyEntry(uint8_t keyVal)
   }
   else if ((keyVal == 0xA1))
   { // Cntrl+"G"; Sample interval 4ms / 8ms
-      SlwFlg = !SlwFlg;
+    int GainCnt =0;
+    if(NoisFlg) GainCnt = 2;
+    if(SlwFlg && !NoisFlg) GainCnt = 1;
+      GainCnt++;
+    if (GainCnt > 2)  GainCnt = 0;
+      switch(GainCnt){
+        case 0:
+          SlwFlg = false;
+          NoisFlg = false;
+          break;
+        case 1:
+          SlwFlg = true;
+          NoisFlg = false;
+          break;
+        case 2:
+          SlwFlg = true;
+          NoisFlg = true;
+          break;  
+
+      }
       DFault.SlwFlg = SlwFlg;
+      DFault.NoisFlg = NoisFlg;
       vTaskDelay(20);
       showSpeed();
       vTaskDelay(250);
@@ -1011,16 +1035,6 @@ void ProcsKeyEntry(uint8_t keyVal)
 
       /*Normal setup */
       ModeCnt++;
-      // if (ModeCnt > 4)
-      // {
-      //   ESP_LOGI(TAG1, "RESUME CWDecodeTaskHandle TASK");
-      //   vTaskResume(CWDecodeTaskHandle);
-      //   ESP_LOGI(TAG1, "RESUME GoertzelHandler TASK");
-      //   vTaskResume(GoertzelTaskHandle);
-      //   ESP_ERROR_CHECK(adc_continuous_start(adc_handle));
-      //   adcON =true;
-      //   vTaskDelay(20);
-      // }
       if (ModeCnt > 3)
       ModeCnt = 0;
       DFault.ModeCnt = ModeCnt;

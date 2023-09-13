@@ -758,6 +758,10 @@ void SaveUsrVals(void)
 	Rstat = Write_NVS_Val("SlwFlg", (int)pDFault->SlwFlg);
 	if (Rstat != 1)
 		GudFlg = false;
+	/* Save current Decoder NoisFlg value */
+	Rstat = Write_NVS_Val("NoisFlg", (int)pDFault->NoisFlg);
+	if (Rstat != 1)
+		GudFlg = false;	
 	/* Save current Decoder TARGET_FREQUENCYC value; Note pDFault->TRGT_FREQ was last updated in DcodeCW.showSpeed(void)  */
 	Rstat = Write_NVS_Val("TRGT_FREQ", pDFault->TRGT_FREQ);
 	if (Rstat != 1)

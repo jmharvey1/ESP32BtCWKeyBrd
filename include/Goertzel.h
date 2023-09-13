@@ -13,6 +13,7 @@ extern bool PlotFlg;
 extern float SAMPLING_RATE;
 extern float Grtzl_Gain;
 extern bool SlwFlg;
+extern bool NoisFlg;
 float GetMagnitudeSquared(float q1, float q2, float Coeff, int SmplCnt);
 void ResetGoertzel(void);
 void InitGoertzel(void);
