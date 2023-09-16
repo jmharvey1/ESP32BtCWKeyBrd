@@ -12,9 +12,6 @@
 #include "TFTMsgBox.h"
 #define MagBSz  6//3
 uint16_t adc_buf[Goertzel_SAMPLE_CNT];
-/* No longer needed; been replaced by code in main.cpp; uncomment the following 2 lines when you want capture/plot raw ADC data */
-// int Smpl_buf[6*Goertzel_SAMPLE_CNT];
-// int Smpl_Cntr =0;
 uint8_t LongSmplFlg =1; // controls high speed sampling VS High Sensitivity ;can not set the value here
 uint8_t NuMagData = 0x0;
 uint8_t delayLine;
@@ -66,7 +63,7 @@ float TARGET_FREQUENCYC = 750; //Hz// For ESP32 version moved declaration to Dco
 float TARGET_FREQUENCYL;// = feqlratio*TARGET_FREQUENCYC;//734.0; //Hz
 float TARGET_FREQUENCYH;// = feqhratio*TARGET_FREQUENCYC;//766.0; //Hz
 //float SAMPLING_RATE = 98750;
-float SAMPLING_RATE = 102000;// based on tests continuous tone tests made 20230714
+float SAMPLING_RATE = 98000;//102000;// based on tests continuous tone tests made 20230714
 float Q1;
 float Q2;
 float Q1H;
@@ -218,17 +215,7 @@ void ProcessSample(int sample, int Scnt)
 	//char Smpl[10];
 	if (Scnt > NL)
 		return; // don't look or care about anything beyond the lowest number of samples needed for this frequency set
-
-	//   sprintf(Smpl,"%d\n", sample);
-	//   printf(Smpl);
-	/*  No longer needed; been replaced by code in main.cpp; uncomment the following "if" clause when you want capture/plot raw ADC data */
-	// if(Smpl_Cntr < 6*Goertzel_SAMPLE_CNT){
-	// 	Smpl_buf[Smpl_Cntr] = sample;
-	// 	Smpl_Cntr++;
-	// 	if(Smpl_Cntr == 6*Goertzel_SAMPLE_CNT){
-	// 		Smpl_Cntr =0;
-	// 	}
-	// }
+	
 	float Q0;
 	float FltSampl = (float)sample;
 	
@@ -590,7 +577,14 @@ void Chk4KeyDwn(float NowLvl)
 			}
 		} 
 	}
-	if(Sentstate) chkChrCmplt();//key is up
+	if(Sentstate){
+		chkChrCmplt();//key is up
+		if(CalGtxlParamFlg){
+			CalGtxlParamFlg = false;
+          	CalcFrqParams((float)DemodFreq); // recalculate Goertzel parameters, for the newly selected target grequency
+			//showSpeed();
+		}
+	}
 	else SetLtrBrk();//key is down
 	
 	
@@ -663,10 +657,10 @@ void Chk4KeyDwn(float NowLvl)
 	/*the following lines support plotting tone processing to analyze "tone in" vs "key state"*/
 	if (PlotFlg)
 		PlotIfNeed2();
-	if (AutoTune || CTT )
-		ScanFreq(); // go check to see if the center frequency needs to be adjusted
-	else
-		Scaning = false;
+	// if (AutoTune || CTT )
+	// 	ScanFreq(); // go check to see if the center frequency needs to be adjusted
+	// else
+	// 	Scaning = false;
 } /* END Chk4KeyDwn(float NowLvl) */
 
 
@@ -745,7 +739,7 @@ void ScanFreq(void)
 	else
 	{ // no signal detected
 		if ((pdTICKS_TO_MS(xTaskGetTickCount()) - noSigStrt) > waitinterval) 
-		{ // no signal, after whashould have been several "word" gaps. So lets make a big change in the center frequency, & see if we get a useable signal
+		{ // no signal, after what should have been several "word" gaps. So lets make a big change in the center frequency, & see if we get a useable signal
 				DltaFreq = -20.0;
 				Scaning = true; // lockout the tonedetect process while we move to a new frequency; to prevent false key closer events while in the frequency hunt mode
 		}

@@ -42,6 +42,7 @@
 /*20230814 changed ltrbrk timing for slow speed Bg2 mode */
 /*20230815 revised Bg2 timing & rewote ltrbreak debugging output code */
 /*20230818 fixed pairing crash linked to display SPI conflcit during BT pairing event */
+/*20230916 Changed Auto-tune method; & reworked tone level detection; Added 3rd gain mode/setting */
 #include "sdkconfig.h" //added for timer support
 #include "globals.h"
 #include "main.h"
@@ -98,7 +99,7 @@ DF_t DFault;
 int DeBug = 1; // Debug factory default setting; 0 => Debug "OFF"; 1 => Debug "ON"
 char StrdTxt[20] = {'\0'};
 /*Factory Default Settings*/
-char RevDate[9] = "20230913";
+char RevDate[9] = "20230916";
 char MyCall[10] = "KW4KD";
 char MemF2[80] = "VVV VVV TEST DE KW4KD";
 char MemF3[80] = "CQ CQ CQ DE KW4KD KW4KD";
@@ -129,6 +130,7 @@ SemaphoreHandle_t mutex;
 /* the following 2 entries are for diagnostic capture of raw DMA ADC data*/
 // int Smpl_buf[6 * Goertzel_SAMPLE_CNT];
 // int Smpl_Cntr = 0;
+
 int MutexbsyCnt = 0;
 unsigned long SmpIntrl = 0;
 unsigned long LstNw = 0;
@@ -154,7 +156,16 @@ static const char *TAG1 = "ADC_Config";
 static const char *TAG2 = "PAIR_EVT";
 uint32_t ret_num = 0;
 uint8_t result[Goertzel_SAMPLE_CNT * SOC_ADC_DIGI_RESULT_BYTES] = {0};
-//uint32_t CB_CNtr = 0;
+/*tone freq calc variables */
+uint32_t SmplCNt = 0;
+uint32_t NoTnCntr = 0;
+uint8_t PeriodCntr = 0;
+int DemodFreq = 0;
+int DmodFrqOld = 0;
+bool TstNegFlg = false;
+bool CalGtxlParamFlg = false;
+
+
 TaskHandle_t HKdotclkHndl;
 
 TFTMsgBox tftmsgbx(&tft, StrdTxt);
@@ -262,6 +273,66 @@ void addSmpl(int k, int i, int *pCntrA)
   // LclToneAngle += AnglInc;
   // if(LclToneAngle >= 2*PI) LclToneAngle = LclToneAngle - 2*PI;
   // k = (int)(800*sin(LclToneAngle));
+  /*Calculate Tone frequency*/
+
+  /*the following is part of the auto tune process */
+  const int ToneThrsHld = 50; // minimum usable peak tone value; Anything less is noise
+  if (AutoTune)
+  {
+    /*if we have a usable signal; capture the time it starts
+     * and count the number samples needed to register 40 cycles;
+     i.e., a 500Hz tone used to send 2/3 a dah @ 50WPM */
+    // int k = int(decimated);
+
+    if ((SmplCNt == 0) && k > ToneThrsHld)
+    {
+      // TnPrdStrt = pdTICKS_TO_MS(xTaskGetTickCount());;
+      TstNegFlg = true;
+      NoTnCntr = 0; // set "No Tone Counter" to zero
+      PeriodCntr = 0;
+    }
+    else if ((SmplCNt != 0) && (k < -ToneThrsHld) && TstNegFlg)
+    {
+      NoTnCntr = 0; // set "No Tone Counter" to zero
+      TstNegFlg = false;
+    }
+    else if ((SmplCNt != 0) && (k > ToneThrsHld) && !TstNegFlg)
+    {
+      PeriodCntr++; // we've lived one complete cycle of some unknown frequency
+      NoTnCntr = 0; // set "No Tone Counter" to zero
+      TstNegFlg = true;
+    }
+    else
+    {
+      NoTnCntr++; // increment "No Tone Counter"
+    }
+    SmplCNt++;
+    if (NoTnCntr == 100 || (PeriodCntr == 40 && (SmplCNt < 4020)))
+    { /*We processed enough samples But never exceeded the threshold level; So no usable signal, Reset & try again*/
+      /*out of range tone; reset & try again*/
+      SmplCNt = 0;
+    }
+    else if (PeriodCntr == 40)
+    {
+      /*we have a usable signal; calculate current tone frequency*/
+      DemodFreq = ((int)PeriodCntr * (int)SAMPLING_RATE) / (int)SmplCNt; // SAMPLING_RATE//100500
+      if (DemodFreq > 450)
+      {
+        if (DemodFreq > DmodFrqOld - 50 && DemodFreq < DmodFrqOld + 50)
+        {
+          // sprintf(Title, "Tone: %d\n", DemodFreq);
+          // printf(Title);
+          CalGtxlParamFlg = true;
+          // CalcFrqParams((float)DemodFreq); // recalculate Goertzel parameters, for the newly selected target grequency
+          //showSpeed();
+        }
+      }
+      DmodFrqOld = DemodFreq;
+      /*reset for next round of samples*/
+      SmplCNt = 0;
+    }
+    
+  }
 
   ProcessSample(k, i);
   /* uncomment for diagnostic testing; graph raw ADC samples*/
@@ -269,7 +340,7 @@ void addSmpl(int k, int i, int *pCntrA)
   // {
   //   if ((*pCntrA == Goertzel_SAMPLE_CNT) || (*pCntrA == 2 * Goertzel_SAMPLE_CNT) || (*pCntrA == 3 * Goertzel_SAMPLE_CNT) || (*pCntrA == 4 * Goertzel_SAMPLE_CNT) || (*pCntrA == 5 * Goertzel_SAMPLE_CNT))
   //   {
-  //     Smpl_buf[*pCntrA] = k;// use this line if no marker is needed
+  //     Smpl_buf[*pCntrA] = k;// use this line if marker is NOT needed
   //     //Smpl_buf[*pCntrA] = 2000+(*pCntrA); // place a marker at the end of each group
   //   }
   //   else if(*pCntrA != 0)
@@ -282,7 +353,7 @@ void addSmpl(int k, int i, int *pCntrA)
   //   *pCntrA = 0;
   //   //Smpl_buf[*pCntrA] = 2000; // place a marker at the the begining of the next set
   // }
-   /* END code for diagnostic testing; graph raw ADC samples*/
+  /* END code for diagnostic testing; graph raw ADC samples*/
 }
 
 /////////////////////////////////////////////
@@ -293,7 +364,7 @@ void GoertzelHandler(void *param)
   static const char *TAG2 = "ADC_Read";
   uint16_t oldclr = 0;
   int k;
-  int BIAS = 1844; // based reading found when no signal applied to ESP32continuous_adc_init
+  int BIAS = 1844+150; // based reading found when no signal applied to ESP32continuous_adc_init
   int Smpl_CntrA = 0;
   bool FrstPass = true;
   InitGoertzel(); // make sure the Goertzel Params are setup & ready to go
