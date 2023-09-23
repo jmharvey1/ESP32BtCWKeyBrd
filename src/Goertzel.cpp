@@ -418,6 +418,7 @@ void Chk4KeyDwn(float NowLvl)
 	/* to get a Keydown condition "toneDetect" must be set to "true" */
 	//float ToneLvl = magB; // tone level delayed by six samples
 	bool GudTone = true;
+	unsigned long FltrPrd =0;
 	
 	if (avgDit <= 1200 / 35) // WPM is the denominator here
 	{						 /*High speed code keying process*/
@@ -522,8 +523,8 @@ void Chk4KeyDwn(float NowLvl)
 				avgKeyDwn = ((49*avgKeyDwn)+ thisKDprd)/50;
 			}
 		}
-		if(!GltchFlg && (avgDit >= 1200 / 35)){
-			unsigned long FltrPrd = (unsigned long)(avgKeyDwn/4.0);//20230912 going back to this timing; after implementing kill gliching under strong sig conditions avgKeyDwn as measured above seems to be abt twice that of the avgDit //4.0
+		if(!GltchFlg && (avgDit >= 1200 / 30)){
+			FltrPrd = (unsigned long)(avgKeyDwn/4.0);//20230912 going back to this timing; after implementing kill gliching under strong sig conditions avgKeyDwn as measured above seems to be abt twice that of the avgDit //4.0
 			//unsigned long FltrPrd = (unsigned long)(avgKeyDwn/6.0); ///4.0, was on one sender bridging some spaces that shouldn't have been brigged
 			/*Some straight keys & Bug senders have unusually small dead space between their dits (and Dahs). 
 			When thats the case, use the DcodeCW's avgDeadspace to set the duration of the glitch period */
@@ -534,11 +535,19 @@ void Chk4KeyDwn(float NowLvl)
 			OldKeyState = KeyState;
 			GltchFlg = true;
 			EvntTime = TmpEvntTime;//capture/remember when the state change occured
-		} else if(!GltchFlg && (avgDit < 1200 / 35)){//
+			if((KeyState == -400) ){//20230918  just got a keydown condition but its noisy, so add glitch delay to letter complete interval
+				//printf("StrechLtrcmplt\n");
+			    StrechLtrcmplt(FltrPrd);//1.5*FltrPrd
+			}
+		} else {//
 			NoisePrd = now;
 			OldKeyState = KeyState;
 			GltchFlg = true;
 			EvntTime = TmpEvntTime;
+			if((avgDit < 1200 / 30)){
+				SlwFlg = false;
+          		NoisFlg = false;
+			}
 		}
 	}
 	if(GltchFlg && ((KeyState == -400) && (NoiseFlr >15500))){// KeyDown; looks like we're rxing a strong signal, so cancel glitch detection
@@ -546,7 +555,7 @@ void Chk4KeyDwn(float NowLvl)
 		OldKeyState = KeyState;
 		
 	}
-	if(GltchFlg && ((KeyState != -400) && (NoiseFlr < 1000))){//KeyUp; looks like we're rxing a strong signal, so cancel glitch detection
+	if(GltchFlg && ((KeyState != -400) && (NoiseFlr < 1000))){//KeyUp; looks like we're receiving a strong signal, so cancel glitch detection
 		NoisePrd = now;
 		OldKeyState = KeyState;
 	}
@@ -567,7 +576,7 @@ void Chk4KeyDwn(float NowLvl)
 	} else{
 		if (now >= NoisePrd){ 
 			if( GltchFlg ||(Sentstate != state))
-			{/*We had keystate change ("tone" on, or "tone" off)  & passed the glicth interval; Go evaluate the key change*/
+			{/*We had keystate change ("tone" on, or "tone" off)  & passed the glitch interval; Go evaluate the key change*/
 				GltchFlg = false;
 				Sentstate = state;//'Sentstate' is what gets plotted
 				OldKeyState = KeyState;
@@ -575,7 +584,7 @@ void Chk4KeyDwn(float NowLvl)
 				if(1) GudSig = 1;
 				KeyEvntSR(Sentstate, TmpEvntTime);
 			}
-		} 
+		}
 	}
 	if(Sentstate){
 		chkChrCmplt();//key is up

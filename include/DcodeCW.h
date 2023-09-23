@@ -395,6 +395,7 @@ void ChkDeadSpace(void);
 void DbgRptr(bool dbgFLg, char pBuf[], char pStr[]);
 void SetLtrBrk(void);
 void chkChrCmplt(void);
+void StrechLtrcmplt(unsigned long StrchPrd);
 int CalcAvgPrd(unsigned long thisdur);
 int CalcWPM(int dotT, int dahT, int spaceT);
 void CalcAvgDah(unsigned long thisPeriod);

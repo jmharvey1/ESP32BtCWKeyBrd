@@ -46,7 +46,7 @@ int statsMode = 0;
 int textSrtX = 0;
 int textSrtY = 0;
 //int cnt = 0; // used in scrollpage routine
-int curRow = 0;
+//int curRow = 0;
 int offset = 0;
 int LtrCntr = 0;
 int OldLtrPntr = 0;
@@ -189,6 +189,7 @@ uint8_t GudSig = 0;
 TFTMsgBox *ptrmsgbx;
 SemaphoreHandle_t DeCodeVal_mutex;
 bool blocked = false;
+bool AbrtFlg = false;
 bool KEISRwaiting = false;
 // SerialClass Serial;
 //  End of CW Decoder Global Variables
@@ -246,15 +247,19 @@ void KeyEvntSR(uint8_t Kstate, unsigned long EvntTime)
 		blocked = true;
 
 		if (Kstate == LOW && XspctLo)
-		{					   // key-down event
-			start1 = EvntTime; // HAL_GetTick();//used/saved in case recovery is needed
+		{// key-down event
+			start1 = EvntTime; //used/saved in case recovery is needed
 			if (((EvntTime - noSigStrt) < 15) && (wpm < 35))
 			{
-				// PIN_LOW(LED_GPIO_Port, LED_Pin);
+				if(Test && NrmFlg){
+					printf("ABORT Kdwn\n");
+				}
 				xSemaphoreGive(DeCodeVal_mutex);
 				blocked = false;
+				AbrtFlg = true;
 				return; // appears to be a "glitch" so ignore it
 			}
+			AbrtFlg = false;
 			bool PrntUSB = false;
 			PrntBuf[0] = 0; // clear the print buffer
 			XspctLo = false;
@@ -400,7 +405,7 @@ void KeyEvntSR(uint8_t Kstate, unsigned long EvntTime)
 			}
 
 			letterBrk = 0;
-			ltrCmplt = -2200; // letter complete false; used in plot mode, to show where/when letter breaks are detected
+			ltrCmplt = -2200; // letter complete false; used in plot mode, to show where/when letter break detection start
 			if (GudSig)
 				CalcAvgdeadSpace = true;
 
@@ -449,14 +454,19 @@ void KeyEvntSR(uint8_t Kstate, unsigned long EvntTime)
 			int prob = 0;
 			if (DeCodeVal == 0)
 			{
-				/*20230915 ESP32; in normal decode mode, found best not to set DeCodeVal to "1" at this point */
+				/*20230915 ESP32; in normal decode mode, found it best NOT to set DeCodeVal to "1" at this point */
 				//DeCodeVal = 1;
 				prob = 1;
 				STart = start1;
+				if(AbrtFlg){ //20230918 Added this in an attempt to recover a missed keydown interval 
+					AbrtFlg = false;
+					DeCodeVal = 1;
+				} else
 				if(Test && NrmFlg){
 					sprintf(PrntBuf, "START2- DeCodeVall:%d\n", DeCodeVal);
 					printf(PrntBuf);
 				}	
+				
 			}
 			DitDahCD = 8;
 
@@ -693,7 +703,9 @@ void KeyEvntSR(uint8_t Kstate, unsigned long EvntTime)
 		if ((float)period < 0.3 * (float)avgDit)
 		{ // if "true", key down event seems to related to noise
 			// if here, this was an atypical event, & may indicate a need to recalculate the average period.
-
+			if(Test && NrmFlg){
+				printf("NOISE\n");
+			}
 			if (period > 0)
 			{ // test for when the wpm speed as been slow & now needs to speed by a significant amount
 				++badKeyEvnt;
@@ -720,7 +732,7 @@ void KeyEvntSR(uint8_t Kstate, unsigned long EvntTime)
 		badKeyEvnt = 15;			// badKeyEvnt = 20;
 		DeCodeVal = DeCodeVal << 1; // shift the current decode value left one place to make room for the next bit.
 		if(Test && NrmFlg){
-			sprintf(PrntBuf, "Shift- DeCodeVall:%d\n", DeCodeVal);
+			sprintf(PrntBuf, "Shift- DeCodeVall:%d", DeCodeVal);
 			printf(PrntBuf);
 		}
 		// if (((period >= 1.8 * avgDit)|| (period >= 0.8 * avgDah))||(DeCodeVal ==2 & period >= 1.4 * avgDit)) { // it smells like a "Dah".
@@ -828,6 +840,9 @@ void KeyEvntSR(uint8_t Kstate, unsigned long EvntTime)
 			{
 				// JMH added 20020206
 				DeCodeVal += 1; // it appears to be a "dah' so set the least significant bit to "one"
+				if(Test && NrmFlg){
+					printf(" DAH\n");
+				}
 				
 				// if(!Bug3 && !SCD && Test){
 				// if (Test && 0)
@@ -885,6 +900,9 @@ void KeyEvntSR(uint8_t Kstate, unsigned long EvntTime)
 		}
 		else // treat this period as a dit
 		{	 // if(period >= 0.5*avgDit) //This is a typical 'Dit'
+			if(Test && NrmFlg){
+				printf(" DIT\n");
+			}
 			// if (Test && 0)
 			// {
 			// 	sprintf(PrntBuf, "  OO\n\r");
@@ -1503,6 +1521,12 @@ void chkChrCmplt(void)
 	}
 }
 
+//////////////////////////////////////////////////////////////////////
+void StrechLtrcmplt(unsigned long StrchPrd){
+	// sprintf(PrntBuf, "StrchPrd:%d\n", (int)StrchPrd);
+	// printf(PrntBuf);
+	letterBrk = letterBrk + StrchPrd;
+}
 //////////////////////////////////////////////////////////////////////
 
 int CalcAvgPrd(unsigned long thisdur)
@@ -2511,7 +2535,7 @@ void SftReset(void) // Not called in ESP32 version
 	for (int i = 0; i < sizeof(DcddChrBuf); ++i)
 		DcddChrBuf[i] = 0;
 	//cnt = 0;
-	curRow = 0;
+	//curRow = 0;
 	offset = 0;
 	cursorX = 0;
 	cursorY = 0;

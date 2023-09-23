@@ -43,6 +43,7 @@
 /*20230815 revised Bg2 timing & rewote ltrbreak debugging output code */
 /*20230818 fixed pairing crash linked to display SPI conflcit during BT pairing event */
 /*20230916 Changed Auto-tune method; & reworked tone level detection; Added 3rd gain mode/setting */
+/*20230918 Refined Auto-tune code; added autogain setting shift from slow to fast; added StrechLtrcmplt() to DcodeCW.cpp to better manage letterbreak detection */
 #include "sdkconfig.h" //added for timer support
 #include "globals.h"
 #include "main.h"
@@ -99,7 +100,7 @@ DF_t DFault;
 int DeBug = 1; // Debug factory default setting; 0 => Debug "OFF"; 1 => Debug "ON"
 char StrdTxt[20] = {'\0'};
 /*Factory Default Settings*/
-char RevDate[9] = "20230916";
+char RevDate[9] = "20230918";
 char MyCall[10] = "KW4KD";
 char MemF2[80] = "VVV VVV TEST DE KW4KD";
 char MemF3[80] = "CQ CQ CQ DE KW4KD KW4KD";
@@ -160,6 +161,7 @@ uint8_t result[Goertzel_SAMPLE_CNT * SOC_ADC_DIGI_RESULT_BYTES] = {0};
 uint32_t SmplCNt = 0;
 uint32_t NoTnCntr = 0;
 uint8_t PeriodCntr = 0;
+int Oldk = 0; //used in the addsmpl() as part of the auto-tune/freq measurement process 
 int DemodFreq = 0;
 int DmodFrqOld = 0;
 bool TstNegFlg = false;
@@ -279,59 +281,65 @@ void addSmpl(int k, int i, int *pCntrA)
   const int ToneThrsHld = 50; // minimum usable peak tone value; Anything less is noise
   if (AutoTune)
   {
-    /*if we have a usable signal; capture the time it starts
-     * and count the number samples needed to register 40 cycles;
+    /*if we have a usable signal; start counting the number of samples needed capture 40 periods of the incoming tone;
      i.e., a 500Hz tone used to send 2/3 a dah @ 50WPM */
-    // int k = int(decimated);
-
-    if ((SmplCNt == 0) && k > ToneThrsHld)
+    if ((SmplCNt == 0))
     {
-      // TnPrdStrt = pdTICKS_TO_MS(xTaskGetTickCount());;
-      TstNegFlg = true;
-      NoTnCntr = 0; // set "No Tone Counter" to zero
-      PeriodCntr = 0;
-    }
-    else if ((SmplCNt != 0) && (k < -ToneThrsHld) && TstNegFlg)
-    {
-      NoTnCntr = 0; // set "No Tone Counter" to zero
-      TstNegFlg = false;
-    }
-    else if ((SmplCNt != 0) && (k > ToneThrsHld) && !TstNegFlg)
-    {
-      PeriodCntr++; // we've lived one complete cycle of some unknown frequency
-      NoTnCntr = 0; // set "No Tone Counter" to zero
-      TstNegFlg = true;
+      if (k > ToneThrsHld && Oldk <= ToneThrsHld)
+      {
+        /*armed with a positive going signal; ready to start new measuremnt; reset counters & wait for it to go negative*/
+        TstNegFlg = true;
+        NoTnCntr = 0; // set "No Tone Counter" to zero
+        PeriodCntr = 0;
+        SmplCNt++;
+      }
     }
     else
-    {
+    { // SmplCNt != 0; we're up and counting now
+      SmplCNt++;
       NoTnCntr++; // increment "No Tone Counter"
+      if (TstNegFlg)
+      { //looking for the signal to go negative
+        if ((k < -ToneThrsHld) && (Oldk >= -ToneThrsHld))
+        { /*this one just went negative*/
+          NoTnCntr = 0; // reset "No Tone Counter" to zero
+          TstNegFlg = false;
+        }
+      }
+      else
+      {//  TstNegFlg = false ; Now looking for the signal to go positve
+        if ((k > ToneThrsHld) && (Oldk <= ToneThrsHld))
+        {/* this one just went positive*/
+          PeriodCntr++; // we've lived one complete cycle of some unknown frequency
+          NoTnCntr = 0; // reset "No Tone Counter" to zero
+          TstNegFlg = true;
+        }
+      }
     }
-    SmplCNt++;
-    if (NoTnCntr == 100 || (PeriodCntr == 40 && (SmplCNt < 4020)))
-    { /*We processed enough samples But never exceeded the threshold level; So no usable signal, Reset & try again*/
-      /*out of range tone; reset & try again*/
+    if (NoTnCntr == 200 || (PeriodCntr == 40 && (SmplCNt < 4020)))
+    { /*We processed enough samples; But params are outside a usable frequency; Reset & try again*/
       SmplCNt = 0;
     }
     else if (PeriodCntr == 40)
-    {
-      /*we have a usable signal; calculate current tone frequency*/
+    { /*if here, we have a usable signal; calculate its frequency*/
       DemodFreq = ((int)PeriodCntr * (int)SAMPLING_RATE) / (int)SmplCNt; // SAMPLING_RATE//100500
       if (DemodFreq > 450)
       {
         if (DemodFreq > DmodFrqOld - 50 && DemodFreq < DmodFrqOld + 50)
         {
-          // sprintf(Title, "Tone: %d\n", DemodFreq);
+          // sprintf(Title, "Tone: %d\t%d\n", DemodFreq, (int)NoTnCntr);
           // printf(Title);
           CalGtxlParamFlg = true;
           // CalcFrqParams((float)DemodFreq); // recalculate Goertzel parameters, for the newly selected target grequency
-          //showSpeed();
+          // showSpeed();
         }
+        DmodFrqOld = DemodFreq;
       }
-      DmodFrqOld = DemodFreq;
+
       /*reset for next round of samples*/
       SmplCNt = 0;
     }
-    
+    Oldk = k;
   }
 
   ProcessSample(k, i);
