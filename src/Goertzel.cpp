@@ -295,7 +295,7 @@ void ComputeMags(unsigned long now){
 	float curNois = 1.8*(SigPk - NoiseFlr);
 	if(!NoisFlg){
 		if(!GltchFlg && (avgDit < 1200 / 35)) noisLvl = ((35*noisLvl) + curNois)/36;
-		else noisLvl = ((15*noisLvl) + curNois)/16;
+		else noisLvl = ((35*noisLvl) + curNois)/36;//noisLvl = ((15*noisLvl) + curNois)/16; //20231021
 	} else noisLvl = ((35*noisLvl) + curNois)/36;
 	/*save this noise value to histrory ring buffer for later comparison */
 	NoisPtr++;
@@ -305,7 +305,12 @@ void ComputeMags(unsigned long now){
 	if(NoiseFlr > NFlrBase){
 		NFlrRatio = (int)(1000.0*NoiseFlr/NFlrBase);
 		if(NFlrRatio > 30000) NFlrRatio = 30000;
-		if((NFlrRatio>8000) && (CurNoise > NoiseFlr/2)) CurNoise = NoiseFlr/2;
+		if((NFlrRatio>8000) && (CurNoise > NoiseFlr/2)){
+			 /*added 20231021*/
+			 float oldNoise = CurNoise;
+			 CurNoise = NoiseFlr/2;
+			 if(0.8*oldNoise< CurNoise) noisLvl = CurNoise;
+		}
 		NFlrBase = ((399*NFlrBase)+ NoiseFlr)/400;
 		 
 	} 
@@ -317,7 +322,6 @@ void ComputeMags(unsigned long now){
 	magB = ((magB)+CurLvl)/2; //((2*magB)+CurLvl)/3; //(magC + magL + magH)/3; //
 	/* try to establish what the long term noise floor is */
 	/* This sets the squelch point with/when only white noise is applied*/
-	//if((SigPk <= CurNoise) || (CurNoise < 30000 ) || (NSR < 0.2)) CurNoise = ((399*CurNoise)+(SigPk))/400;//CurNoise = ((399*CurNoise)+(1.2*SigPk))/400;//CurNoise = ((399*CurNoise)+(NSF*SigPk))/400;
 	if(!toneDetect)  CurNoise = ((399*CurNoise)+(1.4*SigPk))/400;
 	/* now look or figure noise level based on what could be a tone driven result*/
 	if ((2*NoiseFlr > CurLvl) && (CurLvl > NoiseFlr) && (NoiseFlr/SigPk >0.5)) // && (SigPk/NoiseFlr>0.5
@@ -375,6 +379,7 @@ void ComputeMags(unsigned long now){
 		GudSig = 1;
 		SkipCnt1 =0;
 	}
+	if(noisLvl < CurNoise) noisLvl = CurNoise;//20231022 added this to lessen the chance that noise might induce a false keydown at the 1st of a letter/character
 	AdjSqlch = noisLvl;
 	if(AdjSqlch < 1500) AdjSqlch = 1500; //20230814 make sure squelch lvl is always above the "no input signal" level; this stops the decoder from generating random characters when no signal is applied
 	if((NoiseFlr>CurNoise)&& ((NoiseFlr/SigPk)>0.65)){
@@ -422,14 +427,13 @@ void Chk4KeyDwn(float NowLvl)
 	
 	if (avgDit <= 1200 / 35) // WPM is the denominator here
 	{						 /*High speed code keying process*/
-		// if ((1.3*SigDect > CurNoise) || (CurLvl > 2*CurNoise)) // if   (CurLvl > 3*CurNoise)
 		if (SigDect  > AdjSqlch)
 		{
 			if ((OLDNoiseFlr < NoiseFlr) && (OLDNoiseFlr < CurNoise))
 			{
 				float NuNoise = 0.5 * (NoiseFlr - OLDNoiseFlr) + OLDNoiseFlr;
 				if (NuNoise < NoiseFlr)
-					CurNoise = (5*CurNoise+NuNoise)/6;//CurNoise = (3*CurNoise+NuNoise)/4;
+					CurNoise = (5*CurNoise+NuNoise)/6;
 			}
 			toneDetect = true;
 			if (!GudTone)
@@ -457,34 +461,6 @@ void Chk4KeyDwn(float NowLvl)
 	}
 	uint8_t state = 1; //Keyup or no tone state
 	KeyState = -2000;//Keyup or no tone state
-	//if (avgKeyDwn > 1200 / 35) /** Slow code method */
-	// if(0)//no longer need/use this method
-	// {
-	// 	delayLine = delayLine << 1;
-	// 	delayLine &= 0b00001110;
-
-	// 	if (toneDetect)
-	// 		delayLine |= 0b00000001; // keystate delay line & glitch detector
-	// 	// Use For Slow code [<27WPM] fill in the glitches  pin is left open
-	// 	if (avgKeyDwn > 40)
-	// 	{ // incoming code is slower than 30WPM //if(digitalRead(SlowData)){
-	// 		if (((delayLine ^ 0b00001110) == 4) || ((delayLine ^ 0b00001111) == 4))
-	// 			delayLine |= 0b00000100;
-	// 		if (((delayLine ^ 0b00000001) == 0b00000100) || ((delayLine ^ 0b00000000) == 0b00000100))
-	// 			delayLine &= 0b11111011;
-	// 	}
-		
-
-	// 	if (delayLine & 0b00001000)
-	// 	{ // key Closed
-	// 		KeyState = -400;// Key Down
-	// 		state = 0;
-	// 	}
-	// 	else
-	// 	{ // No Tone Detected
-	// 	}
-	// }
-	// else if(toneDetect)
 	
 	if(toneDetect)
 	{ /** Fast code method */
