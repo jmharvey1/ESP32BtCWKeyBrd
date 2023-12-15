@@ -13,6 +13,7 @@
  * 20230807 rewrote sloppy string check code for ESP32; Now using a small buffer,"DcddChrBuf" in place of the pagebuffer used in the STM serries
  * 20230815 revised Bg2 timing & rewote ltrbreak debugging output code
  * 20230913 increased eeettt count before WPM reset.
+ * 20231104 worked on bug3 parsing code; some improvement; but still more to be done
  */
 
 // #include <SetUpCwDecoder.h>
@@ -101,9 +102,9 @@ bool Bug3 = false;
 bool badLtrBrk = false;
 bool dletechar = false;
 bool ConcatSymbl = false;
-bool Test = false;// false;// if "true", use Arduino ide Serial Monitor to see output/results
+bool Test = false; // false;// if "true", use Arduino ide Serial Monitor to see output/results
 bool NrmFlg = false; //set to true when debugging basic DeCodeVal processing
-bool SCD = true; // false;//true; //Sloppy Code Debugging ('Bg1'); if "true", use ide Serial Monitor to see output/results
+bool SCD = false; // false;//true; //Sloppy Code Debugging ('Bg1'); if "true", use ide Serial Monitor to see output/results
 bool FrstSymbl = false;
 bool chkStatsMode = true;
 bool NrmMode = true;
@@ -327,10 +328,7 @@ void KeyEvntSR(uint8_t Kstate, unsigned long EvntTime)
 					}
 					if (DeCodeVal == 0)
 					{ // Last letter received was posted to the screen
-						// go get that last character displayed
-						//         Serial.print("cnt: ");
-						//         Serial.println(cnt);
-						//         if(cnt>CPL+1){//DcddChrBuf now has enough data to recover sloppy sending results
+						
 						if (MsgChrCnt[1] > 0)
 						{
 							DeCodeVal = DCVStrd[1];
@@ -737,119 +735,146 @@ void KeyEvntSR(uint8_t Kstate, unsigned long EvntTime)
 		}
 		// if (((period >= 1.8 * avgDit)|| (period >= 0.8 * avgDah))||(DeCodeVal ==2 & period >= 1.4 * avgDit)) { // it smells like a "Dah".
 		bool NrmlDah = false;
-		if (((period >= 1.8 * avgDit) || (period >= 0.8 * avgDah)) && !Bug2)
+		//if (((period >= 1.8 * avgDit) || (period >= 0.8 * avgDah)) && !Bug2)
+		if (((period >= 2 * avgDit) || (period >= 0.66 * avgDah)) && !Bug2 && !Bug3)//20231102 now using this definition for detecting a standard "dah"
 			NrmlDah = true;
 		else if (((period > 9 * avgDeadSpace) || (period > 1.5 * avgDit)) && Bug2)
 			NrmlDah = true;
-		else if ((period >= (1.46 * avgDit) + (DitVar)) && Bug3)
+		else if (Bug3) // note; on the display, this called "Bg1"
 		{
-			NrmlDah = true;
-		}
+			bool NoFix = true;
+			/*20231102 1st apply traditional dah test*/
+			if (((period >= 1.7 * avgDit) || (period >= 0.66 * avgDah))){//20231102 now using this definition for detecting a standard "dah"
+				NrmlDah = true;
+				if(Test && SCD){
+					int pcode =0;
+					if(period >= 1.7 * avgDit) pcode +=1;
+					if(period >= 0.66 * avgDah) pcode +=2;
+					 printf(" Bug3 Fix 0; Pcode:%d\n", pcode);
+				}	 
+				NoFix = false;
+			}
+			/* now go back and look at last keydown entry & see if it suggest something different*/	
+        	int OldPrdPtr = PrdStackPtr-1;
+        	if(PrdStackPtr==0)OldPrdPtr = 9;
+        	if((period >= 2*PrdStack[OldPrdPtr]) && !NrmlDah){
+					NrmlDah = true;
+					if(Test && SCD) printf(" Bug3 Fix 1\n");
+					NoFix = false;
+			}		
+        	if((period <= PrdStack[OldPrdPtr]/2) && NrmlDah){
+					NrmlDah = false;
+					if(Test && SCD) printf(" Bug3 Fix 2\n");
+					NoFix = false;
+			}
+			if(Test && SCD && NoFix) printf(" Bug3 NOFIX\n");		
+		}	
+		// else if ((period >= (1.46 * avgDit) + (DitVar)) && Bug3)
+		// {
+		// 	NrmlDah = true;
+		// }
 
-		if ((NrmlDah) || ((DeCodeVal == 2) && ((period - 10) > 1.4 * avgDit) && (Bug3 || 0))) // normal dah path or special case handling
+		//if ((NrmlDah) || ((DeCodeVal == 2) && ((period - 10) > 1.4 * avgDit) && (Bug3 || 0))) // normal dah path or special case handling
+		if (NrmlDah)//20231104 dropped back to this thinking that the new bug3 code above will handle/catch the special conditions 
 		{																					  // it smells like a "Dah".  think there's 10 millisecond uncertainty due to the sampling speed, so we're going to use the smallest possible interval for this decision
-
-			if ((MsgChrCnt[1] > 0) && (deadSpace < 2.76 * avgDeadSpace) && (deadSpace > 1.4 * avgDeadSpace) && !NuWrd && !dletechar && Bug3)
+			if (Test && SCD) printf("DeCodeVal:%d; deadSpace:%d; avgDeadsSace:%d\n", DeCodeVal, (int)deadSpace, (int)avgDeadSpace);
+			if ((MsgChrCnt[1] > 0) && (DeCodeVal == 2) && (deadSpace < 2.5 * avgDeadSpace)  && (DCVStrd[1]!=255) && !NuWrd && !dletechar && Bug3)
 			{
-				DeCodeVal = DCVStrd[1]; // grab back previous deCodeVal so that wecan continue to work with it
-				if(Test && NrmFlg){
-					sprintf(PrntBuf, "Grab Back- DeCodeVall:%d\n", DeCodeVal);
-					printf(PrntBuf);
-				}
-				/* restore space interval values linked to DCVStrd[1] */
-				unsigned long LstSpcTm = SpaceStk[0];
-				Bitpos = 0;
-				while ((SpcIntrvl2[Bitpos] != 0) && (Bitpos < 16))
-				{
-					SpaceStk[Bitpos] = SpcIntrvl2[Bitpos];
-					++Bitpos;
-				}
-				SpaceStk[Bitpos] = LstSpcTm;
-				++Bitpos;
-				if (Bitpos > 15)
-					Bitpos = 15;
-				DeCodeVal = DeCodeVal << 1;
-				DeCodeVal = DeCodeVal + 1;
-				if(Test && NrmFlg){
-					sprintf(PrntBuf, "Apnd Dah- DeCodeVall:%d\n", DeCodeVal);
-					printf(PrntBuf);
-				}
-				dletechar = true;
-				DeleteID = 4;
-				FrstSymbl = false;	// FrstSymbl = true;
-				ConcatSymbl = true; // used to verify (at the next letter break) we did the right thing;
-				//        printf("\tXX\t");
-				//        USBprintInt(deadSpace);
-				//        printf("\t");
-				//        USBprintInt(avgDeadSpace);
-				//        printf("\t");
-				//        USBprintInt(DCVStrd[1]);
-				//        printf("\t");
-				//        USBprintIntln(DeCodeVal);
-				// if(!Bug3 && !SCD && Test){
-				if (Test && SCD)
-				{
-					// sprintf(PrntBuf, "  XX\t%d\t%d\t%d\t%d\tDeleteChar =%u ", (int)deadSpace, (int)avgDeadSpace, (int)DCVStrd[1], (int)DCVStrd[0], DeCodeVal);
-					if (dletechar)
-					{
-						// printf("true;  ");
-						for (int i = 0; i < sizeof(tmpbuf); i++)
-						{
-							tmpbuf[i] = PrntBuf[i];
-							if (tmpbuf[i] == 0)
-								break;
-						}
-						sprintf(PrntBuf, "%s; Delete;  ", tmpbuf);
-					}
-					else
-					{
-						// printf("false;  ");
-						// sprintf(PrntBuf, "%s; NO Delete;  ",PrntBuf);
-					}
-					//			printf(PrntBuf);
-					// sprintf(PrntBuf, "%s ConcatSymbl = ",PrntBuf);//printf("\ConcatSymbl = ");
-					//			printf(PrntBuf);
-					if (ConcatSymbl)
-					{
-						// printf("true");
-						for (int i = 0; i < sizeof(tmpbuf); i++)
-						{
-							tmpbuf[i] = PrntBuf[i];
-							if (tmpbuf[i] == 0)
-								break;
-						}
-						sprintf(PrntBuf, "%s Concat-true\n\r", tmpbuf);
-					}
-					else
-					{
-						// printf("false");
-						for (int i = 0; i < sizeof(tmpbuf); i++)
-						{
-							tmpbuf[i] = PrntBuf[i];
-							if (tmpbuf[i] == 0)
-								break;
-						}
-						sprintf(PrntBuf, "%s Concat-false\n\r", tmpbuf);
-					}
-					// if(ConcatSymbl)sprintf(PrntBuf, "true");
-					// else sprintf(PrntBuf, "false");
-					printf(PrntBuf);
-				} // end if(Test && SCD)
+				GrabBack(true);
+				// DeCodeVal = DCVStrd[1]; // grab back previous deCodeVal so that wecan continue to work with it
+				// if(Test && NrmFlg){
+				// 	sprintf(PrntBuf, "Grab Back- DeCodeVall:%d\n", DeCodeVal);
+				// 	printf(PrntBuf);
+				// }
+				// /* restore space interval values linked to DCVStrd[1] */
+				// unsigned long LstSpcTm = SpaceStk[0];
+				// Bitpos = 0;
+				// while ((SpcIntrvl2[Bitpos] != 0) && (Bitpos < 16))
+				// {
+				// 	SpaceStk[Bitpos] = SpcIntrvl2[Bitpos];
+				// 	++Bitpos;
+				// }
+				// SpaceStk[Bitpos] = LstSpcTm;
+				// ++Bitpos;
+				// if (Bitpos > 15)
+				// 	Bitpos = 15;
+				// DeCodeVal = DeCodeVal << 1;
+				// DeCodeVal = DeCodeVal + 1;
+				// if(Test && NrmFlg){
+				// 	sprintf(PrntBuf, "Apnd Dah- DeCodeVall:%d; NrmlDah:%d\n", DeCodeVal, (int)NrmlDah);
+				// 	if(!SCD) printf(PrntBuf);
+				// }
+				// dletechar = true;
+				// DeleteID = 4;
+				// FrstSymbl = false;	
+				// ConcatSymbl = true; // used to verify (at the next letter break) we did the right thing;
+				
+				// if (Test && SCD)
+				// {
+				// 	// sprintf(PrntBuf, "  XX\t%d\t%d\t%d\t%d\tDeleteChar =%u ", (int)deadSpace, (int)avgDeadSpace, (int)DCVStrd[1], (int)DCVStrd[0], DeCodeVal);
+				// 	if (dletechar)
+				// 	{
+				// 		// printf("true;  ");
+				// 		for (int i = 0; i < sizeof(tmpbuf); i++)
+				// 		{
+				// 			tmpbuf[i] = PrntBuf[i];
+				// 			if (tmpbuf[i] == 0)
+				// 				break;
+				// 		}
+				// 		sprintf(PrntBuf, "%s; Delete; ", tmpbuf);
+				// 	}
+				// 	elsevoid
+				// 	{
+				// 		// printf("false;  ");
+				// 		// sprintf(PrntBuf, "%s; NO Delete;  ",PrntBuf);
+				// 	}
+				// 	//			printf(PrntBuf);
+				// 	// sprintf(PrntBuf, "%s ConcatSymbl = ",PrntBuf);//printf("\ConcatSymbl = ");
+				// 	//			printf(PrntBuf);
+				// 	if (ConcatSymbl)
+				// 	{
+				// 		// printf("true");
+				// 		for (int i = 0; i < sizeof(tmpbuf); i++)
+				// 		{
+				// 			tmpbuf[i] = PrntBuf[i];
+				// 			if (tmpbuf[i] == 0)
+				// 				break;
+				// 		}
+				// 		sprintf(PrntBuf, "%s Concat-true", tmpbuf);
+				// 	}
+				// 	else
+				// 	{
+				// 		// printf("false");
+				// 		for (int i = 0; i < sizeof(tmpbuf); i++)
+				// 		{
+				// 			tmpbuf[i] = PrntBuf[i];
+				// 			if (tmpbuf[i] == 0)
+				// 				break;
+				// 		}
+				// 		sprintf(PrntBuf, "%s Concat-false", tmpbuf);
+				// 	}
+				// 	// if(ConcatSymbl)sprintf(PrntBuf, "true");
+				// 	// else sprintf(PrntBuf, "false");
+				// 	printf(PrntBuf);
+				// 	sprintf(PrntBuf, "\t%d\t%d\t%d\n", (int)period, (int)(1.8 * avgDit), (int)(0.8 * avgDah));
+				// 	printf(PrntBuf);
+				// } // end if(Test && SCD)
 			}
 			else
 			{
 				// JMH added 20020206
 				DeCodeVal += 1; // it appears to be a "dah' so set the least significant bit to "one"
 				if(Test && NrmFlg){
-					printf(" DAH\n");
+					printf(" DAH  ");
+					sprintf(PrntBuf, "\t%d\t%d\t%d\n", (int)period, (int)(1.8 * avgDit), (int)(0.8 * avgDah));
+					printf(PrntBuf);
 				}
 				
 				// if(!Bug3 && !SCD && Test){
-				// if (Test && 0)
+				// if (Test && 1)
 				// {
 				// 	sprintf(PrntBuf, "  YY\n\r");
-				// 	// sprintf(PrntBuf, "\tYY\t%d\t%d\t%d\t%d\tDeleteChar = ", (int)deadSpace, (int)avgDeadSpace, (int)DCVStrd[1], (int)DCVStrd[0], (int)DeCodeVal);
-				// 	//			printf(PrntBuf);
+				// 	// 
 				// 	if (dletechar)
 				// 	{
 				// 		// printf("true;  ");
@@ -869,7 +894,7 @@ void KeyEvntSR(uint8_t Kstate, unsigned long EvntTime)
 				// 		sprintf(PrntBuf, "%strue\n\r", PrntBuf);
 				// 	}
 				// 	else
-				// 	{
+				// 	{void
 				// 		// printf("false");
 				// 		sprintf(PrntBuf, "%sfalse\n\r", PrntBuf);
 				// 	}
@@ -901,39 +926,11 @@ void KeyEvntSR(uint8_t Kstate, unsigned long EvntTime)
 		else // treat this period as a dit
 		{	 // if(period >= 0.5*avgDit) //This is a typical 'Dit'
 			if(Test && NrmFlg){
-				printf(" DIT\n");
+				printf(" DIT  ");
+				sprintf(PrntBuf, "\t%d\t%d\t%d\n", (int)period, (int)(1.8 * avgDit), (int)(0.8 * avgDah));
+				printf(PrntBuf);
 			}
-			// if (Test && 0)
-			// {
-			// 	sprintf(PrntBuf, "  OO\n\r");
-			// 	// sprintf(PrntBuf, "\tOO\t%d\t%d\t%d\t%d\tDeleteChar = ", (int)deadSpace, (int)avgDeadSpace, (int)DCVStrd[1], (int)DCVStrd[0], (int)DeCodeVal);
-			// 	if (dletechar)
-			// 	{
-			// 		// printf("true;  ");
-			// 		sprintf(PrntBuf, "%strue;  ", PrntBuf);
-			// 	}
-			// 	else
-			// 	{
-			// 		// printf("false;  ");
-			// 		sprintf(PrntBuf, "%sfalse;  ", PrntBuf);
-			// 	}
-			// 	//			printf(PrntBuf);
-			// 	sprintf(PrntBuf, "%s ConcatSymbl = ", PrntBuf); // printf("\ConcatSymbl = ");
-			// 	//			printf(PrntBuf);
-			// 	if (ConcatSymbl)
-			// 	{
-			// 		// printf("true");
-			// 		sprintf(PrntBuf, "%strue\n\r", PrntBuf);
-			// 	}
-			// 	else
-			// 	{
-			// 		// printf("false");
-			// 		sprintf(PrntBuf, "%sfalse\n\r", PrntBuf);
-			// 	}
-			// 	printf(PrntBuf);
-			// }
-
-			// if(Bug3 & SCD& badLtrBrk) sprintf(DeBugMsg, "0%s", DeBugMsg);
+			
 			if (Bug3 && SCD && Test)
 			{
 				// sprintf(DeBugMsg, "0%s", DeBugMsg);
@@ -941,23 +938,34 @@ void KeyEvntSR(uint8_t Kstate, unsigned long EvntTime)
 				while (DeBugMsg[i] != 0)
 					i++;
 				DeBugMsg[i] = '0';
+				printf("deadSpace:%d; avgDeadsSace:%d\n", (int)deadSpace, (int)avgDeadSpace);
+			}
+			if((DeCodeVal == 2) && (DCVStrd[1]!=255) &&Bug3 && (deadSpace < 2.5 * avgDeadSpace) && !NuWrd && !dletechar){
+				GrabBack(false);
 			}
 			if (FrstSymbl)
-			{ // JMH 2020103 New way, doesn't make any difference about the last symbol of the preceding letter. The first symbol in the current letter is a 'dit', so forget the past
-				// if we're here then we have recieved 2 'dits' back to back with a large gap between. So assume this is the beginning of a new letter/character
-				// put everything back to decoding a 'normal' character
-				DeCodeVal = DeCodeVal >> 1;
-				//        Serial.print(DeCodeVal);
-				//        Serial.print('\t');
-				//        Serial.println( DicTbl1[linearSearchBreak(DeCodeVal, CodeVal1, ARSIZE)] );
-				DeCodeVal = 2;
-				dletechar = false;
-				FrstSymbl = false;
-				ConcatSymbl = false;
-				if(Test && NrmFlg){
-					sprintf(PrntBuf, "RESET- DeCodeVall:%d\n", DeCodeVal);
-					printf(PrntBuf);
-				}
+			{ 
+				// if(Bug3 && (MsgChrCnt[1] > 0) && (deadSpace < 2.76 * avgDeadSpace) && (deadSpace > 1.4 * avgDeadSpace) && !NuWrd && !dletechar){
+				// 	GrabBack(false);
+				// }else{
+
+					// JMH 2020103 New way, doesn't make any difference about the last symbol of the preceding letter. The first symbol in the current letter is a 'dit', so forget the past
+					// if we're here then we have recieved 2 'dits' back to back with a large gap between. So assume this is the beginning of a new letter/character
+					// put everything back to decoding a 'normal' character
+					DeCodeVal = DeCodeVal >> 1;
+					//        Serial.print(DeCodeVal);
+					//        Serial.print('\t');
+					//        Serial.println( DicTbl1[linearSearchBreak(DeCodeVal, CodeVal1, ARSIZE)] );
+					DeCodeVal = 2;
+					dletechar = false;
+					FrstSymbl = false;
+					ConcatSymbl = false;
+					if (Test && NrmFlg)
+					{
+						sprintf(PrntBuf, "RESET- DeCodeVall:%d\n", DeCodeVal);
+						printf(PrntBuf);
+					}
+				// }
 			}
 			if ((period != 0) && !FrstSymbl)
 			{
@@ -990,6 +998,93 @@ void KeyEvntSR(uint8_t Kstate, unsigned long EvntTime)
 	}
 
 } // End CW Decoder Interrupt routine
+////////////////////////////////////////////////////////////////////////////////////////////
+void GrabBack(bool IsDah)
+{
+	char tmpbuf[50];
+	DeCodeVal = DCVStrd[1]; // grab back previous deCodeVal so that wecan continue to work with it
+	if (Test && NrmFlg)
+	{
+		sprintf(PrntBuf, "Grab Back%d- DeCodeVall:%d\n", (int)IsDah, DeCodeVal);
+		printf(PrntBuf);
+	}
+	/* restore space interval values linked to DCVStrd[1] */
+	unsigned long LstSpcTm = SpaceStk[0];
+	Bitpos = 0;
+	while ((SpcIntrvl2[Bitpos] != 0) && (Bitpos < 16))
+	{
+		SpaceStk[Bitpos] = SpcIntrvl2[Bitpos];
+		++Bitpos;
+	}
+	SpaceStk[Bitpos] = LstSpcTm;
+	++Bitpos;
+	if (Bitpos > 15)
+		Bitpos = 15;
+	DeCodeVal = DeCodeVal << 1;
+	if(IsDah) DeCodeVal = DeCodeVal + 1;
+	if (Test && NrmFlg)
+	{
+		if(IsDah) sprintf(PrntBuf, "Apnd Dah- DeCodeVall:%d\n", DeCodeVal);
+		else  sprintf(PrntBuf, "Apnd Dit- DeCodeVall:%d\n", DeCodeVal);
+		if (!SCD)
+			printf(PrntBuf);
+	}
+	dletechar = true;
+	DeleteID = 4;
+	FrstSymbl = false;	
+	ConcatSymbl = true; // used to verify (at the next letter break) we did the right thing;
+
+	if (Test && SCD)
+	{
+		// sprintf(PrntBuf, "  XX\t%d\t%d\t%d\t%d\tDeleteChar =%u ", (int)deadSpace, (int)avgDeadSpace, (int)DCVStrd[1], (int)DCVStrd[0], DeCodeVal);
+		if (dletechar)
+		{
+			// printf("true;  ");
+			for (int i = 0; i < sizeof(tmpbuf); i++)
+			{
+				tmpbuf[i] = PrntBuf[i];
+				if (tmpbuf[i] == 0)
+					break;
+			}
+			sprintf(PrntBuf, "%s; Delete; ", tmpbuf);
+		}
+		else
+		{
+			// printf("false;  ");
+			// sprintf(PrntBuf, "%s; NO Delete;  ",PrntBuf);
+		}
+		//			printf(PrntBuf);
+		// sprintf(PrntBuf, "%s ConcatSymbl = ",PrntBuf);//printf("\ConcatSymbl = ");
+		//			printf(PrntBuf);
+		if (ConcatSymbl)
+		{
+			// printf("true");
+			for (int i = 0; i < sizeof(tmpbuf); i++)
+			{
+				tmpbuf[i] = PrntBuf[i];
+				if (tmpbuf[i] == 0)
+					break;
+			}
+			sprintf(PrntBuf, "%s Concat-true", tmpbuf);
+		}
+		else
+		{
+			// printf("false");
+			for (int i = 0; i < sizeof(tmpbuf); i++)
+			{
+				tmpbuf[i] = PrntBuf[i];
+				if (tmpbuf[i] == 0)
+					break;
+			}
+			sprintf(PrntBuf, "%s Concat-false", tmpbuf);
+		}
+		// if(ConcatSymbl)sprintf(PrntBuf, "true");
+		// else sprintf(PrntBuf, "false");
+		printf(PrntBuf);
+		sprintf(PrntBuf, "\t%d\t%d\t%d\n", (int)period, (int)(1.8 * avgDit), (int)(0.8 * avgDah));
+		printf(PrntBuf);
+	}
+}
 ////////////////////////////////////////////////////////////////////////////////////////////
 void Dcodeloop(void)
 {
@@ -1391,8 +1486,9 @@ void SetLtrBrk(void)
 }
 
 ////////////////////////////////////////////////////////////////////////
-void chkChrCmplt(void)
+bool chkChrCmplt(void)
 {
+	bool done = false;
 	Pstate = 0;
 	unsigned long Now = pdTICKS_TO_MS(xTaskGetTickCount()); //(GetTimr5Cnt()/10);
 	if ((Now - letterBrk1) > 35000)
@@ -1401,17 +1497,19 @@ void chkChrCmplt(void)
 	if (LclKeyState == 0) // if this is the case, key is closed & should not be doing a letter complete
 	{
 		ltrCmplt = -2200;
-		return;
+		return done;
 	}
 	else if (ltrCmplt == -2200)
 		ltrCmplt = -2500;
 	if ((Now >= letterBrk) && letterBrk != 0)
 	{
 		ltrCmplt = -2800;
+		
 		if (DeCodeVal > 1)
 		{
 			Pstate = 1; // have a complete letter
 			ltrCmplt = -3500;
+			done = true;
 			letterBrk1 = letterBrk;
 			/*testing only; comment out when running normally*/
 			//		if((Now-letterBrk)>1){
@@ -1450,7 +1548,7 @@ void chkChrCmplt(void)
 	{
 		if ((unsigned long)noKeySig > MaxDeadTime && noKeySig < 7 * avgDeadSpace)
 			MaxDeadTime = (unsigned long)noKeySig;
-		return;
+		return done;
 	}
 	else
 	{
@@ -1470,12 +1568,10 @@ void chkChrCmplt(void)
 						CodeValBuf[i] = 0;
 					}
 				}
+				/*Lets double check the 'dit' 'dah' assigments of DeCodeVal based on the TimeDat[] values before transfering to CodeValBuf[]*/
+				DblChkDitDah();
 				CodeValBuf[i] = DeCodeVal;
-				/*
-		printf(CodeValBuf[i]);// for testing only
-		printf(";  i:");
-		 USBprintIntln(i);
-				 */
+				
 				int p = 0;
 				// for (int p = 0;  p < Bitpos; p++ ) { // map timing info into time buffer (used only for debugging
 				while (p < 16)
@@ -1519,8 +1615,54 @@ void chkChrCmplt(void)
 			}
 		}
 	}
+	return done;
 }
-
+//////////////////////////////////////////////////////////////////////
+void DblChkDitDah(void){
+	/*Double check the 'dit' 'dah' assigments of DeCodeVal based on the TimeDat[] values before transfering to CodeValBuf[]*/
+	if(DeCodeVal < 4) return; //not enough data to evaluate so go back  
+	int Mintime, Maxtime;
+	Mintime = 1000;
+	Maxtime = 1;
+	unsigned int OldVal = DeCodeVal;
+	// if(Test){
+	// 	sprintf(PrntBuf, "DblChkDitDah(%d)", Bitpos);
+	// 	printf(PrntBuf);
+	// }
+	for(int i = 0; i< Bitpos; i++){
+		int KyDwnTime = (int)TimeDat[i];
+		if(KyDwnTime < Mintime ) Mintime = KyDwnTime;
+		if(KyDwnTime > Maxtime) Maxtime = KyDwnTime;
+	}
+	//float spltpt = (float)Maxtime/(float)Mintime;
+	int spltpt = Mintime+ ((Maxtime-Mintime)/2);
+	if(Test){
+		sprintf(PrntBuf, "Mintime: %d; Maxtime: %d; spltpt: %d;  avgDit: %d; ", Mintime, Maxtime, spltpt, (int)avgDit);
+		printf(PrntBuf);
+	}
+	if(spltpt >= 2*Mintime){//rebuild DeCodeVal
+	    DeCodeVal = 1;
+		for(int i = 0; i< Bitpos; i++){
+			DeCodeVal = DeCodeVal << 1; // shift the current decode value left one place to make room for the next bit.
+			if(Test){
+				sprintf(PrntBuf, "TimeDat[%d]:%d; ", i, (int)TimeDat[i]);
+				printf(PrntBuf);
+			}
+			if((float)TimeDat[i] > 1.6*((float)avgDit)){
+				if((TimeDat[i] > spltpt) ) DeCodeVal +=1;
+				else if(TimeDat[i] > 2.25*(float)Mintime) DeCodeVal +=1;
+			}
+		}
+	}
+	if(Test){
+		if((OldVal != DeCodeVal)){
+			sprintf(PrntBuf, "\n\tOld DeCodeVall:%d; New Val:%d\n", OldVal, DeCodeVal);
+		}else{ 
+			sprintf(PrntBuf, "\n");
+		}
+		printf(PrntBuf);	
+	}
+}
 //////////////////////////////////////////////////////////////////////
 void StrechLtrcmplt(unsigned long StrchPrd){
 	// sprintf(PrntBuf, "StrchPrd:%d\n", (int)StrchPrd);

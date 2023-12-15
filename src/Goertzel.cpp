@@ -24,6 +24,7 @@ uint8_t LstLightLvl = 0;
 bool Ready = true;
 bool toneDetect = false;
 bool SlwFlg = false;
+bool TmpSlwFlg = false;
 bool NoisFlg = false;
 bool AutoTune = true; //false; //true;
 bool Scaning = false;
@@ -115,6 +116,7 @@ int NoisPtr = 0;
 float noisLvl =0;
 int ClimCnt = 0;
 int KeyDwnCnt = 0;
+bool prntFlg; //used for debugging
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 void PlotIfNeed2(void){
@@ -170,11 +172,12 @@ void InitGoertzel(void)
 	int CYCLE_CNT;//, k;// 6.0
 	float  omega;
 	float CyRadians;
-	float floatnumSamples = (float) (Goertzel_SAMPLE_CNT);
-	if(SlwFlg) floatnumSamples = 2*floatnumSamples;
+	//float floatnumSamples = (float) (Goertzel_SAMPLE_CNT);
+	//if(SlwFlg) floatnumSamples = 2*floatnumSamples;
 	ResetGoertzel();// make sure you're working with the current set of frequeincies needed for this set of parameters
 	/* For the lowest frequency of interest, Find the Maximum Number of whole Cycles we can look at  */
-	CYCLE_CNT = (int)((((float)(Goertzel_SAMPLE_CNT))*TARGET_FREQUENCYL)/SAMPLING_RATE);
+	if(SlwFlg) CYCLE_CNT = (int)((((float)(2*Goertzel_SAMPLE_CNT))*TARGET_FREQUENCYL)/SAMPLING_RATE);
+	else CYCLE_CNT = (int)((((float)(Goertzel_SAMPLE_CNT))*TARGET_FREQUENCYL)/SAMPLING_RATE);
 	//floatnumSamples = (float) (Goertzel_SAMPLE_CNT);
     //k = (int) (0.5 + ((floatnumSamples * TARGET_FREQUENCYL) / (float)SAMPLING_RATE)); 
 	CyRadians = (2.0 * PI * CYCLE_CNT);
@@ -212,18 +215,26 @@ void InitGoertzel(void)
 /* Call this routine for every sample. */
 void ProcessSample(int sample, int Scnt)
 {
-	//char Smpl[10];
-	if (Scnt > NL)
+	char Smpl[10];
+	//if(Scnt ==0 ) prntFlg = true; //just used for debugging
+	if (Scnt > NL){
+		//just used for debugging
+		// if(prntFlg){
+		// 	prntFlg = false;
+		// 	sprintf( Smpl,"%d\n", Scnt);
+		// 	printf( Smpl);
+		// }
 		return; // don't look or care about anything beyond the lowest number of samples needed for this frequency set
-	
+	}
 	float Q0;
 	float FltSampl = (float)sample;
 	
 	Q0 = (coeffL * Q1) - Q2 + FltSampl;
 	Q2 = Q1;
 	Q1 = Q0;
-	if (Scnt > NC)
+	if (Scnt > NC){
 		return;
+	}
 	Q0 = (coeffC * Q1C) - Q2C + FltSampl;
 	Q2C = Q1C;
 	Q1C = Q0;
@@ -305,12 +316,13 @@ void ComputeMags(unsigned long now){
 	if(NoiseFlr > NFlrBase){
 		NFlrRatio = (int)(1000.0*NoiseFlr/NFlrBase);
 		if(NFlrRatio > 30000) NFlrRatio = 30000;
-		if((NFlrRatio>8000) && (CurNoise > NoiseFlr/2)){
-			 /*added 20231021*/
-			 float oldNoise = CurNoise;
-			 CurNoise = NoiseFlr/2;
-			 if(0.8*oldNoise< CurNoise) noisLvl = CurNoise;
-		}
+		/*20231103 removed this test as it appeared at timesover compensate & depress the squelch level to too low of a level*/
+		// if((NFlrRatio>8000) && (CurNoise > NoiseFlr/2)){
+		// 	 /*added 20231021*/
+		// 	 float oldNoise = CurNoise;
+		// 	 CurNoise = NoiseFlr/2;
+		// 	 if(0.8*oldNoise< CurNoise) noisLvl = CurNoise;
+		// }
 		NFlrBase = ((399*NFlrBase)+ NoiseFlr)/400;
 		 
 	} 
@@ -499,7 +511,17 @@ void Chk4KeyDwn(float NowLvl)
 				avgKeyDwn = ((49*avgKeyDwn)+ thisKDprd)/50;
 			}
 		}
-		if(!GltchFlg && (avgDit >= 1200 / 30)){
+		//just used for debugging
+		// char Smpl[10];
+		// sprintf( Smpl,"%d\n", 1200/(int)avgDit);
+		// printf( Smpl);
+		if((avgDit < 1200 / 30)){//20231031 changed from 1200/30 to 1200/35
+			TmpSlwFlg = false; //we'll determine the flagstate herebut wont engage it until we have a letter complete state
+        }else if(avgDit > 1200 / 28){//20231031 added else if()to auto swap both ways
+			TmpSlwFlg = true;//we'll determine the flagstate herebut wont engage it until we have a letter complete state
+		}
+		
+		if(!GltchFlg && (avgDit >= 1200 / 30)){ // don't use "glitch" detect/correction for speeds greater than 30 wpm
 			FltrPrd = (unsigned long)(avgKeyDwn/4.0);//20230912 going back to this timing; after implementing kill gliching under strong sig conditions avgKeyDwn as measured above seems to be abt twice that of the avgDit //4.0
 			//unsigned long FltrPrd = (unsigned long)(avgKeyDwn/6.0); ///4.0, was on one sender bridging some spaces that shouldn't have been brigged
 			/*Some straight keys & Bug senders have unusually small dead space between their dits (and Dahs). 
@@ -520,18 +542,20 @@ void Chk4KeyDwn(float NowLvl)
 			OldKeyState = KeyState;
 			GltchFlg = true;
 			EvntTime = TmpEvntTime;
-			if((avgDit < 1200 / 30)){
-				SlwFlg = false;
-          		NoisFlg = false;
-			}
+			// if((avgDit < 1200 / 36)){//20231031 changed from 1200/30 to 1200/35
+			// 	SlwFlg = false;
+          	// 	NoisFlg = false;
+			// }else if(avgDit > 1200 / 30){//20231031 added else if()to auto swap both ways
+			// 	SlwFlg = true;
+			// }
 		}
 	}
-	if(GltchFlg && ((KeyState == -400) && (NoiseFlr >15500))){// KeyDown; looks like we're rxing a strong signal, so cancel glitch detection
+	if(GltchFlg && ((KeyState == -400) && (NoiseFlr >3*CurNoise))){// KeyDown; looks like we're rxing a strong signal, so cancel glitch detection; 20231103: NoiseFlr >15500
 		NoisePrd = now;
 		OldKeyState = KeyState;
 		
 	}
-	if(GltchFlg && ((KeyState != -400) && (NoiseFlr < 1000))){//KeyUp; looks like we're receiving a strong signal, so cancel glitch detection
+	if(GltchFlg && ((KeyState != -400) && (NoiseFlr < CurNoise/2))){//KeyUp; looks like we're receiving a strong signal, so cancel glitch detection; 20231103: NoiseFlr < 1000
 		NoisePrd = now;
 		OldKeyState = KeyState;
 	}
@@ -563,7 +587,9 @@ void Chk4KeyDwn(float NowLvl)
 		}
 	}
 	if(Sentstate){
-		chkChrCmplt();//key is up
+		if(chkChrCmplt() && SlwFlg != TmpSlwFlg){//key is up
+			SlwFlg = TmpSlwFlg;
+		}
 		if(CalGtxlParamFlg){
 			CalGtxlParamFlg = false;
           	CalcFrqParams((float)DemodFreq); // recalculate Goertzel parameters, for the newly selected target grequency

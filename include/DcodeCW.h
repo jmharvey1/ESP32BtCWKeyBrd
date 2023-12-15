@@ -389,12 +389,14 @@ const char DicTbl2[ARSIZE2][6]={
 ////////////////////////////////////////////////////////////////////////////
 void StartDecoder(TFTMsgBox *pttftmsgbx);
 void KeyEvntSR(uint8_t Kstate, unsigned long EvntTime);// keydown state =0; Keyup state = 1
+void GrabBack(bool IsDah);
 void Dcodeloop(void);
 void WPMdefault(void);
 void ChkDeadSpace(void);
 void DbgRptr(bool dbgFLg, char pBuf[], char pStr[]);
+void DblChkDitDah(void);
 void SetLtrBrk(void);
-void chkChrCmplt(void);
+bool chkChrCmplt(void);
 void StrechLtrcmplt(unsigned long StrchPrd);
 int CalcAvgPrd(unsigned long thisdur);
 int CalcWPM(int dotT, int dahT, int spaceT);

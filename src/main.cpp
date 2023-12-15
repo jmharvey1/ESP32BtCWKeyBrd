@@ -44,6 +44,8 @@
 /*20230818 fixed pairing crash linked to display SPI conflcit during BT pairing event */
 /*20230916 Changed Auto-tune method; & reworked tone level detection; Added 3rd gain mode/setting */
 /*20230918 Refined Auto-tune code; added autogain setting shift from slow to fast; added StrechLtrcmplt() to DcodeCW.cpp to better manage letterbreak detection */
+/*20231103 reworked  DcodeCW.cpp, dit/dah decision tests & in Goertzel reworked auotsample rate detection code */
+/*20231215 added DblChkDitDah() to DcodeCW.cpp, to further improve dit/dah decision tests */
 #include "sdkconfig.h" //added for timer support
 #include "globals.h"
 #include "main.h"
@@ -100,7 +102,7 @@ DF_t DFault;
 int DeBug = 1; // Debug factory default setting; 0 => Debug "OFF"; 1 => Debug "ON"
 char StrdTxt[20] = {'\0'};
 /*Factory Default Settings*/
-char RevDate[9] = "20230918";
+char RevDate[9] = "20231215";
 char MyCall[10] = "KW4KD";
 char MemF2[80] = "VVV VVV TEST DE KW4KD";
 char MemF3[80] = "CQ CQ CQ DE KW4KD KW4KD";
@@ -372,6 +374,7 @@ void GoertzelHandler(void *param)
   static const char *TAG2 = "ADC_Read";
   uint16_t oldclr = 0;
   int k;
+  int offset = 0;
   int BIAS = 1844+150; // based reading found when no signal applied to ESP32continuous_adc_init
   int Smpl_CntrA = 0;
   bool FrstPass = true;
@@ -390,13 +393,15 @@ void GoertzelHandler(void *param)
     if (thread_notification)
     { // Goertzel data samples ready for processing
       /*1st do a little house keeping*/
-      if(!SlwFlg){
-        FrstPass = true;
-      }
+      // if(!SlwFlg){
+      //   FrstPass = true;
+      // }
       ret = adc_continuous_read(adc_handle, result, Goertzel_SAMPLE_CNT * SOC_ADC_DIGI_RESULT_BYTES, &ret_num, 0);
       if (ret == ESP_OK)
       {
         if(FrstPass) ResetGoertzel();
+        if(SlwFlg && !FrstPass) offset = Goertzel_SAMPLE_CNT;
+        else offset = 0;
         /*  ESP_LOGI("TASK_ADC", "ret is %x, ret_num is %"PRIu32" bytes", ret, ret_num);*/
 
         for (int i = 0; i < Goertzel_SAMPLE_CNT / 2; i++) // for (int i = 0; i < ret_num; i += SOC_ADC_DIGI_RESULT_BYTES)
@@ -408,14 +413,19 @@ void GoertzelHandler(void *param)
           adc_digi_output_data_t *p = (adc_digi_output_data_t *)&result[pos0 * SOC_ADC_DIGI_RESULT_BYTES];
           adc_digi_output_data_t *p1 = (adc_digi_output_data_t *)&result[pos1 * SOC_ADC_DIGI_RESULT_BYTES];
           k = ((int)(p1->type1.data) - BIAS);
-          addSmpl(k, pos1, &Smpl_CntrA);
+          addSmpl(k, pos0+offset, &Smpl_CntrA);//addSmpl(k, pos1, &Smpl_CntrA);
           k = ((int)(p->type1.data) - BIAS);
-          addSmpl(k, pos0, &Smpl_CntrA);
+          addSmpl(k, pos1+offset, &Smpl_CntrA);//addSmpl(k, pos0, &Smpl_CntrA);
         }
         /*logic to manage the number of data samples to take before going on to compute goertzel magnitudes*/
+        // if(SlwFlg && FrstPass){
+        //   FrstPass = false;
+        // } else if(SlwFlg){
+        //   FrstPass = true;
+        // } 
         if(SlwFlg && FrstPass){
           FrstPass = false;
-        } else if(SlwFlg){
+        } else{
           FrstPass = true;
         } 
         if(FrstPass) ComputeMags(EvntStart);
@@ -1086,7 +1096,7 @@ void ProcsKeyEntry(uint8_t keyVal)
     if(NoisFlg) GainCnt = 2;
     if(SlwFlg && !NoisFlg) GainCnt = 1;
       GainCnt++;
-    if (GainCnt > 2)  GainCnt = 0;
+    if (GainCnt > 1)  GainCnt = 0;//20231029 decided that the 3rd gain mode was no longer needed, so locked it out
       switch(GainCnt){
         case 0:
           SlwFlg = false;
@@ -1104,6 +1114,7 @@ void ProcsKeyEntry(uint8_t keyVal)
       }
       DFault.SlwFlg = SlwFlg;
       DFault.NoisFlg = NoisFlg;
+      InitGoertzel();
       vTaskDelay(20);
       showSpeed();
       vTaskDelay(250);
