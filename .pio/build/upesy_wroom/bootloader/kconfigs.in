@@ -6,4 +6,5 @@ source "/home/jim/.platformio/packages/framework-espidf/components/freertos/Kcon
 source "/home/jim/.platformio/packages/framework-espidf/components/hal/Kconfig"
 source "/home/jim/.platformio/packages/framework-espidf/components/log/Kconfig"
 source "/home/jim/.platformio/packages/framework-espidf/components/newlib/Kconfig"
+source "/home/jim/.platformio/packages/framework-espidf/components/soc/Kconfig"
 source "/home/jim/.platformio/packages/framework-espidf/components/spi_flash/Kconfig"

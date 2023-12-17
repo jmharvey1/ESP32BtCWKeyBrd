@@ -43,8 +43,8 @@
 #include "esp32-hal-log.h"
 #include "esp32-hal-i2c-slave.h"
 
-#include "i2c_types_JMH.h" //JMH added back in for Windows 10 version; this file is found at lib/esp32_hal/src
- 
+//#include "i2c_types_JMH.h" //JMH added back in for Windows 10 version; this file is found at lib/esp32_hal/src
+#include "hal/i2c_types.h"   //20231216 JMH changed 
 
 
 #define I2C_SLAVE_USE_RX_QUEUE 0 // 1: Queue, 0: RingBuffer
@@ -78,6 +78,8 @@ typedef struct i2c_slave_struct_t {
     TaskHandle_t task_handle;
 //    xQueueHandle event_queue;//JMH removed to support Windows 10 version
     QueueHandle_t event_queue;//JMH added to support Windows 10 version
+
+
 #if I2C_SLAVE_USE_RX_QUEUE
     xQueueHandle rx_queue;
 #else
@@ -91,6 +93,75 @@ typedef struct i2c_slave_struct_t {
     SemaphoreHandle_t lock;//JMH added to support Windows 10 version
 #endif
 } i2c_slave_struct_t;
+
+//20231216 JMH Added to be compatible with newer framework
+/**
+ * @brief I2C clock source, sorting from smallest to largest,
+ *        place them in order.
+ *        This can be expanded in the future use.
+ */
+typedef enum {
+    I2C_SCLK_DEFAULT = 0,    /*!< I2C source clock not selected*/
+#if SOC_I2C_SUPPORT_APB
+    I2C_SCLK_APB,            /*!< I2C source clock from APB, 80M*/
+#endif
+#if SOC_I2C_SUPPORT_XTAL
+    I2C_SCLK_XTAL,           /*!< I2C source clock from XTAL, 40M */
+#endif
+#if SOC_I2C_SUPPORT_RTC
+    I2C_SCLK_RTC,            /*!< I2C source clock from 8M RTC, 8M */
+#endif
+#if SOC_I2C_SUPPORT_REF_TICK
+    I2C_SCLK_REF_TICK,       /*!< I2C source clock from REF_TICK, 1M */
+#endif
+    I2C_SCLK_MAX,
+} i2c_sclk_t;
+
+
+
+
+
+//20231216 JMH Added to be compatible with newer framework
+/**
+ * @brief  Clear I2C interrupt status
+ *
+ * @param  hw Beginning address of the peripheral registers
+ * @param  mask Interrupt mask needs to be cleared
+ *
+ * @return None
+ */
+static inline void i2c_ll_clr_intsts_mask(i2c_dev_t *hw, uint32_t mask)
+{
+    hw->int_clr.val = mask;
+}
+
+//20231216 JMH Added to be compatible with newer framework
+/**
+ * @brief  Get I2C interrupt status
+ *
+ * @param  hw Beginning address of the peripheral registers
+ *
+ * @return I2C interrupt status
+ */
+__attribute__((always_inline))
+static inline uint32_t i2c_ll_get_intsts_mask(i2c_dev_t *hw)
+{
+    return hw->int_status.val;
+}
+
+//20231216 JMH Added to be compatible with newer framework
+/**
+ * @brief Data structure for calculating I2C bus timing.
+ */
+typedef struct {
+    uint16_t scl_low;           /*!< I2C scl low period */
+    uint16_t scl_high;          /*!< I2C scl hight period */
+    uint16_t sda_hold;          /*!< I2C scl low period */
+    uint16_t sda_sample;        /*!< I2C sda sample time */
+    uint16_t setup;             /*!< I2C start and stop condition setup period */
+    uint16_t hold;              /*!< I2C start and stop condition hold period  */
+    uint16_t tout;              /*!< I2C bus timeout period */
+} i2c_clk_cal_t;
 
 typedef union {
     struct {
@@ -396,13 +467,17 @@ size_t i2cSlaveWrite(uint8_t num, const uint8_t *buf, uint32_t len, uint32_t tim
         return 0;
     }
     I2C_SLAVE_MUTEX_LOCK();
+    uint32_t fifo_len;//20231216 JMH Added
 #if CONFIG_IDF_TARGET_ESP32
     i2c_ll_slave_disable_tx_it(i2c->dev);
-    if (i2c_ll_get_txfifo_len(i2c->dev) < SOC_I2C_FIFO_LEN) {
+    i2c_ll_get_txfifo_len(i2c->dev, &fifo_len);//20231216 JMH Added
+    //if (i2c_ll_get_txfifo_len(i2c->dev, &fifo_len) < SOC_I2C_FIFO_LEN) {
+    if (fifo_len < SOC_I2C_FIFO_LEN) {//20231216 JMH Added
         i2c_ll_txfifo_rst(i2c->dev);
     }
 #endif
-    to_fifo = i2c_ll_get_txfifo_len(i2c->dev);
+    //to_fifo = i2c_ll_get_txfifo_len(i2c->dev);
+    to_fifo = fifo_len;
     if(len < to_fifo){
         to_fifo = len;
     }
@@ -638,7 +713,10 @@ static bool i2c_slave_send_event(i2c_slave_struct_t * i2c, i2c_slave_queue_event
 static bool i2c_slave_handle_tx_fifo_empty(i2c_slave_struct_t * i2c)
 {
     bool pxHigherPriorityTaskWoken = false;
-    uint32_t d = 0, moveCnt = i2c_ll_get_txfifo_len(i2c->dev);
+    uint32_t moveCnt; //20231216 JMH Added
+    i2c_ll_get_txfifo_len(i2c->dev, &moveCnt);//20231216 JMH Added
+    //uint32_t d = 0, moveCnt = i2c_ll_get_txfifo_len(i2c->dev);
+    uint32_t d = 0; //20231216 JMH Added
     while (moveCnt > 0) { // read tx queue until Fifo is full or queue is empty
         if(xQueueReceiveFromISR(i2c->tx_queue, &d, (BaseType_t * const)&pxHigherPriorityTaskWoken) == pdTRUE){
             i2c_ll_write_txfifo(i2c->dev, (uint8_t*)&d, 1);
@@ -690,7 +768,9 @@ static void i2c_slave_isr_handler(void* arg)
 
     uint32_t activeInt = i2c_ll_get_intsts_mask(i2c->dev);
     i2c_ll_clr_intsts_mask(i2c->dev, activeInt);
-    uint8_t rx_fifo_len = i2c_ll_get_rxfifo_cnt(i2c->dev);
+    //uint8_t rx_fifo_len = i2c_ll_get_rxfifo_cnt(i2c->dev);
+    uint32_t rx_fifo_len;//20231216 JMH Added to be compatible with newer framework-espidf
+    i2c_ll_get_rxfifo_cnt(i2c->dev, &rx_fifo_len);//20231216 JMH Added to be compatible with newer framework-espidf
     bool slave_rw = i2c_ll_slave_rw(i2c->dev);
 
     if(activeInt & I2C_RXFIFO_WM_INT_ENA){ // RX FiFo Full

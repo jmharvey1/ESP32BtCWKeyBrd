@@ -117,6 +117,25 @@ rule C_STATIC_LIBRARY_LINKER____idf_hal
 #############################################
 # Rule for compiling C files.
 
+rule C_COMPILER____idf_spi_flash
+  depfile = $DEP_FILE
+  deps = gcc
+  command = /home/jim/.platformio/packages/toolchain-xtensa-esp32/bin/xtensa-esp32-elf-gcc $DEFINES $INCLUDES $FLAGS -MD -MT $out -MF $DEP_FILE -o $out   -c $in
+  description = Building C object $out
+
+
+#############################################
+# Rule for linking C static library.
+
+rule C_STATIC_LIBRARY_LINKER____idf_spi_flash
+  command = $PRE_LINK && /home/jim/.platformio/packages/tool-cmake/bin/cmake -E remove $TARGET_FILE && /home/jim/.platformio/packages/toolchain-xtensa-esp32/bin/xtensa-esp32-elf-ar qc $TARGET_FILE $LINK_FLAGS $in && /home/jim/.platformio/packages/toolchain-xtensa-esp32/bin/xtensa-esp32-elf-ranlib $TARGET_FILE && $POST_BUILD
+  description = Linking C static library $TARGET_FILE
+  restat = $RESTAT
+
+
+#############################################
+# Rule for compiling C files.
+
 rule C_COMPILER____idf_esp_app_format
   depfile = $DEP_FILE
   deps = gcc
@@ -299,9 +318,17 @@ rule C_STATIC_LIBRARY_LINKER____idf_main
 # Rule for re-running cmake.
 
 rule RERUN_CMAKE
-  command = /home/jim/.platformio/packages/tool-cmake/bin/cmake -S/home/jim/.platformio/packages/framework-espidf/components/bootloader/subproject -B/home/jim/Documents/PlatformIO/Projects/ESP32BtCWKeyBrd/.pio/build/upesy_wroom/bootloader
+  command = /home/jim/.platformio/packages/tool-cmake/bin/cmake -S/home/jim/.platformio/packages/framework-espidf/components/bootloader/subproject -B/home/jim/ESP_Projects/ESP32BtCWKeyBrd/.pio/build/upesy_wroom/bootloader
   description = Re-running CMake...
   generator = 1
+
+
+#############################################
+# Rule for cleaning additional files.
+
+rule CLEAN_ADDITIONAL
+  command = /home/jim/.platformio/packages/tool-cmake/bin/cmake -P CMakeFiles/clean_additional.cmake
+  description = Cleaning additional files...
 
 
 #############################################

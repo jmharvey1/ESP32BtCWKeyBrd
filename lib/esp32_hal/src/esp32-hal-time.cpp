@@ -13,7 +13,8 @@
 // limitations under the License.
 
 #include "esp32-hal.h"
-#include "apps/sntp/sntp.h"  //JMH 20230210 changed path to match project directory layout
+//#include "apps/sntp/sntp.h"  //JMH 20230210 changed path to match project directory layout
+#include "lwip/apps/sntp.h"  //JMH 20230210 added path to be compatible with newer framework-espidf
 //#include "tcpip_adapter.h"
 #include "esp_netif.h"
 

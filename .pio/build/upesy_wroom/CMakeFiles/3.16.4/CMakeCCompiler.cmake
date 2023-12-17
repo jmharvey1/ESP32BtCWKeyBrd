@@ -1,7 +1,7 @@
 set(CMAKE_C_COMPILER "/home/jim/.platformio/packages/toolchain-xtensa-esp32/bin/xtensa-esp32-elf-gcc")
 set(CMAKE_C_COMPILER_ARG1 "")
 set(CMAKE_C_COMPILER_ID "GNU")
-set(CMAKE_C_COMPILER_VERSION "11.2.0")
+set(CMAKE_C_COMPILER_VERSION "12.2.0")
 set(CMAKE_C_COMPILER_VERSION_INTERNAL "")
 set(CMAKE_C_COMPILER_WRAPPER "")
 set(CMAKE_C_STANDARD_COMPUTED_DEFAULT "11")
@@ -70,7 +70,7 @@ endif()
 
 
 
-set(CMAKE_C_IMPLICIT_INCLUDE_DIRECTORIES "/home/jim/.platformio/packages/toolchain-xtensa-esp32/lib/gcc/xtensa-esp32-elf/11.2.0/include;/home/jim/.platformio/packages/toolchain-xtensa-esp32/lib/gcc/xtensa-esp32-elf/11.2.0/include-fixed;/home/jim/.platformio/packages/toolchain-xtensa-esp32/xtensa-esp32-elf/sys-include;/home/jim/.platformio/packages/toolchain-xtensa-esp32/xtensa-esp32-elf/include")
+set(CMAKE_C_IMPLICIT_INCLUDE_DIRECTORIES "/home/jim/.platformio/packages/toolchain-xtensa-esp32/lib/gcc/xtensa-esp32-elf/12.2.0/include;/home/jim/.platformio/packages/toolchain-xtensa-esp32/lib/gcc/xtensa-esp32-elf/12.2.0/include-fixed;/home/jim/.platformio/packages/toolchain-xtensa-esp32/xtensa-esp32-elf/sys-include;/home/jim/.platformio/packages/toolchain-xtensa-esp32/xtensa-esp32-elf/include")
 set(CMAKE_C_IMPLICIT_LINK_LIBRARIES "gcc;c;nosys;c;gcc")
-set(CMAKE_C_IMPLICIT_LINK_DIRECTORIES "/home/jim/.platformio/packages/toolchain-xtensa-esp32/lib/gcc/xtensa-esp32-elf/11.2.0;/home/jim/.platformio/packages/toolchain-xtensa-esp32/lib/gcc;/home/jim/.platformio/packages/toolchain-xtensa-esp32/xtensa-esp32-elf/lib")
+set(CMAKE_C_IMPLICIT_LINK_DIRECTORIES "/home/jim/.platformio/packages/toolchain-xtensa-esp32/lib/gcc/xtensa-esp32-elf/12.2.0;/home/jim/.platformio/packages/toolchain-xtensa-esp32/lib/gcc;/home/jim/.platformio/packages/toolchain-xtensa-esp32/xtensa-esp32-elf/lib")
 set(CMAKE_C_IMPLICIT_LINK_FRAMEWORK_DIRECTORIES "")

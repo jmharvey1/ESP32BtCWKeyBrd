@@ -15,6 +15,7 @@
 #include "esp32-hal.h"
 #include "soc/soc_caps.h"
 #include "driver/ledc.h"
+#include "soc_caps_Arduino.h"  //20231216 JMH Added
 
 #ifdef SOC_LEDC_SUPPORT_HS_MODE
 #define LEDC_CHANNELS           (SOC_LEDC_CHANNEL_NUM<<1)

@@ -26,7 +26,30 @@
 #include "hal/i2c_hal.h"
 #include "hal/i2c_ll.h"
 #include "driver/i2c.h"
-#include "i2c_types_JMH.h" //JMH added back in for Windows 10 version; this file is found at lib/esp32_hal/src
+//#include "i2c_types_JMH.h" //JMH added back in for Windows 10 version; this file is found at lib/esp32_hal/src
+#include "hal/i2c_types.h"   //20231216 JMH changed
+//20231216 JMH added the following enum
+/**
+ * @brief I2C clock source, sorting from smallest to largest,
+ *        place them in order.
+ *        This can be expanded in the future use.
+ */
+typedef enum {
+    I2C_SCLK_DEFAULT = 0,    /*!< I2C source clock not selected*/
+#if SOC_I2C_SUPPORT_APB
+    I2C_SCLK_APB,            /*!< I2C source clock from APB, 80M*/
+#endif
+#if SOC_I2C_SUPPORT_XTAL
+    I2C_SCLK_XTAL,           /*!< I2C source clock from XTAL, 40M */
+#endif
+#if SOC_I2C_SUPPORT_RTC
+    I2C_SCLK_RTC,            /*!< I2C source clock from 8M RTC, 8M */
+#endif
+#if SOC_I2C_SUPPORT_REF_TICK
+    I2C_SCLK_REF_TICK,       /*!< I2C source clock from REF_TICK, 1M */
+#endif
+    I2C_SCLK_MAX,
+} i2c_sclk_t;
 
 typedef volatile struct {
     bool initialized;

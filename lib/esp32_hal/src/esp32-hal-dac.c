@@ -19,7 +19,8 @@
 #define NODAC
 #else
 #include "soc/dac_channel.h"
-#include "driver/dac_common.h"
+//#include "driver/dac_common.h"
+#include "dac_common.h" //20231216 JMH changed
 
 void ARDUINO_ISR_ATTR __dacWrite(uint8_t pin, uint8_t value)
 {

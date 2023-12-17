@@ -1,4 +1,4 @@
-# Install script for directory: /home/jim/Documents/PlatformIO/Projects/ESP32BtCWKeyBrd/src
+# Install script for directory: /home/jim/ESP_Projects/ESP32BtCWKeyBrd/src
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)

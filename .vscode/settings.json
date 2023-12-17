@@ -3,7 +3,8 @@
         "memory": "cpp",
         "esp_heap_caps.h": "c",
         "semphr.h": "c",
-        "esp32-hal-spi.h": "c"
+        "esp32-hal-spi.h": "c",
+        "i2c.h": "c"
     },
     "cmake.configureOnOpen": false
 }

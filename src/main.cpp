@@ -46,6 +46,7 @@
 /*20230918 Refined Auto-tune code; added autogain setting shift from slow to fast; added StrechLtrcmplt() to DcodeCW.cpp to better manage letterbreak detection */
 /*20231103 reworked  DcodeCW.cpp, dit/dah decision tests & in Goertzel reworked auotsample rate detection code */
 /*20231215 added DblChkDitDah() to DcodeCW.cpp, to further improve dit/dah decision tests */
+/*20231217 reworked file references to match framework-espidf @ 3.50100.0 (5.1.0) */
 #include "sdkconfig.h" //added for timer support
 #include "globals.h"
 #include "main.h"
@@ -102,7 +103,7 @@ DF_t DFault;
 int DeBug = 1; // Debug factory default setting; 0 => Debug "OFF"; 1 => Debug "ON"
 char StrdTxt[20] = {'\0'};
 /*Factory Default Settings*/
-char RevDate[9] = "20231215";
+char RevDate[9] = "20231217";
 char MyCall[10] = "KW4KD";
 char MemF2[80] = "VVV VVV TEST DE KW4KD";
 char MemF3[80] = "CQ CQ CQ DE KW4KD KW4KD";

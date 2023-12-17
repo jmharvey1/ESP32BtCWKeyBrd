@@ -34,9 +34,9 @@ endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for each subdirectory.
-  include("/home/jim/Documents/PlatformIO/Projects/ESP32BtCWKeyBrd/.pio/build/upesy_wroom/esp-idf/mbedtls/mbedtls/include/cmake_install.cmake")
-  include("/home/jim/Documents/PlatformIO/Projects/ESP32BtCWKeyBrd/.pio/build/upesy_wroom/esp-idf/mbedtls/mbedtls/3rdparty/cmake_install.cmake")
-  include("/home/jim/Documents/PlatformIO/Projects/ESP32BtCWKeyBrd/.pio/build/upesy_wroom/esp-idf/mbedtls/mbedtls/library/cmake_install.cmake")
+  include("/home/jim/ESP_Projects/ESP32BtCWKeyBrd/.pio/build/upesy_wroom/esp-idf/mbedtls/mbedtls/include/cmake_install.cmake")
+  include("/home/jim/ESP_Projects/ESP32BtCWKeyBrd/.pio/build/upesy_wroom/esp-idf/mbedtls/mbedtls/3rdparty/cmake_install.cmake")
+  include("/home/jim/ESP_Projects/ESP32BtCWKeyBrd/.pio/build/upesy_wroom/esp-idf/mbedtls/mbedtls/library/cmake_install.cmake")
 
 endif()
 

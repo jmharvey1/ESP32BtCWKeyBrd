@@ -34,6 +34,6 @@ endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/home/jim/Documents/PlatformIO/Projects/ESP32BtCWKeyBrd/.pio/build/upesy_wroom/esp-idf/esp_system/port/soc/esp32/cmake_install.cmake")
+  include("/home/jim/ESP_Projects/ESP32BtCWKeyBrd/.pio/build/upesy_wroom/esp-idf/esp_system/port/soc/esp32/cmake_install.cmake")
 endif()
 

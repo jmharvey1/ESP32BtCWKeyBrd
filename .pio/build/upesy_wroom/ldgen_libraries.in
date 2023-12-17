@@ -9,6 +9,7 @@ $<TARGET_FILE:__idf_esp_app_format>
 $<TARGET_FILE:__idf_bootloader_support>
 $<TARGET_FILE:__idf_esp_partition>
 $<TARGET_FILE:__idf_app_update>
+$<TARGET_FILE:__idf_esp_mm>
 $<TARGET_FILE:__idf_spi_flash>
 $<TARGET_FILE:__idf_pthread>
 $<TARGET_FILE:__idf_esp_system>
@@ -31,6 +32,7 @@ $<TARGET_FILE:__idf_vfs>
 $<TARGET_FILE:__idf_lwip>
 $<TARGET_FILE:__idf_esp_netif>
 $<TARGET_FILE:__idf_wpa_supplicant>
+$<TARGET_FILE:__idf_esp_coex>
 $<TARGET_FILE:__idf_esp_wifi>
 $<TARGET_FILE:__idf_bt>
 $<TARGET_FILE:__idf_unity>
@@ -58,6 +60,5 @@ $<TARGET_FILE:__idf_json>
 $<TARGET_FILE:__idf_mqtt>
 $<TARGET_FILE:__idf_perfmon>
 $<TARGET_FILE:__idf_spiffs>
-$<TARGET_FILE:__idf_ulp>
 $<TARGET_FILE:__idf_wifi_provisioning>
 $<TARGET_FILE:__idf_src>
