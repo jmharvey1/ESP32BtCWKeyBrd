@@ -47,6 +47,7 @@
 /*20231103 reworked  DcodeCW.cpp, dit/dah decision tests & in Goertzel reworked auotsample rate detection code */
 /*20231215 added DblChkDitDah() to DcodeCW.cpp, to further improve dit/dah decision tests */
 /*20231217 reworked file references to match framework-espidf @ 3.50100.0 (5.1.0) */
+/*20231221 minor tweek to DblChkDitDah (DeCodeCW.cpp) routine to improve resolving dits from dahs*/
 #include "sdkconfig.h" //added for timer support
 #include "globals.h"
 #include "main.h"
@@ -120,6 +121,7 @@ bool WokeFlg = false;
 bool QuequeFulFlg = false;
 bool mutexFLG =false;
 bool adcON =false;
+uint8_t QueFullstate;
 //bool PairFlg = false;
 //bool trapFlg = false;
 volatile int DotClkstate = 0;
@@ -469,6 +471,7 @@ void DisplayUpDt(void *param)
     thread_notification = ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
     if (thread_notification)
     {
+      
       if (mutex != NULL)
       {
         /* See if we can obtain the semaphore.  If the semaphore is not
@@ -550,7 +553,10 @@ void CWDecodeTask(void *param)
     }
     if(QuequeFulFlg){ //report void IRAM_ATTR DotClk_ISR(void *arg) result
       QuequeFulFlg = false;
-      printf("!!state QUEUE FULL!!\n");
+      char buf[40];
+      sprintf(buf, "!!state QUEUE FULL!! %d\n", (int)QueFullstate);
+      printf(buf);
+      // printf("!!state QUEUE FULL!!\n");
     }
   }
 }
@@ -730,13 +736,14 @@ void app_main()
 
   InitGoertzel();
   vTaskDelay(100 / portTICK_PERIOD_MS);
+  bt_keyboard.inPrgsFlg = false;
   /*start bluetooth pairing/linking process*/
   if (bt_keyboard.setup(pairing_handler))
   {                             // Must be called once
+    printf("START SCAN\n");
     bt_keyboard.devices_scan(); // Required to discover new keyboards and for pairing
                                 // Default duration is 5 seconds
-    // sprintf(Title, "READY...\n");
-    // tftmsgbx.dispMsg(Title, TFT_GREEN);
+    printf("EXIT SCAN\n");                            
   }
   else
   {
@@ -759,18 +766,6 @@ void app_main()
   ESP_ERROR_CHECK(adc_continuous_start(adc_handle));
   adcON = true;
   xTaskNotifyGive(CWDecodeTaskHandle);
-
-  // if (ModeCnt == 4)
-  // {
-  //   ESP_ERROR_CHECK(adc_continuous_stop(adc_handle));
-  //   adcON =false;
-  //   vTaskSuspend(GoertzelTaskHandle);
-  //   ESP_LOGI(TAG1, "SUSPEND GoertzelHandler TASK");
-  //   vTaskSuspend(CWDecodeTaskHandle);
-  //   ESP_LOGI(TAG1, "SUSPEND CWDecodeTaskHandle TASK");
-  //   tftmsgbx.dispStat("DECODER SUSPENDED", TFT_YELLOW);
-  //   vTaskDelay(20);
-  // }
   vTaskDelay(200 / portTICK_PERIOD_MS);
   // uint32_t freq = 48*1000;
   // uint32_t interval = APB_CLK_FREQ / (ADC_LL_CLKM_DIV_NUM_DEFAULT + ADC_LL_CLKM_DIV_A_DEFAULT / ADC_LL_CLKM_DIV_B_DEFAULT + 1) / 2 / freq;
@@ -778,7 +773,7 @@ void app_main()
   // sprintf(buf, "interval: %d\n", (int)interval);
 
   /* main CW keyboard loop*/
-  bool inPrgsFlg = false;
+  
   while (true)
   {
 #if 1 // 0 = scan codes retrieval, 1 = augmented ASCII retrieval
@@ -852,12 +847,12 @@ void app_main()
         vTaskResume(CWDecodeTaskHandle);
         ESP_LOGI(TAG1, "RESUME GoertzelHandler TASK");
         vTaskResume(GoertzelTaskHandle);
-        if (bt_keyboard.PairFlg && inPrgsFlg)
+        if (bt_keyboard.PairFlg && bt_keyboard.inPrgsFlg)
         {
           xTimerStart(DisplayTmr, portMAX_DELAY);
           //vTaskResume(DsplUpDtTaskHandle);
           bt_keyboard.PairFlg = false;
-          inPrgsFlg = false;
+          bt_keyboard.inPrgsFlg = false;
           ESP_LOGI(TAG2, "Pairing Complete; Display ON");
         }
         break;
@@ -866,12 +861,11 @@ void app_main()
         break;
       }
     }  //end switch
-    if (bt_keyboard.PairFlg && !inPrgsFlg)
+    if (bt_keyboard.PairFlg && !bt_keyboard.inPrgsFlg)
     {
       xTimerStop(DisplayTmr, portMAX_DELAY);
-      //vTaskSuspend(DsplUpDtTaskHandle);
       ESP_LOGI(TAG2, "Pairing Start; Display OFF");
-      inPrgsFlg = true;
+      bt_keyboard.inPrgsFlg = true;
     }
     uint8_t key = 0;
     if (0) // set to '1' for flag debugging
@@ -945,8 +939,10 @@ void IRAM_ATTR DotClk_ISR(void *arg)
     }
   }
   /*Push returned "state" values on the que */
-  if (xQueueSendFromISR(state_que, &state, &Woke) == pdFALSE)
+  if (xQueueSendFromISR(state_que, &state, &Woke) == pdFALSE){
      QuequeFulFlg = true;
+     QueFullstate = state;
+  }
   if (Woke == pdTRUE)
       portYIELD_FROM_ISR(Woke);
     /*Woke == pdTRUE, if sending to the queue caused a task to unblock, 
@@ -1205,7 +1201,6 @@ void ProcsKeyEntry(uint8_t keyVal)
   //   DFault.Grtzl_Gain = Grtzl_Gain;
   //   return;
   // }
-
   if ((keyVal >= 97) & (keyVal <= 122))
   {
       keyVal = keyVal - 32;

@@ -66,6 +66,7 @@ class BTKeyboard
     };
     bool trapFlg;
     bool PairFlg;   //used during pairing event to start/stop Display SPI calls
+    bool inPrgsFlg;   //used during pairing event to start/stop Display SPI calls
     bool OpnEvntFlg;
     int  Adc_Sw;
 

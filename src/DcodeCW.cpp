@@ -14,6 +14,7 @@
  * 20230815 revised Bg2 timing & rewote ltrbreak debugging output code
  * 20230913 increased eeettt count before WPM reset.
  * 20231104 worked on bug3 parsing code; some improvement; but still more to be done
+ * 20231221 minor tweek to DblChkDitDah routine to improve resolving dit from dah
  */
 
 // #include <SetUpCwDecoder.h>
@@ -999,10 +1000,13 @@ void KeyEvntSR(uint8_t Kstate, unsigned long EvntTime)
 
 } // End CW Decoder Interrupt routine
 ////////////////////////////////////////////////////////////////////////////////////////////
+/*grab back previous deCodeVal so that we can continue to work with it
+  If set to true, treat this new symbol(last 'key-down' state) as a 'DAH'
+*/
 void GrabBack(bool IsDah)
 {
 	char tmpbuf[50];
-	DeCodeVal = DCVStrd[1]; // grab back previous deCodeVal so that wecan continue to work with it
+	DeCodeVal = DCVStrd[1]; // grab back previous deCodeVal so that we can continue to work with it
 	if (Test && NrmFlg)
 	{
 		sprintf(PrntBuf, "Grab Back%d- DeCodeVall:%d\n", (int)IsDah, DeCodeVal);
@@ -1619,6 +1623,7 @@ bool chkChrCmplt(void)
 }
 //////////////////////////////////////////////////////////////////////
 void DblChkDitDah(void){
+	if(dletechar && ConcatSymbl) return;//skip check. Current Timing values are useless
 	/*Double check the 'dit' 'dah' assigments of DeCodeVal based on the TimeDat[] values before transfering to CodeValBuf[]*/
 	if(DeCodeVal < 4) return; //not enough data to evaluate so go back  
 	int Mintime, Maxtime;
@@ -1999,8 +2004,9 @@ void SetModFlgs(int ModeVal)
 	}
 }
 //////////////////////////////////////////////////////////////////////
-/* this routine doesn't actually display anything; its role is to convert the dit/dah pattern created in the KeyEvntSR() routine into a set of ascii characters.
-Usually 1 per decodeval, but can be 2,3, or more. Depending on how sloppy the sending is */
+/* this routine doesn't actually display anything; its role is to convert the dit/dah pattern created in 
+the KeyEvntSR() routine into a set of ascii characters.
+Usually 1 character per decodeval, but can be 2,3, or more. Depending on how sloppy the sending is */
 void DisplayChar(unsigned int decodeval)
 {
 	char curChr = 0;
@@ -2026,7 +2032,9 @@ void DisplayChar(unsigned int decodeval)
 		int GlitchCnt = 0;
 		int GlitchCnt1 = 0;
 		int p1 = 0;
-		/* 20230722 for esp32, and given the "glicth fixer" now in the Goertzel section, feel like the following section is obsolete*/
+		/* 20230722 for esp32, and given that the "glicth fixer" now in the Goertzel section, 
+		   feel like the following section is obsolete
+		*/
 		/* But 1st, test space timing for glitches*/
 		// for(p1=1; p1 < 16; p1++) { //ignore the space interval found in the 1st position
 		// 	if(SpcIntrvl[p1] == 0) break;
@@ -2067,7 +2075,8 @@ void DisplayChar(unsigned int decodeval)
 		// 	GlitchCnt1 = GlitchCnt;
 		// 	GlitchCnt = 0;
 		// }
-		DCVStrd[0] = decodeval;
+		DCVStrd[0] = decodeval;//incase we decide this ia sactaully part of a longer symbol set, save this value/pattern, 
+		/*Again, for ESP32 setup, the following for loop isn't really needed */
 		for (int p = 0; p < 16; p++)
 		{
 			if ((SpcIntrvl[p] <= 6) && (SpcIntrvl[p] != 0) && (p != 0))
@@ -2076,10 +2085,10 @@ void DisplayChar(unsigned int decodeval)
 				SymblLen = p;
 			SpcIntrvl1[p] = SpcIntrvl[p];
 		}
-		if (GlitchCnt == 0)
+		if (GlitchCnt == 0) //for ESP32 should always be true
 		{						 // Ok, we appear to have a usable/valid value
 			bool DpScan = false; //"DpScan" = Deep Scan
-			if (!Bug2 && !Bug3)
+			if (!Bug2 && !Bug3)//if (!Bug2)//
 				DpScan = true;
 			/* if "true", we're not operating in one of the "Bug" timing modes
 			 * so use both dictionaries to find a match to the current decodeval
@@ -2093,9 +2102,6 @@ void DisplayChar(unsigned int decodeval)
 				// Msgbuf[0] = 0; //clear buffer
 				char TmpBufA[10];
 				char TmpBufB[10];
-				//printf("DeleteID: %d; ", DeleteID);//for debugging only
-				// if (DeleteID == 4)
-				// 	DeleteID = 2; // probably going to get a multi character string, so to ignore at least one delete
 				for (int p = 0; p < 10; p++)
 				{
 					Msgbuf[p] = 0; // erase buffer

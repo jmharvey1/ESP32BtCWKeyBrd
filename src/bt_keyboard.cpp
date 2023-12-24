@@ -1100,7 +1100,7 @@ void BTKeyboard::devices_scan(int seconds_wait_time)
     esp_hid_scan_result_t *cr = NULL;
     while (r)
     {
-      printf("  %s: " ESP_BD_ADDR_STR ", ", (r->transport == ESP_HID_TRANSPORT_BLE) ? "BLE" : "BT ", ESP_BD_ADDR_HEX(r->bda));
+      printf("%s: " ESP_BD_ADDR_STR ", ", (r->transport == ESP_HID_TRANSPORT_BLE) ? "BLE" : "BT ", ESP_BD_ADDR_HEX(r->bda));
       printf("RSSI: %d, ", r->rssi);
       printf("USAGE: %s, ", esp_hid_usage_str(r->usage));
       if (r->transport == ESP_HID_TRANSPORT_BLE)
@@ -1128,17 +1128,21 @@ void BTKeyboard::devices_scan(int seconds_wait_time)
       r = r->next;
     }
     
-    if (cr)
+    if (cr != NULL)
     {
       // open the last result
-      //bt_keyboard->PairFlg = true;//JMH probably not the smartest place to put this
-      bt_keyboard->Adc_Sw = 1;
+      if((int)(cr->ble.addr_type) == 9536) bt_keyboard->Adc_Sw = 1;//classic bluetooth
+      else{//ble
+        bt_keyboard->Adc_Sw = 2;
+        bt_keyboard->inPrgsFlg = true;
+      }
       vTaskDelay(50/portTICK_PERIOD_MS);//pause long enough for flag change to take effect
       sprintf(msgbuf, "Enter PAIRING code for %s\n", cr->name);
-
-      esp_hidh_dev_open(cr->bda, cr->transport, cr->ble.addr_type);
-
       pmsgbx->dispMsg(msgbuf, TFT_GREEN);
+      ESP_LOGI(TAG, "cr->ble.addr_type: %d\n", (int)cr->ble.addr_type);
+      esp_hidh_dev_open(cr->bda, cr->transport, cr->ble.addr_type);// Returns immediately w/ BT classic device; But waits for pairing code w/ BLE device
+      ESP_LOGI(TAG, "hidh_dev_open complete");
+      //pmsgbx->dispMsg(msgbuf, TFT_GREEN);
     }
     else
     {
@@ -1172,7 +1176,7 @@ void BTKeyboard::hidh_callback(void *handler_args, esp_event_base_t base, int32_
   temp[0] = 255;
   esp_hidh_event_t event = (esp_hidh_event_t)id;
   esp_hidh_event_data_t *param = (esp_hidh_event_data_t *)event_data;
-  bool talk = false; //set to true for hid callback debugging //JMH Diagnosstic testing
+  bool talk = false; //true;//false; //set to true for hid callback debugging //JMH Diagnosstic testing
   if (mutex != NULL)
   {
     /* See if we can obtain the semaphore.  If the semaphore is not
@@ -1215,14 +1219,14 @@ void BTKeyboard::hidh_callback(void *handler_args, esp_event_base_t base, int32_
           char usestr[14];
           for (int i = 0; i < MyMap.reports_len; i++)
           {
-            if ((MyMap.reports[i].report_type == 0x2) && (MyMap.reports[i].report_id == 0x10) && (MyMap.reports[i].usage == 0x40))
+            if ((MyMap.reports[i].report_type == 0x2) && (MyMap.reports[i].report_id == 0x10 || MyMap.reports[i].report_id == 0x11) && (MyMap.reports[i].usage == 0x40))
             {
               rptIndx = i;
               K380Fnd = true;
             }
 
             /* for debugging print out reports found on the current device/keyboard*/
-            /* decode the values retruned*/
+            /* decode the values returned*/
             switch (MyMap.reports[i].report_type)
             {
             case 1:
@@ -1394,7 +1398,19 @@ void BTKeyboard::hidh_callback(void *handler_args, esp_event_base_t base, int32_
         }
         clr = TFT_BLACK;                  
         ESP_LOG_BUFFER_HEX_LEVEL(TAG, param->input.data, param->input.length, ESP_LOG_DEBUG);
-        if((cntr != 6) && !bt_keyboard->trapFlg) bt_keyboard->push_key(param->input.data, param->input.length);// normal path when keystroke data is good/usuable
+        if((cntr != 6) && !bt_keyboard->trapFlg){
+          /*Classic BT Keybrds send key press date w/ data len = 8; K380s keybrd has a deta lenght of 7*/
+          if(param->input.length == 8) bt_keyboard->push_key(param->input.data, param->input.length); // normal path when keystroke data is good/usuable
+          else if(param->input.length == 7){// looks like K380s data. So add one additional data element (0) to the array
+            uint8_t tmpdat[8];
+            tmpdat[0] = param->input.data[0];
+            tmpdat[1] = 0;
+            for(int i =1; i< param->input.length; i++){
+              tmpdat[i+1] = param->input.data[i];
+            }
+            bt_keyboard->push_key(tmpdat, 8);
+          } 
+        }
         else if(bt_keyboard->trapFlg){// path used to test for data corruption recovery 
           if(param->input.length == 1){
             bt_keyboard->trapFlg = false;
@@ -1515,12 +1531,12 @@ char BTKeyboard::wait_for_ascii_char(bool forever)
 
     char ch = inf.keys[k];
     /*JMH: uncomment the following to expose key entry values*/
-    char buf[20];
-    if((inf.keys[0] != (uint8_t)0) || (inf.keys[1] != (uint8_t)0) || (inf.keys[0] != (uint8_t)0) || ((uint8_t)inf.modifier != (uint8_t)0)){
-      // sprintf(buf, "%02x; %02x; %02x; %02x\n", inf.keys[0], inf.keys[1], inf.keys[2], (uint8_t)inf.modifier);
-      // printf(buf);//print to computer
-      // pmsgbx->dispMsg(buf, TFT_GOLD); //print to LCD Display
-    }
+    // char buf[20];
+    // if((inf.keys[0] != (uint8_t)0) || (inf.keys[1] != (uint8_t)0) || (inf.keys[0] != (uint8_t)0) || ((uint8_t)inf.modifier != (uint8_t)0)){
+    //    sprintf(buf, "%02x; %02x; %02x; %02x\n", inf.keys[0], inf.keys[1], inf.keys[2], (uint8_t)inf.modifier);
+    //    printf(buf);//print to computer
+    //    pmsgbx->dispMsg(buf, TFT_GOLD); //print to LCD Display
+    // }
     /* special test for TAB */
     if (inf.keys[0] == 43 && ((uint8_t)inf.modifier == 0))
     {

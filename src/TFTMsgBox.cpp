@@ -386,7 +386,7 @@ void TFTMsgBox::scrollpg()
 	// }
 };
 /*Manage highlighting the CW character currently being sent*/
-/*this routine get executed everytime the dotclockgenerates an interrupt*/
+/*this routine gets executed everytime the dotclockgenerates an interrupt*/
 /*The stat value that gets passed to it, controls how the character & its background is colorized*/
 void TFTMsgBox::IntrCrsr(int state)
 {
