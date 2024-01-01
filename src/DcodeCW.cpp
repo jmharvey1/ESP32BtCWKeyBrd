@@ -15,7 +15,8 @@
  * 20230913 increased eeettt count before WPM reset.
  * 20231104 worked on bug3 parsing code; some improvement; but still more to be done
  * 20231221 minor tweek to DblChkDitDah routine to improve resolving dit from dah
- */
+ * 20231229 More tweeks to bug2 letter break code
+ * 20231231 tweeks related to new 8ms/4ms sampling method*/
 
 // #include <SetUpCwDecoder.h>
 // #include "main.h" // removed this reference for ESP32 version
@@ -103,9 +104,9 @@ bool Bug3 = false;
 bool badLtrBrk = false;
 bool dletechar = false;
 bool ConcatSymbl = false;
-bool Test = false; // false;// if "true", use Arduino ide Serial Monitor to see output/results
-bool NrmFlg = false; //set to true when debugging basic DeCodeVal processing
-bool SCD = false; // false;//true; //Sloppy Code Debugging ('Bg1'); if "true", use ide Serial Monitor to see output/results
+bool Test = false; //true; // if "true", use Arduino ide Serial Monitor to see output/results
+bool NrmFlg = false; //true; //set to true when debugging basic DeCodeVal processing
+bool SCD = false; //true; //false; //Sloppy Code Debugging ('Bg1'); if "true", use ide Serial Monitor to see output/results
 bool FrstSymbl = false;
 bool chkStatsMode = true;
 bool NrmMode = true;
@@ -121,9 +122,9 @@ bool TonPltFlg = false; // added here to satisfy ESP32 configuration
 bool BugMode = false;
 bool XspctHi = false;
 bool XspctLo = true;
-bool Prtflg = false; // aded for diagnostic keyISR testing
-int exitCD = 0;		 // aded for diagnostic keyISR testing
-int DitDahCD = 0;	 // aded for diagnostic keyISR testing
+bool Prtflg = false; // added for diagnostic keyISR testing
+int exitCD = 0;		 // added for diagnostic keyISR testing
+int DitDahCD = 0;	 // added for diagnostic keyISR testing
 int glitchCnt = 0;	 // added to recover from slow CW shifting to high speed cw ({~>25WPM})
 float LtBrkSF = 0.3; // letter Break Scale factor. Used to catch sloppy sending; typical values //(0.66*ltrBrk)  //(0.15*ltrBrk) //(0.5*ltrBrk)
 int unsigned ModeCntRef = 0;
@@ -287,14 +288,12 @@ void KeyEvntSR(uint8_t Kstate, unsigned long EvntTime)
 				{
 					if (Bug3 && SCD && Test)
 					{
-						sprintf(PrntBuf, "Concatenate  %d; ", (int)OldLtrPntr);
+						sprintf(PrntBuf, "Concatenate; ");
 
 						for (int i = 0; i <= OldLtrPntr; i++)
 						{
 							// sprintf(PrntBuf, "%s %d;", PrntBuf, (int)ShrtBrk[i]);
 						}
-
-						// sprintf(PrntBuf, "%s %d\n\r", PrntBuf, (int)AvgShrtBrk);
 						PrntUSB = true; // printf(PrntBuf);
 					}
 					if (ShrtBrk[0] > UsrLtrBrk / 5)
@@ -451,6 +450,7 @@ void KeyEvntSR(uint8_t Kstate, unsigned long EvntTime)
 		else if (Kstate == HIGH && XspctHi)
 		{ // "Key Up" event/evaluations;
 			int prob = 0;
+			if(ltrCmplt == -3500) SetLtrBrk(); //20231231 added to ensure that letter break timing is engaged
 			if (DeCodeVal == 0)
 			{
 				/*20230915 ESP32; in normal decode mode, found it best NOT to set DeCodeVal to "1" at this point */
@@ -730,15 +730,15 @@ void KeyEvntSR(uint8_t Kstate, unsigned long EvntTime)
 		}
 		badKeyEvnt = 15;			// badKeyEvnt = 20;
 		DeCodeVal = DeCodeVal << 1; // shift the current decode value left one place to make room for the next bit.
+		
 		if(Test && NrmFlg){
 			sprintf(PrntBuf, "Shift- DeCodeVall:%d", DeCodeVal);
 			printf(PrntBuf);
 		}
-		// if (((period >= 1.8 * avgDit)|| (period >= 0.8 * avgDah))||(DeCodeVal ==2 & period >= 1.4 * avgDit)) { // it smells like a "Dah".
 		bool NrmlDah = false;
-		//if (((period >= 1.8 * avgDit) || (period >= 0.8 * avgDah)) && !Bug2)
-		if (((period >= 2 * avgDit) || (period >= 0.66 * avgDah)) && !Bug2 && !Bug3)//20231102 now using this definition for detecting a standard "dah"
+		if (((period >= 1.8 * avgDit) || (period >= 0.66 * avgDah)) && !Bug2 && !Bug3){//20231230 now using this definition for detecting a standard "dah"
 			NrmlDah = true;
+		}
 		else if (((period > 9 * avgDeadSpace) || (period > 1.5 * avgDit)) && Bug2)
 			NrmlDah = true;
 		else if (Bug3) // note; on the display, this called "Bg1"
@@ -778,129 +778,19 @@ void KeyEvntSR(uint8_t Kstate, unsigned long EvntTime)
 		//if ((NrmlDah) || ((DeCodeVal == 2) && ((period - 10) > 1.4 * avgDit) && (Bug3 || 0))) // normal dah path or special case handling
 		if (NrmlDah)//20231104 dropped back to this thinking that the new bug3 code above will handle/catch the special conditions 
 		{																					  // it smells like a "Dah".  think there's 10 millisecond uncertainty due to the sampling speed, so we're going to use the smallest possible interval for this decision
-			if (Test && SCD) printf("DeCodeVal:%d; deadSpace:%d; avgDeadsSace:%d\n", DeCodeVal, (int)deadSpace, (int)avgDeadSpace);
+			//if (Test && SCD) printf("DeCodeVal:%d; deadSpace:%d; avgDeadsSace:%d\n", DeCodeVal, (int)deadSpace, (int)avgDeadSpace);
 			if ((MsgChrCnt[1] > 0) && (DeCodeVal == 2) && (deadSpace < 2.5 * avgDeadSpace)  && (DCVStrd[1]!=255) && !NuWrd && !dletechar && Bug3)
 			{
 				GrabBack(true);
-				// DeCodeVal = DCVStrd[1]; // grab back previous deCodeVal so that wecan continue to work with it
-				// if(Test && NrmFlg){
-				// 	sprintf(PrntBuf, "Grab Back- DeCodeVall:%d\n", DeCodeVal);
-				// 	printf(PrntBuf);
-				// }
-				// /* restore space interval values linked to DCVStrd[1] */
-				// unsigned long LstSpcTm = SpaceStk[0];
-				// Bitpos = 0;
-				// while ((SpcIntrvl2[Bitpos] != 0) && (Bitpos < 16))
-				// {
-				// 	SpaceStk[Bitpos] = SpcIntrvl2[Bitpos];
-				// 	++Bitpos;
-				// }
-				// SpaceStk[Bitpos] = LstSpcTm;
-				// ++Bitpos;
-				// if (Bitpos > 15)
-				// 	Bitpos = 15;
-				// DeCodeVal = DeCodeVal << 1;
-				// DeCodeVal = DeCodeVal + 1;
-				// if(Test && NrmFlg){
-				// 	sprintf(PrntBuf, "Apnd Dah- DeCodeVall:%d; NrmlDah:%d\n", DeCodeVal, (int)NrmlDah);
-				// 	if(!SCD) printf(PrntBuf);
-				// }
-				// dletechar = true;
-				// DeleteID = 4;
-				// FrstSymbl = false;	
-				// ConcatSymbl = true; // used to verify (at the next letter break) we did the right thing;
-				
-				// if (Test && SCD)
-				// {
-				// 	// sprintf(PrntBuf, "  XX\t%d\t%d\t%d\t%d\tDeleteChar =%u ", (int)deadSpace, (int)avgDeadSpace, (int)DCVStrd[1], (int)DCVStrd[0], DeCodeVal);
-				// 	if (dletechar)
-				// 	{
-				// 		// printf("true;  ");
-				// 		for (int i = 0; i < sizeof(tmpbuf); i++)
-				// 		{
-				// 			tmpbuf[i] = PrntBuf[i];
-				// 			if (tmpbuf[i] == 0)
-				// 				break;
-				// 		}
-				// 		sprintf(PrntBuf, "%s; Delete; ", tmpbuf);
-				// 	}
-				// 	elsevoid
-				// 	{
-				// 		// printf("false;  ");
-				// 		// sprintf(PrntBuf, "%s; NO Delete;  ",PrntBuf);
-				// 	}
-				// 	//			printf(PrntBuf);
-				// 	// sprintf(PrntBuf, "%s ConcatSymbl = ",PrntBuf);//printf("\ConcatSymbl = ");
-				// 	//			printf(PrntBuf);
-				// 	if (ConcatSymbl)
-				// 	{
-				// 		// printf("true");
-				// 		for (int i = 0; i < sizeof(tmpbuf); i++)
-				// 		{
-				// 			tmpbuf[i] = PrntBuf[i];
-				// 			if (tmpbuf[i] == 0)
-				// 				break;
-				// 		}
-				// 		sprintf(PrntBuf, "%s Concat-true", tmpbuf);
-				// 	}
-				// 	else
-				// 	{
-				// 		// printf("false");
-				// 		for (int i = 0; i < sizeof(tmpbuf); i++)
-				// 		{
-				// 			tmpbuf[i] = PrntBuf[i];
-				// 			if (tmpbuf[i] == 0)
-				// 				break;
-				// 		}
-				// 		sprintf(PrntBuf, "%s Concat-false", tmpbuf);
-				// 	}
-				// 	// if(ConcatSymbl)sprintf(PrntBuf, "true");
-				// 	// else sprintf(PrntBuf, "false");
-				// 	printf(PrntBuf);
-				// 	sprintf(PrntBuf, "\t%d\t%d\t%d\n", (int)period, (int)(1.8 * avgDit), (int)(0.8 * avgDah));
-				// 	printf(PrntBuf);
-				// } // end if(Test && SCD)
 			}
 			else
 			{
-				// JMH added 20020206
 				DeCodeVal += 1; // it appears to be a "dah' so set the least significant bit to "one"
 				if(Test && NrmFlg){
 					printf(" DAH  ");
-					sprintf(PrntBuf, "\t%d\t%d\t%d\n", (int)period, (int)(1.8 * avgDit), (int)(0.8 * avgDah));
+					sprintf(PrntBuf, "\t%d\t%d\t%d\n", (int)period, (int)(avgDit), (int)(avgDah));
 					printf(PrntBuf);
 				}
-				
-				// if(!Bug3 && !SCD && Test){
-				// if (Test && 1)
-				// {
-				// 	sprintf(PrntBuf, "  YY\n\r");
-				// 	// 
-				// 	if (dletechar)
-				// 	{
-				// 		// printf("true;  ");
-				// 		sprintf(PrntBuf, "%strue;  ", PrntBuf);
-				// 	}
-				// 	else
-				// 	{
-				// 		// printf("false;  ");
-				// 		sprintf(PrntBuf, "%sfalse;  ", PrntBuf);
-				// 	}
-				// 	//			printf(PrntBuf);
-				// 	sprintf(PrntBuf, "%s ConcatSymbl = ", PrntBuf); // printf("\ConcatSymbl = ");
-				// 	//			printf(PrntBuf);
-				// 	if (ConcatSymbl)
-				// 	{
-				// 		// printf("true");
-				// 		sprintf(PrntBuf, "%strue\n\r", PrntBuf);
-				// 	}
-				// 	else
-				// 	{void
-				// 		// printf("false");
-				// 		sprintf(PrntBuf, "%sfalse\n\r", PrntBuf);
-				// 	}
-				// 	printf(PrntBuf);
-				// }
 			}
 			// if(Bug3 & SCD& badLtrBrk) sprintf(DeBugMsg, "1%s", DeBugMsg);
 			if (Bug3 && SCD && Test)
@@ -928,7 +818,7 @@ void KeyEvntSR(uint8_t Kstate, unsigned long EvntTime)
 		{	 // if(period >= 0.5*avgDit) //This is a typical 'Dit'
 			if(Test && NrmFlg){
 				printf(" DIT  ");
-				sprintf(PrntBuf, "\t%d\t%d\t%d\n", (int)period, (int)(1.8 * avgDit), (int)(0.8 * avgDah));
+				sprintf(PrntBuf, "\t%d\t%d\t%d\n", (int)period, (int)(avgDit), (int)(avgDah));
 				printf(PrntBuf);
 			}
 			
@@ -1362,7 +1252,7 @@ void SetLtrBrk(void)
 	unsigned long ltrBrkb;
 	char tmpbuf[50];
 	char Str[5];
-	bool dbgFLg = false;//true; // 
+	bool dbgFLg = false;//true; // Set to true for letterbreak debugging
 	char StrBuf[25];
 	int slop = pdTICKS_TO_MS(xTaskGetTickCount()) - noSigStrt;
 	if (slop >= 4) dbgFLg = false; //regardles of original setting, kill debug output after 1st print following key up state
@@ -1407,7 +1297,7 @@ void SetLtrBrk(void)
 	if (wpm < 35)
 	{
 		ltrBrk = int(1.5 * (float(space))); // 20221106 went from 1.6 back to 1.5//20221105 went from 1.5 back to 1.6//20221022 went from 1.4 back to 1.5  // 20210410 went from 1.5 back to 1.4 // 20200306 went from 1.6 back to 1.5 to reduce the chance of having to deal with multi letter symbol groups
-		if (BugMode)
+		if (BugMode) //Bg2
 		{ // use special case spacing
 			// ltrBrk = int(1.0 * (float(space))); // 20221022 assume this is part of a dit series
 			// ltrBrk = int(1.9 * (float(space))); // 20230802 trying this value for ESP32 processing
@@ -1420,15 +1310,24 @@ void SetLtrBrk(void)
 			{ // this dead space interval appears to be an mid-character event AND the last symbol detected was a "DAH".
 				// ltrBrk = int(2.7 * (float(space))); // 2.5 20230801 trying this value for ESP32 processing
 				// ltrBrk = int(2.1 * (float(AvgSmblDedSpc))); // 20230814 trying this value for ESP32 processing
-				ltrBrk = int(0.56 * (float(avgDah))); // 20230815 trying this value for ESP32 processing
-				sprintf(Str, "A:");
+				// ltrBrk = int(0.56 * (float(avgDah))); // 20230815 trying this value for ESP32 processing
+				if(curRatio >= 3.1){// 20231229 added ratio comparison to the decision process
+					ltrBrk = int(0.92 * (float(avgDah))); // 20231229 trying this value for ESP32 processing
+					sprintf(Str, "A1:");
+				}
+				else{
+					ltrBrk = int(2.85 * (float(avgDit))); // 20231229 trying this value for ESP32 processing 	
+					sprintf(Str, "A2:");
+				}
 				DbgRptr(dbgFLg, StrBuf, Str);
 			}
 			else if ((deadSpace < wordBrk) && (DeCodeVal == 3))
 			{ // the first symbol sent is a dash
 				// At this point(time) the letter looks like a "T", but it could be the beginning of something else;i.e., "N"
-				ltrBrka = long(float(avgDah) * 0.70);	   // 20230814 trying this value for ESP32 processing; used to be *0.90
-				ltrBrkb = long(float(avgDeadSpace) * 1.7); // 20230802 changed x factor from 1.5 to 1.9;; trying to get "kt" to come out as "Y"
+				// ltrBrka = long(float(avgDah) * 0.70);	// 20230814 trying this value for ESP32 processing; used to be *0.90
+				ltrBrka = long(float(avgDah) * 0.85);    // 20231229 trying this value for ESP32 processing
+				// ltrBrkb = long(float(avgDeadSpace) * 1.7); // 20230802 changed x factor from 1.5 to 1.9;; trying to get "kt" to come out as "Y"
+				ltrBrkb = long(float(avgDeadSpace) * 1.9); // 20231229 
 				if (ltrBrka >= ltrBrkb)
 				{ // hold on, new ltrBrk interval seems short
 					ltrBrk = ltrBrka;
@@ -1475,8 +1374,8 @@ void SetLtrBrk(void)
 	/*Set dbgFLg = true, when diagnosing letter break timing */
 	if (dbgFLg)
 	{
-			sprintf(PrntBuf, "\t%d; %u; %u; %u; %u; %u; %u\n\r",
-					(uint16_t)ltrBrk, (uint16_t)deadSpace, (uint16_t)SpaceStk[Bitpos - 1], (uint16_t)space, (uint16_t)avgDeadSpace, (uint16_t)AvgSmblDedSpc, (uint16_t)avgDah);
+			sprintf(PrntBuf, "\tltrBrk: %d; deadSpace: %u; space: %u; avgDeadSpace: %u; AvgSmblDedSpc: %u; avgDah: %u; avgDit: %u\n\r",
+					(uint16_t)ltrBrk, (uint16_t)deadSpace, (uint16_t)space, (uint16_t)avgDeadSpace, (uint16_t)AvgSmblDedSpc, (uint16_t)avgDah, (uint16_t)avgDit);
 			printf(PrntBuf);
 	}
 	letterBrk = ltrBrk + pdTICKS_TO_MS(xTaskGetTickCount()); // ESP32/Goertzel driven method
@@ -1639,8 +1538,8 @@ void DblChkDitDah(void){
 		if(KyDwnTime < Mintime ) Mintime = KyDwnTime;
 		if(KyDwnTime > Maxtime) Maxtime = KyDwnTime;
 	}
-	//float spltpt = (float)Maxtime/(float)Mintime;
-	int spltpt = Mintime+ ((Maxtime-Mintime)/2);
+	
+	int spltpt = (Mintime+ ((Maxtime-Mintime)/2))-8; //20231230 Added the -8ms because there's an 8ms uncertainty in the timing measurements
 	if(Test){
 		sprintf(PrntBuf, "Mintime: %d; Maxtime: %d; spltpt: %d;  avgDit: %d; ", Mintime, Maxtime, spltpt, (int)avgDit);
 		printf(PrntBuf);
@@ -1653,9 +1552,12 @@ void DblChkDitDah(void){
 				sprintf(PrntBuf, "TimeDat[%d]:%d; ", i, (int)TimeDat[i]);
 				printf(PrntBuf);
 			}
-			if((float)TimeDat[i] > 1.6*((float)avgDit)){
+			if((float)TimeDat[i] > 1.4*((float)avgDit)){//rough check as a dah candidate
 				if((TimeDat[i] > spltpt) ) DeCodeVal +=1;
 				else if(TimeDat[i] > 2.25*(float)Mintime) DeCodeVal +=1;
+				else if((TimeDat[i] > avgDit) && (TimeDat[i] < avgDah)){
+					if((TimeDat[i] - avgDit) > (avgDah - TimeDat[i])) DeCodeVal +=1;
+				}
 			}
 		}
 	}
@@ -1670,8 +1572,10 @@ void DblChkDitDah(void){
 }
 //////////////////////////////////////////////////////////////////////
 void StrechLtrcmplt(unsigned long StrchPrd){
+	//if(ltrCmplt == -3500) return; //there's no active symbol set. So need to extend the letterbreak interval
 	// sprintf(PrntBuf, "StrchPrd:%d\n", (int)StrchPrd);
 	// printf(PrntBuf);
+	if(Test) printf("^%d\n",(int)StrchPrd);
 	letterBrk = letterBrk + StrchPrd;
 }
 //////////////////////////////////////////////////////////////////////
@@ -1969,13 +1873,13 @@ void SetModFlgs(int ModeVal)
 {
 	switch (ModeVal)
 	{
-	case 0:
+	case 0: //Normal
 		BugMode = false;
 		Bug2 = false;
 		NrmMode = true;
 		Bug3 = false;
 		break;
-	case 1:
+	case 1: //Bg1
 		BugMode = false;
 		Bug2 = false;
 		NrmMode = true;
@@ -1990,12 +1894,12 @@ void SetModFlgs(int ModeVal)
 		Bug3 = true;
 
 		break;
-	case 2:
+	case 2: //Bg2
 		BugMode = true;
 		NrmMode = false;
 		Bug3 = false;
 		break;
-	case 3:
+	case 3: //Bg3 (Cootie)
 		BugMode = false;
 		Bug2 = true;
 		NrmMode = false;
@@ -2320,7 +2224,7 @@ void dispMsg(char Msgbuf[50])
 		printf(PrntBuf);
 	}
 	int msgpntr = 0;
-	int xoffset = 0;
+	//int xoffset = 0;
 	char info[25];
 	char tmpbuf[2];
 	// sprintf(info, "");

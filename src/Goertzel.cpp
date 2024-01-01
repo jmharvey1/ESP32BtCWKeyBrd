@@ -5,6 +5,10 @@
  *      Author: jim (KW4KD)
  */
 /*20230729 added calls to DcodeCW SetLtrBrk() & chkChrCmplt() to ensure that the letter break gets refreshed with each ADC update (i.e., every 4ms)*/
+/*20240101 Revamped Goertzel code for 8ms sample groups but updating every 4ms 
+ * also included changes to passing Keystate & letterbreak timing to DeCodeCW.cpp
+ * plus changes to keystate detection (curnois lvl)
+ */
 #include <stdio.h>
 #include "Arduino.h"
 #include "Goertzel.h"
@@ -45,7 +49,7 @@ int OldKeyState = 0;//used as a comparitor to test/detect change in keystate
 // float feqhratio = 1.02;//BlackPill Ratio//1.044029352;//1.022014676;
 float feqlratio = 0.95;//ESP32 Ratio////0.958639092;//0.979319546;
 float feqhratio = 1.06;//ESP32 Ratio//1.044029352;//1.022014676;
-unsigned long now = 0;
+//unsigned long now = 0;
 unsigned long NoisePrd = 0;
 unsigned long EvntTime = 0;
 unsigned long StrtKeyDwn = 0;
@@ -116,6 +120,7 @@ int NoisPtr = 0;
 float noisLvl =0;
 int ClimCnt = 0;
 int KeyDwnCnt = 0;
+int GData[Goertzel_SAMPLE_CNT];
 bool prntFlg; //used for debugging
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -216,6 +221,7 @@ void InitGoertzel(void)
 void ProcessSample(int sample, int Scnt)
 {
 	char Smpl[10];
+	if(Scnt >= Goertzel_SAMPLE_CNT) GData[Scnt - Goertzel_SAMPLE_CNT] = sample;
 	//if(Scnt ==0 ) prntFlg = true; //just used for debugging
 	if (Scnt > NL){
 		//just used for debugging
@@ -273,6 +279,15 @@ void ComputeMags(unsigned long now){
 	magC = Grtzl_Gain * 10.0*sqrt(GetMagnitudeSquared(Q1C, Q2C, coeffC, NC));
 	magH = Grtzl_Gain * 10.0*sqrt(GetMagnitudeSquared(Q1H, Q2H, coeffH, NH));
 	magL = Grtzl_Gain * 10.0*sqrt(GetMagnitudeSquared(Q1, Q2, coeffL, NL));
+	/*Added the following to preload the current sample set to be combined with next incoming data set*/
+	if(SlwFlg){
+		//printf( "KK");
+		ResetGoertzel();
+		for(int i = 0; i <  Goertzel_SAMPLE_CNT; i++){
+			ProcessSample(GData[i], i);
+		}
+	}
+	/*End of preload process */
 	CurLvl = (magC + magL + magH)/3;
 	if(CurLvl<100) CurLvl = NowLvl;// something went wrong use last datapoint
 	NowLvl = CurLvl;//'NowLvl will be used later for showing current LED state
@@ -303,7 +318,10 @@ void ComputeMags(unsigned long now){
 		}
 
 	}
-	float curNois = 1.8*(SigPk - NoiseFlr);
+	float curNois = (SigPk - NoiseFlr);
+	if(curNois>6000) curNois = 6000;//if(curNois>8000) curNois = 8000;
+	//printf("%d\n", (int)curNois);
+	curNois *= 2.2;//curNois *= 1.8;
 	if(!NoisFlg){
 		if(!GltchFlg && (avgDit < 1200 / 35)) noisLvl = ((35*noisLvl) + curNois)/36;
 		else noisLvl = ((35*noisLvl) + curNois)/36;//noisLvl = ((15*noisLvl) + curNois)/16; //20231021
@@ -435,7 +453,7 @@ void Chk4KeyDwn(float NowLvl)
 	/* to get a Keydown condition "toneDetect" must be set to "true" */
 	//float ToneLvl = magB; // tone level delayed by six samples
 	bool GudTone = true;
-	unsigned long FltrPrd =0;
+	unsigned long FltrPrd = 0;
 	
 	if (avgDit <= 1200 / 35) // WPM is the denominator here
 	{						 /*High speed code keying process*/
@@ -471,8 +489,9 @@ void Chk4KeyDwn(float NowLvl)
 			if((SigDect > AdjSqlch) && SlwFlg) toneDetect = true; //used to dectect key down state while using 8ms sample interval
 		}
 	}
-	uint8_t state = 1; //Keyup or no tone state
-	KeyState = -2000;//Keyup or no tone state
+	/*initialize in KeyUp state */
+	uint8_t state = 1; //Keyup, or "no tone" state
+	KeyState = -2000;  //Keyup, or "no tone" state
 	
 	if(toneDetect)
 	{ /** Fast code method */
@@ -492,7 +511,8 @@ void Chk4KeyDwn(float NowLvl)
 		NoisBuf[OldestSmpl] = noisLvl; 
 
 	} else KeyDwnCnt = 0;
-	/*now if this last sample represents a keydown state, Lets set the CurNoise to be mid way between the lowest curlevel and the NFlrBase value*/
+	/*now if this last sample represents a keydown state(state ==0), 
+	Lets set the CurNoise to be mid way between the lowest curlevel and the NFlrBase value*/
 	if(!state){
 		float tmpcurnoise;
 		if(!SlwFlg) tmpcurnoise = ((CurLvl-NFlrBase)/2) + NFlrBase;
@@ -500,11 +520,11 @@ void Chk4KeyDwn(float NowLvl)
 		if((tmpcurnoise < CurNoise)&& (tmpcurnoise > 3*NFlrBase) ) CurNoise = tmpcurnoise; 
 	}
 	/* new auto-adjusting glitch detection; based on average dit length */
-	now = TmpEvntTime;//pdTICKS_TO_MS(xTaskGetTickCount());
+	unsigned long Now2 = TmpEvntTime; //set Now2 to the current sampleset's timestamp
 	/*Added to support ESP32 CW decoding process*/
 	if (OldKeyState != KeyState){
-		if(!state) StrtKeyDwn = TmpEvntTime;
-		else {
+		if(!state) StrtKeyDwn = TmpEvntTime; //if !state and we're here, then we're at the start of a keydown event
+		else {//if we're here, we just ended a keydown event
 			float thisKDprd = (float)(TmpEvntTime - StrtKeyDwn);
 			if((thisKDprd > 1200/60) && (thisKDprd < 1200/5)){ //test to see if this interval looks like a real morse code driven event
 				if(thisKDprd > 2.5 *avgKeyDwn) thisKDprd /= curRatio;  //looks like a dah compared to the last 50 entries, So cut this interval by the dit to dah ratio currently found in DcodeCW.cpp
@@ -516,9 +536,9 @@ void Chk4KeyDwn(float NowLvl)
 		// sprintf( Smpl,"%d\n", 1200/(int)avgDit);
 		// printf( Smpl);
 		if((avgDit < 1200 / 30)){//20231031 changed from 1200/30 to 1200/35
-			TmpSlwFlg = false; //we'll determine the flagstate herebut wont engage it until we have a letter complete state
+			TmpSlwFlg = false; //we'll determine the flagstate here but wont engage it until we have a letter complete state
         }else if(avgDit > 1200 / 28){//20231031 added else if()to auto swap both ways
-			TmpSlwFlg = true;//we'll determine the flagstate herebut wont engage it until we have a letter complete state
+			TmpSlwFlg = true;//we'll determine the flagstate here but wont engage it until we have a letter complete state
 		}
 		
 		if(!GltchFlg && (avgDit >= 1200 / 30)){ // don't use "glitch" detect/correction for speeds greater than 30 wpm
@@ -528,17 +548,13 @@ void Chk4KeyDwn(float NowLvl)
 			When thats the case, use the DcodeCW's avgDeadspace to set the duration of the glitch period */
 			if(FltrPrd > AvgSmblDedSpc/2) FltrPrd = (unsigned long)((AvgSmblDedSpc)/2);
 			if(ModeCnt == 3) FltrPrd = 4;//we are running in cootie mode, so lock the glitch inerval to a fixed value of 8ms.
-			//if(SlwFlg) FltrPrd = FltrPrd/2;
-			NoisePrd = now + FltrPrd;
+			NoisePrd = Now2 + FltrPrd;
 			OldKeyState = KeyState;
 			GltchFlg = true;
-			EvntTime = TmpEvntTime;//capture/remember when the state change occured
-			if((KeyState == -400) ){//20230918  just got a keydown condition but its noisy, so add glitch delay to letter complete interval
-				//printf("StrechLtrcmplt\n");
-			    StrechLtrcmplt(FltrPrd);//1.5*FltrPrd
-			}
+			EvntTime = TmpEvntTime;//capture/remember when this state change occured
+			
 		} else {//
-			NoisePrd = now;
+			NoisePrd = Now2;
 			OldKeyState = KeyState;
 			GltchFlg = true;
 			EvntTime = TmpEvntTime;
@@ -550,18 +566,30 @@ void Chk4KeyDwn(float NowLvl)
 			// }
 		}
 	}
-	if(GltchFlg && ((KeyState == -400) && (NoiseFlr >3*CurNoise))){// KeyDown; looks like we're rxing a strong signal, so cancel glitch detection; 20231103: NoiseFlr >15500
-		NoisePrd = now;
-		OldKeyState = KeyState;
+	/** 20231231 commented the following out for testing */
+	// if(GltchFlg && ((KeyState == -400) && (NoiseFlr >3*CurNoise))){// KeyDown; looks like we're rxing a strong signal, so cancel glitch detection; 20231103: NoiseFlr >15500
+	// 	NoisePrd = Now2;
+	// 	OldKeyState = KeyState;
+	// 	//GltchFlg = false; //20231230 added
 		
+	// }else 
+	if(GltchFlg && !state){
+		//20231230  just got a keydown condition but its noisy, so add glitch delay to letter complete interval
+		if(FltrPrd > 0) StrechLtrcmplt(1.25*FltrPrd);
 	}
-	if(GltchFlg && ((KeyState != -400) && (NoiseFlr < CurNoise/2))){//KeyUp; looks like we're receiving a strong signal, so cancel glitch detection; 20231103: NoiseFlr < 1000
-		NoisePrd = now;
-		OldKeyState = KeyState;
-	}
+
+
+	//if(GltchFlg && ((KeyState != -400) && (NoiseFlr < CurNoise/2))){//KeyUp; looks like we're receiving a strong signal, so cancel glitch detection; 20231103: NoiseFlr < 1000
+	/** 20231231 commented the following out for testing */
+	// if(GltchFlg && state && (NoiseFlr < CurNoise/2)){// 20231230 Same but simpler test 
+	// 	NoisePrd = Now2;
+	// 	OldKeyState = KeyState;
+	// }
+
 	if (OldKeyState != KeyState)
 	{	
-		if ( now <= NoisePrd) {
+		//if(FltrPrd > 0 && !state && GltchFlg) StrechLtrcmplt(1.25*FltrPrd);//20231230  just got a possible keydown condition but its noisy, so add glitch delay to letter complete interval
+		if ( Now2 <= NoisePrd) {
 			if( GltchFlg){
 				/*We had keystate change but it returned back to its earlier state before the glitch interval expired*/
 				OldKeyState = KeyState;
@@ -569,24 +597,27 @@ void Chk4KeyDwn(float NowLvl)
 				GlthCnt++;
 				if(GlthCnt >= 3){
 				/*3 consectutive glicth fixes in 1 keydown interval; thats too many; readj the avg keydown period */
-					avgKeyDwn = avgKeyDwn/2;	
+					avgKeyDwn = avgKeyDwn/2;
+					GlthCnt = 0;	
 				} 
 			}
 		}
 	} else{
-		if (now >= NoisePrd){ 
-			if( GltchFlg ||(Sentstate != state))
+		if (Now2 >= NoisePrd){ 
+			if(Sentstate != state)//if( GltchFlg ||(Sentstate != state))
 			{/*We had keystate change ("tone" on, or "tone" off)  & passed the glitch interval; Go evaluate the key change*/
 				GltchFlg = false;
 				Sentstate = state;//'Sentstate' is what gets plotted
 				OldKeyState = KeyState;
 				GlthCnt = 0;
 				if(1) GudSig = 1;
+				//if(GltchFlg) printf("~\n");
+				//else  printf("^\n");
 				KeyEvntSR(Sentstate, TmpEvntTime);
 			}
 		}
 	}
-	if(Sentstate){
+	if(Sentstate){ // 1 = Keyup, or "no tone" state; 0 = Keydown
 		if(chkChrCmplt() && SlwFlg != TmpSlwFlg){//key is up
 			SlwFlg = TmpSlwFlg;
 		}
@@ -596,7 +627,7 @@ void Chk4KeyDwn(float NowLvl)
 			//showSpeed();
 		}
 	}
-	else SetLtrBrk();//key is down
+	else SetLtrBrk();//key is down; so reset/recalculate new letter-brake clock value
 	
 	
 	// The following code is just to support the RGB LED.

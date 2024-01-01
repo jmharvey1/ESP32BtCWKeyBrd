@@ -1,0 +1,14 @@
+Performing C SOURCE FILE Test C_COMPILER_SUPPORTS_WFORMAT_SIGNEDNESS failed with the following output:
+Change Dir: /home/jim/ESP_Projects/ESP32BtCWKeyBrd/.pio/build/upesy_wroom/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/home/jim/.platformio/packages/tool-ninja/ninja cmTC_b33d7 && [1/2] Building C object CMakeFiles/cmTC_b33d7.dir/src.c.obj
+[2/2] Linking C executable cmTC_b33d7
+FAILED: cmTC_b33d7 
+: && /home/jim/.platformio/packages/toolchain-xtensa-esp32/bin/xtensa-esp32-elf-gcc -mlongcalls -Wno-frame-address  -Wall -Wextra -Wwrite-strings -Wformat=2 -Wno-format-nonliteral -Wvla -Wlogical-op -Wshadow -DC_COMPILER_SUPPORTS_WFORMAT_SIGNEDNESS   CMakeFiles/cmTC_b33d7.dir/src.c.obj  -o cmTC_b33d7   && :
+/home/jim/.platformio/packages/toolchain-xtensa-esp32/bin/../lib/gcc/xtensa-esp32-elf/12.2.0/../../../../xtensa-esp32-elf/bin/ld: cannot find CMakeFiles/cmTC_b33d7.dir/src.c.obj: No such file or directory
+collect2: error: ld returned 1 exit status
+ninja: build stopped: subcommand failed.
+
+
+Source file was:
+int main(void) { return 0; }

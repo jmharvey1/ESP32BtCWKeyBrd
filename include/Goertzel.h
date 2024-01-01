@@ -13,6 +13,7 @@ extern bool PlotFlg;
 extern float SAMPLING_RATE;
 extern float Grtzl_Gain;
 extern bool SlwFlg;
+extern bool GltchFlg;    
 extern bool NoisFlg;
 extern bool CalGtxlParamFlg;
 extern int DemodFreq;

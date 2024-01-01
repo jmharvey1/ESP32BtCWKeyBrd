@@ -48,6 +48,8 @@
 /*20231215 added DblChkDitDah() to DcodeCW.cpp, to further improve dit/dah decision tests */
 /*20231217 reworked file references to match framework-espidf @ 3.50100.0 (5.1.0) */
 /*20231221 minor tweek to DblChkDitDah (DeCodeCW.cpp) routine to improve resolving dits from dahs*/
+/*20231229 More tweeks to bug2 letter break code (DeCodeCW.cpp)*/
+/*20240101 More tweeks to bug2 letter break code (DeCodeCW.cpp)*/
 #include "sdkconfig.h" //added for timer support
 #include "globals.h"
 #include "main.h"
@@ -104,7 +106,7 @@ DF_t DFault;
 int DeBug = 1; // Debug factory default setting; 0 => Debug "OFF"; 1 => Debug "ON"
 char StrdTxt[20] = {'\0'};
 /*Factory Default Settings*/
-char RevDate[9] = "20231217";
+char RevDate[9] = "20240101";
 char MyCall[10] = "KW4KD";
 char MemF2[80] = "VVV VVV TEST DE KW4KD";
 char MemF3[80] = "CQ CQ CQ DE KW4KD KW4KD";
@@ -280,8 +282,8 @@ void addSmpl(int k, int i, int *pCntrA)
   // LclToneAngle += AnglInc;
   // if(LclToneAngle >= 2*PI) LclToneAngle = LclToneAngle - 2*PI;
   // k = (int)(800*sin(LclToneAngle));
-  /*Calculate Tone frequency*/
 
+  /*Calculate Tone frequency*/
   /*the following is part of the auto tune process */
   const int ToneThrsHld = 50; // minimum usable peak tone value; Anything less is noise
   if (AutoTune)
@@ -402,6 +404,7 @@ void GoertzelHandler(void *param)
       ret = adc_continuous_read(adc_handle, result, Goertzel_SAMPLE_CNT * SOC_ADC_DIGI_RESULT_BYTES, &ret_num, 0);
       if (ret == ESP_OK)
       {
+        if(SlwFlg) FrstPass = false; //20231231 added to support new 4ms sample interval, W/ 8ms dataset
         if(FrstPass) ResetGoertzel();
         if(SlwFlg && !FrstPass) offset = Goertzel_SAMPLE_CNT;
         else offset = 0;
@@ -431,7 +434,7 @@ void GoertzelHandler(void *param)
         } else{
           FrstPass = true;
         } 
-        if(FrstPass) ComputeMags(EvntStart);
+        if(FrstPass) ComputeMags(EvntStart);  //"EvntStart" is the time stamp for this dataset
         uint16_t curclr = ToneClr();
         if (oldclr != curclr)
         {
