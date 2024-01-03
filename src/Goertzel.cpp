@@ -9,6 +9,7 @@
  * also included changes to passing Keystate & letterbreak timing to DeCodeCW.cpp
  * plus changes to keystate detection (curnois lvl)
  */
+/*20240103 added void CurMdStng(int MdStng) primarily to switch in extended symbol set timing while in Bg1 mode*/
 #include <stdio.h>
 #include "Arduino.h"
 #include "Goertzel.h"
@@ -33,6 +34,7 @@ bool NoisFlg = false;
 bool AutoTune = true; //false; //true;
 bool Scaning = false;
 
+int ModeVal = 0;
 int N = 0; //Block size sample 6 cycles of a 750Hz tone; ~8ms interval
 int NL = Goertzel_SAMPLE_CNT/2;
 int NC = 0;
@@ -122,7 +124,10 @@ int ClimCnt = 0;
 int KeyDwnCnt = 0;
 int GData[Goertzel_SAMPLE_CNT];
 bool prntFlg; //used for debugging
-
+////////////////////////////////////////
+void CurMdStng(int MdStng){
+	ModeVal = MdStng;
+}
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 void PlotIfNeed2(void){
 	if (NuMagData) {
@@ -575,7 +580,9 @@ void Chk4KeyDwn(float NowLvl)
 	// }else 
 	if(GltchFlg && !state){
 		//20231230  just got a keydown condition but its noisy, so add glitch delay to letter complete interval
-		if(FltrPrd > 0) StrechLtrcmplt(1.25*FltrPrd);
+		if(FltrPrd > 0 && ModeVal == 1) StrechLtrcmplt(1.25*FltrPrd);
+		//if(FltrPrd > 0) StrechLtrcmplt(FltrPrd);
+		//20240102 took the above out; seems to be not needed, when sender is using a "dit & 1/2" pause for letter breaks
 	}
 
 

@@ -50,6 +50,7 @@
 /*20231221 minor tweek to DblChkDitDah (DeCodeCW.cpp) routine to improve resolving dits from dahs*/
 /*20231229 More tweeks to bug2 letter break code (DeCodeCW.cpp)*/
 /*20240101 More tweeks to bug2 letter break code (DeCodeCW.cpp)*/
+/*20240103 Modified extented sysmbolset timing to only effect Bg1 mode*/
 #include "sdkconfig.h" //added for timer support
 #include "globals.h"
 #include "main.h"
@@ -106,7 +107,7 @@ DF_t DFault;
 int DeBug = 1; // Debug factory default setting; 0 => Debug "OFF"; 1 => Debug "ON"
 char StrdTxt[20] = {'\0'};
 /*Factory Default Settings*/
-char RevDate[9] = "20240101";
+char RevDate[9] = "20240103";
 char MyCall[10] = "KW4KD";
 char MemF2[80] = "VVV VVV TEST DE KW4KD";
 char MemF3[80] = "CQ CQ CQ DE KW4KD KW4KD";
@@ -1129,6 +1130,7 @@ void ProcsKeyEntry(uint8_t keyVal)
       ModeCnt = 0;
       DFault.ModeCnt = ModeCnt;
       SetModFlgs(ModeCnt);
+      CurMdStng(ModeCnt);//added 20230104
       vTaskDelay(20);
       showSpeed();
       vTaskDelay(250);
@@ -1153,6 +1155,7 @@ void ProcsKeyEntry(uint8_t keyVal)
       ModeCnt = 3;
       DFault.ModeCnt = ModeCnt;
       SetModFlgs(ModeCnt);
+      CurMdStng(ModeCnt);//added 20230104
       vTaskDelay(20);
       showSpeed();
       vTaskDelay(250);

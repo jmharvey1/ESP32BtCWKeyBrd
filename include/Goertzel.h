@@ -18,6 +18,7 @@ extern bool NoisFlg;
 extern bool CalGtxlParamFlg;
 extern int DemodFreq;
 float GetMagnitudeSquared(float q1, float q2, float Coeff, int SmplCnt);
+void CurMdStng(int MdStng);//added 20230104
 void ResetGoertzel(void);
 void InitGoertzel(void);
 void ProcessSample(int sample, int Scnt);

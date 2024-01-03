@@ -16,7 +16,10 @@
  * 20231104 worked on bug3 parsing code; some improvement; but still more to be done
  * 20231221 minor tweek to DblChkDitDah routine to improve resolving dit from dah
  * 20231229 More tweeks to bug2 letter break code
- * 20231231 tweeks related to new 8ms/4ms sampling method*/
+ * 20231231 tweeks related to new 8ms/4ms sampling method
+ * 20240103 Modified extented sysmbolset timing to only effect Bg1 mode
+ * */
+ 
 
 // #include <SetUpCwDecoder.h>
 // #include "main.h" // removed this reference for ESP32 version
@@ -289,11 +292,6 @@ void KeyEvntSR(uint8_t Kstate, unsigned long EvntTime)
 					if (Bug3 && SCD && Test)
 					{
 						sprintf(PrntBuf, "Concatenate; ");
-
-						for (int i = 0; i <= OldLtrPntr; i++)
-						{
-							// sprintf(PrntBuf, "%s %d;", PrntBuf, (int)ShrtBrk[i]);
-						}
 						PrntUSB = true; // printf(PrntBuf);
 					}
 					if (ShrtBrk[0] > UsrLtrBrk / 5)
@@ -304,10 +302,6 @@ void KeyEvntSR(uint8_t Kstate, unsigned long EvntTime)
 					while (CodeValBuf[BPtr] != 0)
 					{
 						DeCodeVal = CodeValBuf[BPtr];
-						//        Serial.print(BPtr);
-						//        Serial.print('\t');
-						//        Serial.print(CodeValBuf[BPtr]);
-						//        Serial.print('\t');
 						++BPtr;
 					}
 					if (BPtr > 0)
@@ -345,7 +339,7 @@ void KeyEvntSR(uint8_t Kstate, unsigned long EvntTime)
 								Bitpos = 15;
 							dletechar = true;
 							DeleteID = 1;
-							FrstSymbl = true;
+							if(DeCodeVal <=3 ) FrstSymbl = true;//20240103 added to stop reset
 							ConcatSymbl = true; // used to verify (at the next letter break) we did the right thing;
 							if (Bug3 && SCD && Test)
 							{
@@ -367,10 +361,13 @@ void KeyEvntSR(uint8_t Kstate, unsigned long EvntTime)
 							Bitpos = 15;
 						if (Bug3 && SCD && Test)
 						{
-							// printf("Clawed Last Letter Back");
-							// printf("\t");
-							// USBprintIntln(DeCodeVal);
-							// sprintf(PrntBuf, "%sClawed Last Letter Back\t%d\n\r",PrntBuf, (int)DeCodeVal);
+							for (int i = 0; i < sizeof(tmpbuf); i++)
+							{
+								tmpbuf[i] = PrntBuf[i];
+								if (tmpbuf[i] == 0)
+									break;
+							}
+							sprintf(PrntBuf, "%sClawed Last Letter Back\t%d\n\r",tmpbuf, (int)DeCodeVal);
 							// sprintf(PrntBuf, "CLB\n\r");
 							// delay(2);
 							PrntUSB = true; // printf(PrntBuf);
