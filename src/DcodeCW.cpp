@@ -25,9 +25,9 @@
 // #include "main.h" // removed this reference for ESP32 version
 #include "DcodeCW.h"
 #include "Goertzel.h"
-// #include "BtnSuprt.h"
+#include "AdvParser.h"
 // #include "TchScrnCal.h"
-#include "Arduino.h" //For ESP32, may not need this reterence, since timr5 count calls are replaced with ESP32 equivalent
+#include "Arduino.h" //For ESP32, may not need this reference, since timr5 count calls are replaced with ESP32 equivalent
 // #include "SerialClass.h"
 
 int ShrtBrk[10];
@@ -96,7 +96,19 @@ char Msgbuf[50];
 char LstPstdchar[2]; // used for diagnostic testing only
 char P[13];
 char PrntBuf[150];
-// char RevDate[9] = "20221115";
+/*the following vairables were created for the AutoMode detector*/
+uint16_t KeyUpIntrvls[50];
+uint16_t KeyDwnIntrvls[50];
+int KeyUpPtr = 0;
+int KeyDwnPtr = 0;
+// uint16_t KeyUpBuckts[15];
+// uint16_t KeyDwnBuckts[15];
+// int KeyUpBucktPtr = 0;
+// int KeyDwnBucktPtr = 0;
+char LtrHoldr[20];
+int LtrPtr = 0;
+AdvParser advparser; // create/instantuate the AdvParser Object/Class
+
 // char DahMthd[150];//used for diagnostic testing only
 // char TmpMthd[150];//used for diagnostic testing only
 volatile bool valid = LOW;
@@ -275,6 +287,11 @@ void KeyEvntSR(uint8_t Kstate, unsigned long EvntTime)
 			MySTart = EvntTime;					 // for testing purposes only
 			deadSpace = (STart - noSigStrt) + 4; //+4;//jmh 20230706 added this corection value for ESP32
 			SpaceStk[Bitpos] = deadSpace;
+			/* usable event; store KeyUp time to AutoMode detector Up time buffer*/
+			if(KeyUpPtr < 50 && KeyDwnPtr >= 1){ //we have both a usable time & place to store it; and at least 1 keydwn interval has been captured
+				KeyUpIntrvls[KeyUpPtr] = (uint16_t)deadSpace;
+				KeyUpPtr++;
+			}
 			if (Bitpos <= 14)
 				SpaceStk[Bitpos + 1] = 0; // make sure the next time slot has been "0SftReset(void)" out
 			OldltrBrk = letterBrk;
@@ -717,6 +734,11 @@ void KeyEvntSR(uint8_t Kstate, unsigned long EvntTime)
 			xSemaphoreGive(DeCodeVal_mutex);
 			blocked = false;
 			return;
+		}
+		/* usable event; store Keydown time to AutoMode detector dwn time buffer*/
+		if(KeyDwnPtr < 50){ //we have both a usable time & place to store it
+			KeyDwnIntrvls[KeyDwnPtr] = (uint16_t)period;
+			KeyDwnPtr++;
 		}
 
 		/**** if here, its a usable event; Now, decide if its a "Dit" or "Dah"  ****/
@@ -1404,7 +1426,7 @@ bool chkChrCmplt(void)
 	if ((Now >= letterBrk) && letterBrk != 0)
 	{
 		ltrCmplt = -2800;
-		
+
 		if (DeCodeVal > 1)
 		{
 			Pstate = 1; // have a complete letter
@@ -1425,14 +1447,111 @@ bool chkChrCmplt(void)
 		// printf(wordBrk);
 		// printf("\t");
 		Pstate = 2; // have word
+		if(KeyUpPtr < 50 && KeyDwnPtr >= 1){ //we have both a usable time & place to store it; and at least 1 keydwn interval has been captured
+			KeyUpIntrvls[KeyUpPtr] = (uint16_t)noKeySig;
+			KeyUpPtr++;
+		}
 
 		wordStrt = noSigStrt;
 		if (DeCodeVal == 0)
 		{
 			noSigStrt = pdTICKS_TO_MS(xTaskGetTickCount()); //(GetTimr5Cnt()/10);//jmh20190717added to prevent an absurd value
-			// noSigStrt =  micros();
 			MaxDeadTime = 0;
 			charCnt = 0;
+		}
+		if (!wordBrkFlg)
+		{ // Ok just detected a new wordbreak interval; So Now need/can evaluate
+			// the contents of the AutoMode detector time buffers
+			/*1st Initialize the Key Up & Down Bucket list*/
+			
+			
+			// KeyDwnBucktPtr = KeyUpBucktPtr = 0; // reset Bucket pntrs
+			if (KeyDwnPtr > 2 && KeyUpPtr > 2 && KeyUpIntrvls[0] > 0  && KeyDwnIntrvls[0]>0 )
+			{
+				advparser.EvalTimeData(KeyUpIntrvls, KeyDwnIntrvls, KeyUpPtr, KeyDwnPtr);
+				// /*Print the "raw" capture tables*/
+				// for (int i = 0; i < KeyDwnPtr; i++)
+				// {
+				// 	printf("Dwn: %3d\t", KeyDwnIntrvls[i]);
+				// 	if(i < KeyUpPtr) printf("Up: %3d\n", KeyUpIntrvls[i]);
+				// 	else  printf("Up: ???\n");
+				// }
+				// printf("%d; %d\n\n", KeyDwnPtr, KeyUpPtr);
+				/*Now sort the raw tables*/
+			// 	insertionSort(KeyDwnIntrvls, KeyDwnPtr);
+			// 	insertionSort(KeyUpIntrvls, KeyUpPtr);
+			// 	KeyUpBuckts[KeyUpBucktPtr] = KeyUpIntrvls[0];
+			// 	KeyDwnBuckts[KeyDwnBucktPtr] = KeyDwnIntrvls[0];
+			// 	/*Build the Key down Bucket table*/
+			// 	for (int i = 1; i < KeyDwnPtr; i++)
+			// 	{
+			// 		bool match = false;
+			// 		// int j = 0;
+			// 		// while (!match && j <= KeyDwnBucktPtr && KeyDwnIntrvls[i] > 0)
+			// 		// {
+			// 			//if (((float)KeyDwnIntrvls[i] >= 0.8 * KeyDwnBuckts[j]) && ((float)KeyDwnIntrvls[i] <= 1.2 * KeyDwnBuckts[j]))
+			// 			if ((float)KeyDwnIntrvls[i] <= (4+(1.2 * KeyDwnBuckts[KeyDwnBucktPtr])))
+			// 			{
+			// 				match = true;
+			// 			}
+			// 		// 	else
+			// 		// 		j++;
+			// 		// }
+			// 		if (!match)
+			// 		{
+			// 			KeyDwnBucktPtr++;
+			// 			if(KeyDwnBucktPtr >= 15) break;
+			// 			KeyDwnBuckts[KeyDwnBucktPtr] = KeyDwnIntrvls[i];
+			// 		}
+			// 	}
+			// 	/*Build the Key Up Bucket table*/
+			// 	for (int i = 1; i < KeyUpPtr; i++)
+			// 	{
+			// 		bool match = false;
+			// 		// int j = 0;
+			// 		// while (!match && j <= KeyUpBucktPtr && KeyUpIntrvls[i] > 0)
+			// 		// {
+			// 			//if (((float)KeyUpIntrvls[i] >= 0.8 * KeyUpBuckts[j]) && ((float)KeyUpIntrvls[i] <= 1.2 * KeyUpBuckts[j]))
+			// 			if ((float)KeyUpIntrvls[i] <= (4+(1.2 * KeyUpBuckts[KeyUpBucktPtr])))
+			// 			{
+			// 				match = true;
+			// 			}
+			// 		// 	else
+			// 		// 		j++;
+			// 		// }
+			// 		if (!match)
+			// 		{
+			// 			KeyUpBucktPtr++;
+			// 			if(KeyUpBucktPtr >= 15) break;
+			// 			KeyUpBuckts[KeyUpBucktPtr] = KeyUpIntrvls[i];
+			// 		}
+					
+			// 	}
+			
+				
+			// }
+			// if (KeyDwnBucktPtr > 0 && KeyUpBucktPtr > 0)
+			// {
+			// 	//insertionSort(KeyDwnBuckts, KeyDwnBucktPtr+1);
+			// 	for (int i = 0; i <= KeyDwnBucktPtr; i++)
+			// 	{
+			// 		printf(" KeyDwn: %3d/%3d\t", KeyDwnBuckts[i], (int)(4+(1.2 * KeyDwnBuckts[i])));
+			// 	}
+			// 	printf("%d\n", 1 + KeyDwnBucktPtr);
+			// 	//insertionSort(KeyUpBuckts, KeyUpBucktPtr+1);
+			// 	for (int i = 0; i <= KeyUpBucktPtr; i++)
+			// 	{
+			// 		printf(" KeyUp : %3d/%3d\t", KeyUpBuckts[i], (int)(4+(1.2 * KeyUpBuckts[i])));
+			// 	}
+			// 	printf("%d\n", 1 + KeyUpBucktPtr);
+			// }
+			printf(LtrHoldr);
+			for(int i=0; i< LtrPtr; i++) LtrHoldr[i] = 0;
+			LtrPtr = 0;
+			printf("\n--------\n\n");
+			KeyDwnPtr = KeyUpPtr = 0;// resetbuffer pntrs
+			}
+			
 		}
 		wordBrkFlg = true;
 	}
@@ -1471,7 +1590,7 @@ bool chkChrCmplt(void)
 				/*Lets double check the 'dit' 'dah' assigments of DeCodeVal based on the TimeDat[] values before transfering to CodeValBuf[]*/
 				DblChkDitDah();
 				CodeValBuf[i] = DeCodeVal;
-				
+
 				int p = 0;
 				// for (int p = 0;  p < Bitpos; p++ ) { // map timing info into time buffer (used only for debugging
 				while (p < 16)
@@ -1507,9 +1626,10 @@ bool chkChrCmplt(void)
 			letterBrk = 0;
 			++charCnt;
 			DeCodeVal = 0; // make program ready to process next series of key events
-		
-			period = 0;	   //     before attemping to display the current code value
-			if(Test && NrmFlg){
+
+			period = 0; //     before attemping to display the current code value
+			if (Test && NrmFlg)
+			{
 				sprintf(PrntBuf, "Ltr Cmplt - DeCodeVall:%d\n", DeCodeVal);
 				printf(PrntBuf);
 			}
@@ -1517,6 +1637,16 @@ bool chkChrCmplt(void)
 	}
 	return done;
 }
+//////////////////////////////////////////////////////////////////////
+// void insertionSort(uint16_t arr[], int n) {
+//     for (int i = 1; i < n; i++) {uint16_t key = arr[i]; int j = i - 1; while (j >= 0 && arr[j] > key) {
+//             arr[j + 1] = arr[j];
+//             j--;
+//         }
+
+//         arr[j + 1] = key;
+//     }
+// }
 //////////////////////////////////////////////////////////////////////
 void DblChkDitDah(void){
 	if(dletechar && ConcatSymbl) return;//skip check. Current Timing values are useless
@@ -2300,6 +2430,9 @@ void dispMsg(char Msgbuf[50])
 			SpcIntrvl2[p] = SpcIntrvl1[p];
 		}
 		char curChar = Msgbuf[msgpntr];
+		/*added the following two lines for debugging AutoMode detector code*/
+		LtrHoldr[LtrPtr] = curChar;
+		LtrPtr++;
 		if (LstPstdchar[0] == 0x20)
 			LstPstdchar[0] = curChar;
 		tmpbuf[0] = curChar;

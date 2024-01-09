@@ -127,7 +127,7 @@ const char DicTbl1[ARSIZE][2]=
     "."
     };
 //Multi character decode values/table(s)
-#define ARSIZE2 125
+#define ARSIZE2 126
  static unsigned int CodeVal2[ARSIZE2]={
   19,
   21,
@@ -221,6 +221,7 @@ const char DicTbl1[ARSIZE][2]=
   442,
   443,
   468,
+  474,
   482,
   486,
   492,
@@ -349,6 +350,7 @@ const char DicTbl2[ARSIZE2][6]={
   "NOR",
   "NOW",
   "MAL",
+  "MAC",
   "OVE",
   "OUN",
   "OAD",
@@ -397,6 +399,7 @@ void DbgRptr(bool dbgFLg, char pBuf[], char pStr[]);
 void DblChkDitDah(void);
 void SetLtrBrk(void);
 bool chkChrCmplt(void);
+//void insertionSort(uint16_t arr[], int n);
 void StrechLtrcmplt(unsigned long StrchPrd);
 int CalcAvgPrd(unsigned long thisdur);
 int CalcWPM(int dotT, int dahT, int spaceT);
