@@ -8,7 +8,6 @@
         {
             "name": "PlatformIO",
             "includePath": [
-                "/home/jim/ESP_Projects/ESP32BtCWKeyBrd/include",
                 "/home/jim/ESP_Projects/ESP32BtCWKeyBrd/src",
                 "/home/jim/ESP_Projects/ESP32BtCWKeyBrd/.pio/libdeps/upesy_wroom/TFT_eSPI",
                 "/home/jim/.platformio/packages/framework-espidf/components/xtensa/include",
@@ -149,6 +148,7 @@
                 "/home/jim/.platformio/packages/framework-espidf/components/perfmon/include",
                 "/home/jim/.platformio/packages/framework-espidf/components/spiffs/include",
                 "/home/jim/.platformio/packages/framework-espidf/components/wifi_provisioning/include",
+                "/home/jim/ESP_Projects/ESP32BtCWKeyBrd/include",
                 "/home/jim/ESP_Projects/ESP32BtCWKeyBrd/lib/EEPROM/src",
                 "/home/jim/ESP_Projects/ESP32BtCWKeyBrd/lib/WiFi/src",
                 "/home/jim/ESP_Projects/ESP32BtCWKeyBrd/lib../.pio/libdeps/upesy_wroom/TFT_eSPI",
@@ -181,7 +181,6 @@
             "browse": {
                 "limitSymbolsToIncludedHeaders": true,
                 "path": [
-                    "/home/jim/ESP_Projects/ESP32BtCWKeyBrd/include",
                     "/home/jim/ESP_Projects/ESP32BtCWKeyBrd/src",
                     "/home/jim/ESP_Projects/ESP32BtCWKeyBrd/.pio/libdeps/upesy_wroom/TFT_eSPI",
                     "/home/jim/.platformio/packages/framework-espidf/components/xtensa/include",
@@ -322,6 +321,7 @@
                     "/home/jim/.platformio/packages/framework-espidf/components/perfmon/include",
                     "/home/jim/.platformio/packages/framework-espidf/components/spiffs/include",
                     "/home/jim/.platformio/packages/framework-espidf/components/wifi_provisioning/include",
+                    "/home/jim/ESP_Projects/ESP32BtCWKeyBrd/include",
                     "/home/jim/ESP_Projects/ESP32BtCWKeyBrd/lib/EEPROM/src",
                     "/home/jim/ESP_Projects/ESP32BtCWKeyBrd/lib/WiFi/src",
                     "/home/jim/ESP_Projects/ESP32BtCWKeyBrd/lib../.pio/libdeps/upesy_wroom/TFT_eSPI",
@@ -359,7 +359,7 @@
                 "SOC_MMU_PAGE_SIZE=CONFIG_MMU_PAGE_SIZE",
                 "IDF_VER=\"5.0.2\"",
                 "ESP_PLATFORM",
-                "PLATFORMIO=60111",
+                "PLATFORMIO=60112",
                 "ARDUINO_uPesy_WROOM",
                 "CORE_DEBUG_LEVEL=ESP_LOG_VERBOSE",
                 ""

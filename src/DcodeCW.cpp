@@ -1,4 +1,4 @@
-/*
+/*Msgbuf
  * DcodeCW.cpp
  *
  *  Created on: Mar 28, 2021
@@ -97,15 +97,13 @@ char LstPstdchar[2]; // used for diagnostic testing only
 char P[13];
 char PrntBuf[150];
 /*the following vairables were created for the AutoMode detector*/
-uint16_t KeyUpIntrvls[50];
-uint16_t KeyDwnIntrvls[50];
+uint16_t KeyUpIntrvls[150];
+uint16_t KeyDwnIntrvls[150];
 int KeyUpPtr = 0;
 int KeyDwnPtr = 0;
-// uint16_t KeyUpBuckts[15];
-// uint16_t KeyDwnBuckts[15];
-// int KeyUpBucktPtr = 0;
-// int KeyDwnBucktPtr = 0;
-char LtrHoldr[20];
+
+// DeBug Character buffer to compare original Decode Text Vs AdvParser text
+char LtrHoldr[30];
 int LtrPtr = 0;
 AdvParser advparser; // create/instantuate the AdvParser Object/Class
 
@@ -113,6 +111,9 @@ AdvParser advparser; // create/instantuate the AdvParser Object/Class
 // char TmpMthd[150];//used for diagnostic testing only
 volatile bool valid = LOW;
 volatile bool mark = LOW;
+/*used in dispMsg() to control the AdvParser 
+text matches whats been printed to the display*/
+bool CptrTxt = true;
 bool dataRdy = LOW;
 bool Bug2 = false;
 bool Bug3 = false;
@@ -288,7 +289,7 @@ void KeyEvntSR(uint8_t Kstate, unsigned long EvntTime)
 			deadSpace = (STart - noSigStrt) + 4; //+4;//jmh 20230706 added this corection value for ESP32
 			SpaceStk[Bitpos] = deadSpace;
 			/* usable event; store KeyUp time to AutoMode detector Up time buffer*/
-			if(KeyUpPtr < 50 && KeyDwnPtr >= 1){ //we have both a usable time & place to store it; and at least 1 keydwn interval has been captured
+			if(KeyUpPtr < 150 && KeyDwnPtr >= 1){ //we have both a usable time & place to store it; and at least 1 keydwn interval has been captured
 				KeyUpIntrvls[KeyUpPtr] = (uint16_t)deadSpace;
 				KeyUpPtr++;
 			}
@@ -736,7 +737,7 @@ void KeyEvntSR(uint8_t Kstate, unsigned long EvntTime)
 			return;
 		}
 		/* usable event; store Keydown time to AutoMode detector dwn time buffer*/
-		if(KeyDwnPtr < 50){ //we have both a usable time & place to store it
+		if(KeyDwnPtr < 150){ //we have both a usable time & place to store it
 			KeyDwnIntrvls[KeyDwnPtr] = (uint16_t)period;
 			KeyDwnPtr++;
 		}
@@ -1410,6 +1411,7 @@ void SetLtrBrk(void)
 ////////////////////////////////////////////////////////////////////////
 bool chkChrCmplt(void)
 {
+	//uint8_t DBtrace =0;
 	bool done = false;
 	Pstate = 0;
 	unsigned long Now = pdTICKS_TO_MS(xTaskGetTickCount()); //(GetTimr5Cnt()/10);
@@ -1444,13 +1446,55 @@ bool chkChrCmplt(void)
 	float noKeySig = (float)(Now - noSigStrt);
 	if ((noKeySig >= 0.75 * ((float)wordBrk)) && noSigStrt != 0 && !wordBrkFlg && (DeCodeVal == 0))
 	{
-		// printf(wordBrk);
-		// printf("\t");
-		Pstate = 2; // have word
-		if(KeyUpPtr < 50 && KeyDwnPtr >= 1){ //we have both a usable time & place to store it; and at least 1 keydwn interval has been captured
+		if (KeyUpPtr < 150 && KeyDwnPtr >= 1)
+		{ // we have both a usable time & place to store it; and at least 1 keydwn interval has been captured
 			KeyUpIntrvls[KeyUpPtr] = (uint16_t)noKeySig;
 			KeyUpPtr++;
+			//DBtrace = DBtrace | 0b1;
 		}
+		// Ok just detected a new wordbreak interval; So Now need/can evaluate
+		// the contents of the AutoMode detector time buffers
+		if (KeyDwnPtr > 2 && KeyUpPtr > 2 && KeyUpIntrvls[0] > 0 && KeyDwnIntrvls[0] > 0)
+		{
+			// if (KeyDwnPtr != KeyUpPtr)printf("Pointer ERROR\n");
+			advparser.EvalTimeData(KeyUpIntrvls, KeyDwnIntrvls, KeyUpPtr, KeyDwnPtr);
+			/*Now compare Advparser decoded text to original text; If not the same,
+			replace displayed with Advparser version*/
+			bool same = true;
+			bool Tst4Match = true;
+			int i;
+			int FmtchPtr;
+			/*Scan/compare last word displayed w/ advpaser's version*/
+			for (i = 0; i < LtrPtr; i++){
+				if(advparser.Msgbuf[i] == 0) Tst4Match = false; 
+				if((LtrHoldr[i] != advparser.Msgbuf[i]) && Tst4Match) {
+					FmtchPtr = i;
+					same = false;
+				}
+				if(LtrHoldr[i] == 0) break;
+			}
+			/*If they don't match, replace displayed text with AdvParser's version*/
+			if(!same){
+				bool oldDltState = dletechar;
+				dletechar = true;
+				MsgChrCnt[1] = i; //Load delete buffer w/ the number of characters to be deleted from the display
+				//printf("No Match @ %d; %d; %d\n", FmtchPtr, LtrHoldr[FmtchPtr], advparser.Msgbuf[FmtchPtr]);
+				CptrTxt = false;
+				dispMsg(advparser.Msgbuf);
+				CptrTxt = true;
+				dletechar = oldDltState;
+			} //else printf("Match\n");
+		}
+		if(advparser.Dbug) printf(LtrHoldr);
+		
+		for (int i = 0; i < LtrPtr; i++)
+			LtrHoldr[i] = 0;
+		LtrPtr = 0;
+		if(advparser.Dbug) printf("\n--------\n\n");
+		KeyDwnPtr = KeyUpPtr = 0; // resetbuffer pntrs
+
+		Pstate = 2; // have word
+		//DBtrace = DBtrace | 0b10;
 
 		wordStrt = noSigStrt;
 		if (DeCodeVal == 0)
@@ -1458,100 +1502,6 @@ bool chkChrCmplt(void)
 			noSigStrt = pdTICKS_TO_MS(xTaskGetTickCount()); //(GetTimr5Cnt()/10);//jmh20190717added to prevent an absurd value
 			MaxDeadTime = 0;
 			charCnt = 0;
-		}
-		if (!wordBrkFlg)
-		{ // Ok just detected a new wordbreak interval; So Now need/can evaluate
-			// the contents of the AutoMode detector time buffers
-			/*1st Initialize the Key Up & Down Bucket list*/
-			
-			
-			// KeyDwnBucktPtr = KeyUpBucktPtr = 0; // reset Bucket pntrs
-			if (KeyDwnPtr > 2 && KeyUpPtr > 2 && KeyUpIntrvls[0] > 0  && KeyDwnIntrvls[0]>0 )
-			{
-				advparser.EvalTimeData(KeyUpIntrvls, KeyDwnIntrvls, KeyUpPtr, KeyDwnPtr);
-				// /*Print the "raw" capture tables*/
-				// for (int i = 0; i < KeyDwnPtr; i++)
-				// {
-				// 	printf("Dwn: %3d\t", KeyDwnIntrvls[i]);
-				// 	if(i < KeyUpPtr) printf("Up: %3d\n", KeyUpIntrvls[i]);
-				// 	else  printf("Up: ???\n");
-				// }
-				// printf("%d; %d\n\n", KeyDwnPtr, KeyUpPtr);
-				/*Now sort the raw tables*/
-			// 	insertionSort(KeyDwnIntrvls, KeyDwnPtr);
-			// 	insertionSort(KeyUpIntrvls, KeyUpPtr);
-			// 	KeyUpBuckts[KeyUpBucktPtr] = KeyUpIntrvls[0];
-			// 	KeyDwnBuckts[KeyDwnBucktPtr] = KeyDwnIntrvls[0];
-			// 	/*Build the Key down Bucket table*/
-			// 	for (int i = 1; i < KeyDwnPtr; i++)
-			// 	{
-			// 		bool match = false;
-			// 		// int j = 0;
-			// 		// while (!match && j <= KeyDwnBucktPtr && KeyDwnIntrvls[i] > 0)
-			// 		// {
-			// 			//if (((float)KeyDwnIntrvls[i] >= 0.8 * KeyDwnBuckts[j]) && ((float)KeyDwnIntrvls[i] <= 1.2 * KeyDwnBuckts[j]))
-			// 			if ((float)KeyDwnIntrvls[i] <= (4+(1.2 * KeyDwnBuckts[KeyDwnBucktPtr])))
-			// 			{
-			// 				match = true;
-			// 			}
-			// 		// 	else
-			// 		// 		j++;
-			// 		// }
-			// 		if (!match)
-			// 		{
-			// 			KeyDwnBucktPtr++;
-			// 			if(KeyDwnBucktPtr >= 15) break;
-			// 			KeyDwnBuckts[KeyDwnBucktPtr] = KeyDwnIntrvls[i];
-			// 		}
-			// 	}
-			// 	/*Build the Key Up Bucket table*/
-			// 	for (int i = 1; i < KeyUpPtr; i++)
-			// 	{
-			// 		bool match = false;
-			// 		// int j = 0;
-			// 		// while (!match && j <= KeyUpBucktPtr && KeyUpIntrvls[i] > 0)
-			// 		// {
-			// 			//if (((float)KeyUpIntrvls[i] >= 0.8 * KeyUpBuckts[j]) && ((float)KeyUpIntrvls[i] <= 1.2 * KeyUpBuckts[j]))
-			// 			if ((float)KeyUpIntrvls[i] <= (4+(1.2 * KeyUpBuckts[KeyUpBucktPtr])))
-			// 			{
-			// 				match = true;
-			// 			}
-			// 		// 	else
-			// 		// 		j++;
-			// 		// }
-			// 		if (!match)
-			// 		{
-			// 			KeyUpBucktPtr++;
-			// 			if(KeyUpBucktPtr >= 15) break;
-			// 			KeyUpBuckts[KeyUpBucktPtr] = KeyUpIntrvls[i];
-			// 		}
-					
-			// 	}
-			
-				
-			// }
-			// if (KeyDwnBucktPtr > 0 && KeyUpBucktPtr > 0)
-			// {
-			// 	//insertionSort(KeyDwnBuckts, KeyDwnBucktPtr+1);
-			// 	for (int i = 0; i <= KeyDwnBucktPtr; i++)
-			// 	{
-			// 		printf(" KeyDwn: %3d/%3d\t", KeyDwnBuckts[i], (int)(4+(1.2 * KeyDwnBuckts[i])));
-			// 	}
-			// 	printf("%d\n", 1 + KeyDwnBucktPtr);
-			// 	//insertionSort(KeyUpBuckts, KeyUpBucktPtr+1);
-			// 	for (int i = 0; i <= KeyUpBucktPtr; i++)
-			// 	{
-			// 		printf(" KeyUp : %3d/%3d\t", KeyUpBuckts[i], (int)(4+(1.2 * KeyUpBuckts[i])));
-			// 	}
-			// 	printf("%d\n", 1 + KeyUpBucktPtr);
-			// }
-			printf(LtrHoldr);
-			for(int i=0; i< LtrPtr; i++) LtrHoldr[i] = 0;
-			LtrPtr = 0;
-			printf("\n--------\n\n");
-			KeyDwnPtr = KeyUpPtr = 0;// resetbuffer pntrs
-			}
-			
 		}
 		wordBrkFlg = true;
 	}
@@ -1619,6 +1569,7 @@ bool chkChrCmplt(void)
 					++i;			 // move buffer pointer to 1st available empty array position
 				CodeValBuf[i] = 255; // insert space in text to create a word break
 				NuWrd = true;
+				//if(KeyUpPtr == 2) printf("XXXXXX%d\n", DBtrace);
 			}
 			TDBptr = Bitpos;
 			Bitpos = 0;
@@ -2106,7 +2057,7 @@ void DisplayChar(unsigned int decodeval)
 		// 	GlitchCnt1 = GlitchCnt;
 		// 	GlitchCnt = 0;
 		// }
-		DCVStrd[0] = decodeval;//incase we decide this ia sactaully part of a longer symbol set, save this value/pattern, 
+		DCVStrd[0] = decodeval;//incase we decide this is actaully part of a longer symbol set, save this value/pattern, 
 		/*Again, for ESP32 setup, the following for loop isn't really needed */
 		for (int p = 0; p < 16; p++)
 		{
@@ -2341,7 +2292,7 @@ int linearSrchChr(char val, char arr[ARSIZE][2], int sz)
 }
 
 //////////////////////////////////////////////////////////////////////
-/* the following function "posts" decoded characters to the LCD Display */
+/* the following function "posts" decoded characters (converted to ASCII) to the LCD Display */
 void dispMsg(char Msgbuf[50])
 {
 
@@ -2430,9 +2381,18 @@ void dispMsg(char Msgbuf[50])
 			SpcIntrvl2[p] = SpcIntrvl1[p];
 		}
 		char curChar = Msgbuf[msgpntr];
-		/*added the following two lines for debugging AutoMode detector code*/
-		LtrHoldr[LtrPtr] = curChar;
-		LtrPtr++;
+		/*added the following 11 lines for AdvParser comparison*/
+		if (CptrTxt)
+		{
+			if (curChar != 32) //skip if charact = 'SPACE'
+			{
+				LtrHoldr[LtrPtr] = curChar;
+				LtrHoldr[LtrPtr + 1] = 0;
+				LtrPtr++;
+				if (LtrPtr > 28)
+					LtrPtr = 28; // limit adding more than 30 characters to the "LtrHoldr" buffer
+			}
+		}
 		if (LstPstdchar[0] == 0x20)
 			LstPstdchar[0] = curChar;
 		tmpbuf[0] = curChar;
@@ -2457,7 +2417,7 @@ void dispMsg(char Msgbuf[50])
 
 		
 		/* now test/correct letter groups that represent common mis-prints */
-		if (true)//if (cnt > CPL)
+		if (CptrTxt) // but don't do it with AdvParser built text
 		{ //No longer need to worry about if we haveenough decoded characters evaluate the following sloppy strings DcddChrBuf now has enough data, to test for special character combos often found with sloppy sending
 			int lstCharPos = sizeof(DcddChrBuf)-2;
 			//printf("%c%c%c\n", DcddChrBuf[lstCharPos - 2],  DcddChrBuf[lstCharPos - 1], DcddChrBuf[lstCharPos] );// for debugging sloppy strings only
