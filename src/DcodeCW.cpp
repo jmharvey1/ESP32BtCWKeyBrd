@@ -18,6 +18,7 @@
  * 20231229 More tweeks to bug2 letter break code
  * 20231231 tweeks related to new 8ms/4ms sampling method
  * 20240103 Modified extented sysmbolset timing to only effect Bg1 mode
+ * 20240114 Changed AdvPaser linking to handle post processed string overwrites that were longer than the origimal text
  * */
  
 
@@ -25,7 +26,7 @@
 // #include "main.h" // removed this reference for ESP32 version
 #include "DcodeCW.h"
 #include "Goertzel.h"
-#include "AdvParser.h"
+
 // #include "TchScrnCal.h"
 #include "Arduino.h" //For ESP32, may not need this reference, since timr5 count calls are replaced with ESP32 equivalent
 // #include "SerialClass.h"
@@ -97,15 +98,15 @@ char LstPstdchar[2]; // used for diagnostic testing only
 char P[13];
 char PrntBuf[150];
 /*the following vairables were created for the AutoMode detector*/
-uint16_t KeyUpIntrvls[150];
-uint16_t KeyDwnIntrvls[150];
+uint16_t KeyUpIntrvls[IntrvlBufSize];
+uint16_t KeyDwnIntrvls[IntrvlBufSize];
 int KeyUpPtr = 0;
 int KeyDwnPtr = 0;
 
 // DeBug Character buffer to compare original Decode Text Vs AdvParser text
 char LtrHoldr[30];
 int LtrPtr = 0;
-AdvParser advparser; // create/instantuate the AdvParser Object/Class
+//AdvParser advparser; // create/instantuate the AdvParser Object/Class
 
 // char DahMthd[150];//used for diagnostic testing only
 // char TmpMthd[150];//used for diagnostic testing only
@@ -289,7 +290,7 @@ void KeyEvntSR(uint8_t Kstate, unsigned long EvntTime)
 			deadSpace = (STart - noSigStrt) + 4; //+4;//jmh 20230706 added this corection value for ESP32
 			SpaceStk[Bitpos] = deadSpace;
 			/* usable event; store KeyUp time to AutoMode detector Up time buffer*/
-			if(KeyUpPtr < 150 && KeyDwnPtr >= 1){ //we have both a usable time & place to store it; and at least 1 keydwn interval has been captured
+			if(KeyUpPtr < IntrvlBufSize && KeyDwnPtr >= 1){ //we have both a usable time & place to store it; and at least 1 keydwn interval has been captured
 				KeyUpIntrvls[KeyUpPtr] = (uint16_t)deadSpace;
 				KeyUpPtr++;
 			}
@@ -426,7 +427,8 @@ void KeyEvntSR(uint8_t Kstate, unsigned long EvntTime)
 			{
 				wordBrkFlg = false;
 				thisWordBrk = STart - wordStrt;
-				if (thisWordBrk < 11 * avgDeadSpace)
+				//if (thisWordBrk < 11 * avgDeadSpace)
+				if (thisWordBrk < 9 * avgDeadSpace) //20241012 changed to reduce string length of a word
 				{
 					if (GudSig)
 						wordBrk = (5 * wordBrk + thisWordBrk) / 6;
@@ -737,7 +739,7 @@ void KeyEvntSR(uint8_t Kstate, unsigned long EvntTime)
 			return;
 		}
 		/* usable event; store Keydown time to AutoMode detector dwn time buffer*/
-		if(KeyDwnPtr < 150){ //we have both a usable time & place to store it
+		if(KeyDwnPtr < IntrvlBufSize){ //we have both a usable time & place to store it
 			KeyDwnIntrvls[KeyDwnPtr] = (uint16_t)period;
 			KeyDwnPtr++;
 		}
@@ -1446,11 +1448,11 @@ bool chkChrCmplt(void)
 	float noKeySig = (float)(Now - noSigStrt);
 	if ((noKeySig >= 0.75 * ((float)wordBrk)) && noSigStrt != 0 && !wordBrkFlg && (DeCodeVal == 0))
 	{
-		if (KeyUpPtr < 150 && KeyDwnPtr >= 1)
+		if (KeyUpPtr < IntrvlBufSize && KeyDwnPtr >= 1)
 		{ // we have both a usable time & place to store it; and at least 1 keydwn interval has been captured
 			KeyUpIntrvls[KeyUpPtr] = (uint16_t)noKeySig;
 			KeyUpPtr++;
-			//DBtrace = DBtrace | 0b1;
+			// DBtrace = DBtrace | 0b1;
 		}
 		// Ok just detected a new wordbreak interval; So Now need/can evaluate
 		// the contents of the AutoMode detector time buffers
@@ -1465,36 +1467,50 @@ bool chkChrCmplt(void)
 			int i;
 			int FmtchPtr;
 			/*Scan/compare last word displayed w/ advpaser's version*/
-			for (i = 0; i < LtrPtr; i++){
-				if(advparser.Msgbuf[i] == 0) Tst4Match = false; 
-				if((LtrHoldr[i] != advparser.Msgbuf[i]) && Tst4Match) {
-					FmtchPtr = i;
-					same = false;
+			if (advparser.GetMsgLen() > LtrPtr){// if the advparser verson is longer, then delete the last word printed
+				same = false;
+				i = LtrPtr;
+			}
+			else
+			{
+				for (i = 0; i < LtrPtr; i++)
+				{
+					if (advparser.Msgbuf[i] == 0)
+						Tst4Match = false;
+					if ((LtrHoldr[i] != advparser.Msgbuf[i]) && Tst4Match)
+					{
+						FmtchPtr = i;
+						same = false;
+					}
+					if (LtrHoldr[i] == 0)
+						break;
 				}
-				if(LtrHoldr[i] == 0) break;
 			}
 			/*If they don't match, replace displayed text with AdvParser's version*/
-			if(!same){
+			if (!same)
+			{
 				bool oldDltState = dletechar;
 				dletechar = true;
-				MsgChrCnt[1] = i; //Load delete buffer w/ the number of characters to be deleted from the display
-				//printf("No Match @ %d; %d; %d\n", FmtchPtr, LtrHoldr[FmtchPtr], advparser.Msgbuf[FmtchPtr]);
+				MsgChrCnt[1] = i; // Load delete buffer w/ the number of characters to be deleted from the display
+				// printf("No Match @ %d; %d; %d\n", FmtchPtr, LtrHoldr[FmtchPtr], advparser.Msgbuf[FmtchPtr]);
 				CptrTxt = false;
 				dispMsg(advparser.Msgbuf);
 				CptrTxt = true;
 				dletechar = oldDltState;
-			} //else printf("Match\n");
+			} // else printf("Match\n");
 		}
-		if(advparser.Dbug) printf(LtrHoldr);
-		
+		if (advparser.Dbug)
+			printf(LtrHoldr);
+
 		for (int i = 0; i < LtrPtr; i++)
 			LtrHoldr[i] = 0;
 		LtrPtr = 0;
-		if(advparser.Dbug) printf("\n--------\n\n");
+		if (advparser.Dbug)
+			printf("\n--------\n\n");
 		KeyDwnPtr = KeyUpPtr = 0; // resetbuffer pntrs
 
 		Pstate = 2; // have word
-		//DBtrace = DBtrace | 0b10;
+		// DBtrace = DBtrace | 0b10;
 
 		wordStrt = noSigStrt;
 		if (DeCodeVal == 0)
@@ -2565,7 +2581,7 @@ void showSpeed(void)
 	char buf[50];
 	char tmpbuf[15];
 	char tmpbufA[4];
-	char tmpbufB[2];
+	char tmpbufB[3];
 	int ratioInt = (int)curRatio;
 	int ratioDecml = (int)((curRatio - ratioInt) * 10);
 	// int SI = (int) SmpIntrl; //un-comment for diagnositic testing only;used to find/display the ADC total sample time
@@ -2600,12 +2616,16 @@ void showSpeed(void)
 			sprintf(tmpbufA, "???");
 			break;
 		}
-		if (SlwFlg)
-			sprintf(tmpbufB, "s");
+		// if (SlwFlg)
+		// 	sprintf(tmpbufB, "s");
+		// else
+		// 	sprintf(tmpbufB, "f");
+		// if (NoisFlg)
+		// 	sprintf(tmpbufB, "n");
+		if(advparser.BgMode)
+			sprintf(tmpbufB, "S ");
 		else
-			sprintf(tmpbufB, "f");
-		if (NoisFlg)
-			sprintf(tmpbufB, "n");
+			sprintf(tmpbufB, "E ");	
 		DFault.TRGT_FREQ = (int)TARGET_FREQUENCYC;																					 // update the default setting with the current Geortzel center frequency; Can & will change while in the AUTO-Tune mode
 		sprintf(buf, "%d/%d.%d WPM FREQ %dHz %s %s%s", wpm, ratioInt, ratioDecml, int(TARGET_FREQUENCYC), tmpbuf, tmpbufA, tmpbufB); // normal ESP32 CW deoder status display
 		// sprintf(buf, "SI %dms  FREQ %dHz %s %s", SI, int(TARGET_FREQUENCYC), tmpbuf, tmpbufA); //un-comment for diagnositic testing only;; Shws ADC sample interval

@@ -10,12 +10,15 @@
  * plus changes to keystate detection (curnois lvl)
  */
 /*20240103 added void CurMdStng(int MdStng) primarily to switch in extended symbol set timing while in Bg1 mode*/
+/*20240114 added small differential term to noisLvl to improve noise tracking with widely spaced characters
+			Added timing link to AdvPaser to imporve FltrPrd timing (glitch protection/rejection)*/
 #include <stdio.h>
 #include "Arduino.h"
 #include "Goertzel.h"
 #include "DcodeCW.h"
 #include "TFTMsgBox.h"
 #define MagBSz  6//3
+AdvParser advparser;
 uint16_t adc_buf[Goertzel_SAMPLE_CNT];
 uint8_t LongSmplFlg =1; // controls high speed sampling VS High Sensitivity ;can not set the value here
 uint8_t NuMagData = 0x0;
@@ -30,7 +33,7 @@ bool Ready = true;
 bool toneDetect = false;
 bool SlwFlg = false;
 bool TmpSlwFlg = false;
-bool NoisFlg = false;
+bool NoisFlg = false;//In ESP32 world NoisFlg is not used & is always false
 bool AutoTune = true; //false; //true;
 bool Scaning = false;
 
@@ -119,7 +122,7 @@ float SigPk =0;
 float MagBuf[MagBSz];
 float NoisBuf[2*MagBSz];
 int NoisPtr = 0;
-float noisLvl =0;
+float noisLvl = 0;
 int ClimCnt = 0;
 int KeyDwnCnt = 0;
 int GData[Goertzel_SAMPLE_CNT];
@@ -148,7 +151,7 @@ void PlotIfNeed2(void){
 		//sprintf(PlotTxt, "%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n", (int)CurLvl, (int)SqlchLvl, (int)NoiseFlr, KeyState, (int)CurNoise, (int)AdjSqlch-500, NFkeystate, PltGudSig);//standard plot display
 		//sprintf(PlotTxt, "%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n", (int)noisLvl, (int)CurLvl, (int)SigDect, KeyState, NFkeystate, (int)CurNoise, (int)AdjSqlch-90, ClimCnt);
 	
-		sprintf(PlotTxt, "%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n", (int)noisLvl, (int)CurLvl, (int)SigDect, KeyState, NFkeystate, (int)CurNoise, (int)noisLvl-90, ltrCmplt);//standard plot display
+		sprintf(PlotTxt, "%d\t%d\t%d\t%d\t%d\t%d\t%d\n", (int)noisLvl, (int)CurLvl, (int)SigDect, KeyState, NFkeystate, (int)CurNoise, ltrCmplt);//standard plot display
 		
 		//sprintf(PlotTxt, "%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n", (int)CurLvl, (int)NFlrBase, NFlrRatio, (int)NoiseFlr, KeyState, (int)CurNoise, (int)AdjSqlch-500, NFkeystate);
 		//sprintf(PlotTxt, "%d\t%d\t%d\t%d\n", (int)now, (int)NoisePrd, (int)avgDit, keystate);
@@ -327,10 +330,14 @@ void ComputeMags(unsigned long now){
 	if(curNois>6000) curNois = 6000;//if(curNois>8000) curNois = 8000;
 	//printf("%d\n", (int)curNois);
 	curNois *= 2.2;//curNois *= 1.8;
-	if(!NoisFlg){
-		if(!GltchFlg && (avgDit < 1200 / 35)) noisLvl = ((35*noisLvl) + curNois)/36;
-		else noisLvl = ((35*noisLvl) + curNois)/36;//noisLvl = ((15*noisLvl) + curNois)/16; //20231021
-	} else noisLvl = ((35*noisLvl) + curNois)/36;
+	noisLvl = ((35*noisLvl) + curNois)/36;
+	/*Now look to see if the noise is increasing
+	And if it is, Add a differential term/componet to the noisLvl*/
+	int LstNLvlIndx = NoisPtr-1;
+	if(LstNLvlIndx < 0) LstNLvlIndx = 2*MagBSz- 1;
+	if(noisLvl>NoisBuf[LstNLvlIndx]) {
+		noisLvl += 0.3*(noisLvl-NoisBuf[LstNLvlIndx]);
+	}
 	/*save this noise value to histrory ring buffer for later comparison */
 	NoisPtr++;
 	if(NoisPtr == 2*MagBSz) NoisPtr = 0;
@@ -547,11 +554,14 @@ void Chk4KeyDwn(float NowLvl)
 		}
 		
 		if(!GltchFlg && (avgDit >= 1200 / 30)){ // don't use "glitch" detect/correction for speeds greater than 30 wpm
-			FltrPrd = (unsigned long)(avgKeyDwn/4.0);//20230912 going back to this timing; after implementing kill gliching under strong sig conditions avgKeyDwn as measured above seems to be abt twice that of the avgDit //4.0
+			//FltrPrd = (unsigned long)(avgKeyDwn/4.0);//20230912 going back to this timing; after implementing kill gliching under strong sig conditions avgKeyDwn as measured above seems to be abt twice that of the avgDit //4.0
 			//unsigned long FltrPrd = (unsigned long)(avgKeyDwn/6.0); ///4.0, was on one sender bridging some spaces that shouldn't have been brigged
 			/*Some straight keys & Bug senders have unusually small dead space between their dits (and Dahs). 
 			When thats the case, use the DcodeCW's avgDeadspace to set the duration of the glitch period */
-			if(FltrPrd > AvgSmblDedSpc/2) FltrPrd = (unsigned long)((AvgSmblDedSpc)/2);
+			//if(FltrPrd > AvgSmblDedSpc/2) FltrPrd = (unsigned long)((AvgSmblDedSpc)/3.0);
+			if(AvgSmblDedSpc< advparser.AvgSmblDedSpc){
+				FltrPrd = (unsigned long)((AvgSmblDedSpc)/3.0);
+			} else FltrPrd = (unsigned long)((advparser.AvgSmblDedSpc)/3.0);
 			if(ModeCnt == 3) FltrPrd = 4;//we are running in cootie mode, so lock the glitch inerval to a fixed value of 8ms.
 			NoisePrd = Now2 + FltrPrd;
 			OldKeyState = KeyState;
@@ -563,12 +573,7 @@ void Chk4KeyDwn(float NowLvl)
 			OldKeyState = KeyState;
 			GltchFlg = true;
 			EvntTime = TmpEvntTime;
-			// if((avgDit < 1200 / 36)){//20231031 changed from 1200/30 to 1200/35
-			// 	SlwFlg = false;
-          	// 	NoisFlg = false;
-			// }else if(avgDit > 1200 / 30){//20231031 added else if()to auto swap both ways
-			// 	SlwFlg = true;
-			// }
+			
 		}
 	}
 	/** 20231231 commented the following out for testing */
