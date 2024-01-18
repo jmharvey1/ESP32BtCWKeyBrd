@@ -19,7 +19,9 @@
  * 20231231 tweeks related to new 8ms/4ms sampling method
  * 20240103 Modified extented sysmbolset timing to only effect Bg1 mode
  * 20240114 Changed AdvPaser linking to handle post processed string overwrites that were longer than the origimal text
- * */
+ * 20240116 Expanded time intervsl storage from 16 interval to 24 using MaxIntrvlCnt to support senders who think its ok to send more than five symbols W/o a letter break
+ * 20240117 Addede AdvParser detected keymode to dispaly status line
+ *   */
  
 
 // #include <SetUpCwDecoder.h>
@@ -30,7 +32,7 @@
 // #include "TchScrnCal.h"
 #include "Arduino.h" //For ESP32, may not need this reference, since timr5 count calls are replaced with ESP32 equivalent
 // #include "SerialClass.h"
-
+#define MaxIntrvlCnt 24
 int ShrtBrk[10];
 int charCnt = 0;
 int shwltrBrk = 0;
@@ -39,7 +41,7 @@ int badCodeCnt = 0;
 int dahcnt = 0;
 int MsgChrCnt[2];
 int ltrCmplt = -2200; // letter complete false;  used in plot mode, to show where/when letter breaks are detected
-volatile int TimeDat[16];
+volatile int TimeDat[MaxIntrvlCnt];
 int Bitpos = 0;
 int badKeyEvnt = 0;
 int DeleteID = 0;
@@ -173,10 +175,10 @@ volatile unsigned long OldltrBrk = 0;
 volatile unsigned long BadDedSpce = 0;
 unsigned long LastdeadSpace = 0;
 unsigned long BadSpceStk[5];
-unsigned long SpaceStk[16];	  // use this to refine parsing of failed decodeval
-unsigned long SpcIntrvl[16];  // use this to refine parsing of failed decodeval
-unsigned long SpcIntrvl1[16]; // use this to refine parsing of failed decodeval
-unsigned long SpcIntrvl2[16]; // use this to refine parsing of failed decodeval
+unsigned long SpaceStk[MaxIntrvlCnt];	  // use this to refine parsing of failed decodeval
+unsigned long SpcIntrvl[MaxIntrvlCnt];  // use this to refine parsing of failed decodeval
+unsigned long SpcIntrvl1[MaxIntrvlCnt]; // use this to refine parsing of failed decodeval
+unsigned long SpcIntrvl2[MaxIntrvlCnt]; // use this to refine parsing of failed decodeval
 unsigned long PrdStack[10];
 int PrdStackPtr = 0;
 int Shrt = 1200;
@@ -269,7 +271,7 @@ void KeyEvntSR(uint8_t Kstate, unsigned long EvntTime)
 		if (Kstate == LOW && XspctLo)
 		{// key-down event
 			start1 = EvntTime; //used/saved in case recovery is needed
-			if (((EvntTime - noSigStrt) < 15) && (wpm < 35))
+			if (((EvntTime - noSigStrt) < 15) && (wpm < 35) && !Bug2)
 			{
 				if(Test && NrmFlg){
 					printf("ABORT Kdwn\n");
@@ -329,15 +331,15 @@ void KeyEvntSR(uint8_t Kstate, unsigned long EvntTime)
 						/* restore old space interval values */
 						unsigned long LstSpcTm = SpaceStk[0];
 						Bitpos = 0;
-						while ((SpcIntrvl[Bitpos] != 0) && (Bitpos < 16))
+						while ((SpcIntrvl[Bitpos] != 0) && (Bitpos < MaxIntrvlCnt))
 						{
 							SpaceStk[Bitpos] = SpcIntrvl[Bitpos];
 							++Bitpos;
 						}
 						SpaceStk[Bitpos] = LstSpcTm;
 						//++Bitpos;
-						if (Bitpos > 15)
-							Bitpos = 15;
+						if (Bitpos > MaxIntrvlCnt -1)
+							Bitpos = MaxIntrvlCnt -1;
 					}
 					if (DeCodeVal == 0)
 					{ // Last letter received was posted to the screen
@@ -348,14 +350,14 @@ void KeyEvntSR(uint8_t Kstate, unsigned long EvntTime)
 							/* restore old space interval values */
 							unsigned long LstSpcTm = SpaceStk[0];
 							Bitpos = 0;
-							while ((SpcIntrvl2[Bitpos] != 0) && (Bitpos < 16))
+							while ((SpcIntrvl2[Bitpos] != 0) && (Bitpos < MaxIntrvlCnt))
 							{
 								SpaceStk[Bitpos] = SpcIntrvl2[Bitpos];
 								++Bitpos;
 							}
 							SpaceStk[Bitpos] = LstSpcTm;
-							if (Bitpos > 15)
-								Bitpos = 15;
+							if (Bitpos > MaxIntrvlCnt -1)
+								Bitpos = MaxIntrvlCnt -1;
 							dletechar = true;
 							DeleteID = 1;
 							if(DeCodeVal <=3 ) FrstSymbl = true;//20240103 added to stop reset
@@ -376,8 +378,8 @@ void KeyEvntSR(uint8_t Kstate, unsigned long EvntTime)
 					}
 					else
 					{ // abort letter break process
-						if (Bitpos > 15)
-							Bitpos = 15;
+						if (Bitpos > MaxIntrvlCnt -1)
+							Bitpos = MaxIntrvlCnt -1;
 						if (Bug3 && SCD && Test)
 						{
 							for (int i = 0; i < sizeof(tmpbuf); i++)
@@ -507,9 +509,9 @@ void KeyEvntSR(uint8_t Kstate, unsigned long EvntTime)
 				WrdStrt = noSigStrt;
 				TimeDat[Bitpos] = period;
 				Bitpos += 1;
-				if (Bitpos > 15)
+				if (Bitpos > MaxIntrvlCnt -1)
 				{
-					Bitpos = 15;		   // watch out: this character has too many symbols for a valid CW character
+					Bitpos = MaxIntrvlCnt -1;		   // watch out: this character has too many symbols for a valid CW character
 					letterBrk = noSigStrt; // force a letter brk (to clear this garbage
 					if (DeCodeVal == 1)
 					{					   // this should never be the case, But if true, force DeCodeVal to be something that can be evaluated
@@ -927,15 +929,15 @@ void GrabBack(bool IsDah)
 	/* restore space interval values linked to DCVStrd[1] */
 	unsigned long LstSpcTm = SpaceStk[0];
 	Bitpos = 0;
-	while ((SpcIntrvl2[Bitpos] != 0) && (Bitpos < 16))
+	while ((SpcIntrvl2[Bitpos] != 0) && (Bitpos < MaxIntrvlCnt))
 	{
 		SpaceStk[Bitpos] = SpcIntrvl2[Bitpos];
 		++Bitpos;
 	}
 	SpaceStk[Bitpos] = LstSpcTm;
 	++Bitpos;
-	if (Bitpos > 15)
-		Bitpos = 15;
+	if (Bitpos > MaxIntrvlCnt -1)
+		Bitpos = MaxIntrvlCnt -1;
 	DeCodeVal = DeCodeVal << 1;
 	if(IsDah) DeCodeVal = DeCodeVal + 1;
 	if (Test && NrmFlg)
@@ -1458,50 +1460,57 @@ bool chkChrCmplt(void)
 		// the contents of the AutoMode detector time buffers
 		if (KeyDwnPtr > 2 && KeyUpPtr > 2 && KeyUpIntrvls[0] > 0 && KeyDwnIntrvls[0] > 0)
 		{
-			// if (KeyDwnPtr != KeyUpPtr)printf("Pointer ERROR\n");
-			advparser.EvalTimeData(KeyUpIntrvls, KeyDwnIntrvls, KeyUpPtr, KeyDwnPtr);
-			/*Now compare Advparser decoded text to original text; If not the same,
-			replace displayed with Advparser version*/
-			bool same = true;
-			bool Tst4Match = true;
-			int i;
-			int FmtchPtr;
-			/*Scan/compare last word displayed w/ advpaser's version*/
-			if (advparser.GetMsgLen() > LtrPtr){// if the advparser verson is longer, then delete the last word printed
-				same = false;
-				i = LtrPtr;
-			}
-			else
-			{
-				for (i = 0; i < LtrPtr; i++)
-				{
-					if (advparser.Msgbuf[i] == 0)
-						Tst4Match = false;
-					if ((LtrHoldr[i] != advparser.Msgbuf[i]) && Tst4Match)
-					{
-						FmtchPtr = i;
-						same = false;
-					}
-					if (LtrHoldr[i] == 0)
-						break;
+			if (LtrPtr > 1 && (wpm > 13))
+			{ // dont do post parsing with just one letter or WPMs <= 13
+				advparser.EvalTimeData(KeyUpIntrvls, KeyDwnIntrvls, KeyUpPtr, KeyDwnPtr);
+				/*Now compare Advparser decoded text to original text; If not the same,
+				replace displayed with Advparser version*/
+				bool same = true;
+				bool Tst4Match = true;
+				int i;
+				int FmtchPtr;
+				if (DeBug)
+					advparser.Dbug = true;
+				else
+					advparser.Dbug = false;
+				/*Scan/compare last word displayed w/ advpaser's version*/
+				if (advparser.GetMsgLen() > LtrPtr)
+				{ // if the advparser verson is longer, then delete the last word printed
+					same = false;
+					i = LtrPtr;
 				}
-			}
-			/*If they don't match, replace displayed text with AdvParser's version*/
-			if (!same)
-			{
-				bool oldDltState = dletechar;
-				dletechar = true;
-				MsgChrCnt[1] = i; // Load delete buffer w/ the number of characters to be deleted from the display
-				// printf("No Match @ %d; %d; %d\n", FmtchPtr, LtrHoldr[FmtchPtr], advparser.Msgbuf[FmtchPtr]);
-				CptrTxt = false;
-				dispMsg(advparser.Msgbuf);
-				CptrTxt = true;
-				dletechar = oldDltState;
-			} // else printf("Match\n");
+				else
+				{
+					for (i = 0; i < LtrPtr; i++)
+					{
+						if (advparser.Msgbuf[i] == 0)
+							Tst4Match = false;
+						if ((LtrHoldr[i] != advparser.Msgbuf[i]) && Tst4Match)
+						{
+							FmtchPtr = i;
+							same = false;
+						}
+						if (LtrHoldr[i] == 0)
+							break;
+					}
+				}
+				/*If they don't match, replace displayed text with AdvParser's version*/
+				if (!same)
+				{
+					bool oldDltState = dletechar;
+					dletechar = true;
+					MsgChrCnt[1] = i; // Load delete buffer w/ the number of characters to be deleted from the display
+					// printf("Pointer ERROR\n");/ printf("No Match @ %d; %d; %d\n", FmtchPtr, LtrHoldr[FmtchPtr], advparser.Msgbuf[FmtchPtr]);
+					CptrTxt = false;
+					dispMsg(advparser.Msgbuf);
+					CptrTxt = true;
+					dletechar = oldDltState;
+				} // else printf("Match\n");
+			} else advparser.KeyType = 4;// round about way to update display status line to indicate no post processing
 		}
 		if (advparser.Dbug)
 			printf(LtrHoldr);
-
+ 		//erase contents of LtrHoldr & rest its index pointer (LtrPtr)
 		for (int i = 0; i < LtrPtr; i++)
 			LtrHoldr[i] = 0;
 		LtrPtr = 0;
@@ -1559,7 +1568,7 @@ bool chkChrCmplt(void)
 
 				int p = 0;
 				// for (int p = 0;  p < Bitpos; p++ ) { // map timing info into time buffer (used only for debugging
-				while (p < 16)
+				while (p < MaxIntrvlCnt)
 				{
 					if (p < Bitpos)
 					{
@@ -1990,6 +1999,7 @@ void SetModFlgs(int ModeVal)
 		break;
 	case 2: //Bg2
 		BugMode = true;
+		Bug2 = false;
 		NrmMode = false;
 		Bug3 = false;
 		break;
@@ -2075,7 +2085,7 @@ void DisplayChar(unsigned int decodeval)
 		// }
 		DCVStrd[0] = decodeval;//incase we decide this is actaully part of a longer symbol set, save this value/pattern, 
 		/*Again, for ESP32 setup, the following for loop isn't really needed */
-		for (int p = 0; p < 16; p++)
+		for (int p = 0; p < MaxIntrvlCnt; p++)
 		{
 			if ((SpcIntrvl[p] <= 6) && (SpcIntrvl[p] != 0) && (p != 0))
 				GlitchCnt++; // ignore the first "space" value. It could be anything
@@ -2152,7 +2162,7 @@ void DisplayChar(unsigned int decodeval)
 				{
 					sprintf( Msgbuf, "%s",  TmpBufA);
 					DCVStrd[0] = 0;
-					for (int p = 0; p < 16; p++)
+					for (int p = 0; p < MaxIntrvlCnt; p++)
 					{
 						SpcIntrvl1[p] = 0;
 						SpcIntrvl[p] = 0;
@@ -2175,9 +2185,9 @@ void DisplayChar(unsigned int decodeval)
 					while (TmpBufA[ChrCntFix] != 0)
 						++ChrCntFix; // record how many characters will be printed in this group
 					DCVStrd[0] = DcdVal2;
-					for (int p = 0; p < 16; p++)
+					for (int p = 0; p < MaxIntrvlCnt; p++)
 					{
-						if (p + EndSPntr < 16)
+						if (p + EndSPntr < MaxIntrvlCnt)
 							SpcIntrvl1[p] = SpcIntrvl[p + EndSPntr];
 						else
 							SpcIntrvl1[p] = 0;
@@ -2193,7 +2203,7 @@ void DisplayChar(unsigned int decodeval)
 		{
 			// sprintf( Msgbuf, "!");
 			DCVStrd[0] = 0;
-			for (int p = 0; p < 16; p++)
+			for (int p = 0; p < MaxIntrvlCnt; p++)
 			{
 				SpcIntrvl1[p] = 0;
 				SpcIntrvl[p] = 0;
@@ -2392,7 +2402,7 @@ void dispMsg(char Msgbuf[50])
 
 		MsgChrCnt[1] = MsgChrCnt[0];
 		DCVStrd[1] = DCVStrd[0]; // used by the KeyEvntSR()routine to facilitate grabbing back the last key sequence data received
-		for (int p = 0; p < 16; p++)
+		for (int p = 0; p < MaxIntrvlCnt; p++)
 		{
 			SpcIntrvl2[p] = SpcIntrvl1[p];
 		}
@@ -2622,10 +2632,27 @@ void showSpeed(void)
 		// 	sprintf(tmpbufB, "f");
 		// if (NoisFlg)
 		// 	sprintf(tmpbufB, "n");
-		if(advparser.BgMode)
+		switch (advparser.KeyType)
+		{
+		case 0:
+			sprintf(tmpbufB, "E ");
+			break;
+		case 1:
 			sprintf(tmpbufB, "S ");
-		else
-			sprintf(tmpbufB, "E ");	
+			break;
+		case 2:
+			sprintf(tmpbufB, "C ");
+			break;
+		case 3:
+			sprintf(tmpbufB, "c ");
+			break;
+		case 4:
+			sprintf(tmpbufB, "- ");
+			break;			
+		default:
+			sprintf(tmpbufB, "? ");
+			break;
+		}
 		DFault.TRGT_FREQ = (int)TARGET_FREQUENCYC;																					 // update the default setting with the current Geortzel center frequency; Can & will change while in the AUTO-Tune mode
 		sprintf(buf, "%d/%d.%d WPM FREQ %dHz %s %s%s", wpm, ratioInt, ratioDecml, int(TARGET_FREQUENCYC), tmpbuf, tmpbufA, tmpbufB); // normal ESP32 CW deoder status display
 		// sprintf(buf, "SI %dms  FREQ %dHz %s %s", SI, int(TARGET_FREQUENCYC), tmpbuf, tmpbufA); //un-comment for diagnositic testing only;; Shws ADC sample interval
