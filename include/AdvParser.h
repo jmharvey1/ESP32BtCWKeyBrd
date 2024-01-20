@@ -50,7 +50,7 @@ private:
     bool Cooty2Rules(int n);
     void insertionSort(uint16_t arr[], int n);
 	void SetSpltPt(Buckt_t arr[], int n);
-    int AdvSrch4Match(unsigned int decodeval, bool DpScan);
+    int AdvSrch4Match(int n, unsigned int decodeval, bool DpScan);
     void PrintThisChr(void);
     int DitDahBugTst(void); //returns 2 for unknown; 0 for paddle; 1 for bug
     void Dcode4Dahs(int n);

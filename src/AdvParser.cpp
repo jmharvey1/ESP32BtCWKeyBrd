@@ -13,6 +13,8 @@
  * 20240114 numerous changes/adds to bug and paddle letter break rule set "Tst4LtrBrk(int n)")
  * 20240116 added test to ensure msgbuf doesn't overflow
  * 20240117 added Dcode4Dahs() to class; parses 4 dahs into "TO" or "OT", "MM" also a possible result 
+ * 20240119 added test for paddle/keybrd by finding all dahs have the same interval; added subparsing to AdvSrch4Match() method
+ * 20240119 also revised SetSpltPt() method to better find the dit dah decision point
  * */
 #include "AdvParser.h"
 #include "DcodeCW.h"
@@ -166,14 +168,19 @@ void AdvParser::EvalTimeData(uint16_t KeyUpIntrvls[IntrvlBufSize], uint16_t KeyD
         {
         case 0:
             /* its a paddle */
-            bgPdlCd = 70;
+            bgPdlCd = 70; // because all dahs have the same duration 
             BugKey = 0;
             break;
         case 1:
+            /* its a paddle */
+            bgPdlCd = 75;
+            BugKey = 0;
+            break;
+        case 2:
             /* its a bug */
             bgPdlCd = 80;
             BugKey = 1;
-            break;
+            break;    
 
         default:
 
@@ -349,11 +356,11 @@ void AdvParser::EvalTimeData(uint16_t KeyUpIntrvls[IntrvlBufSize], uint16_t KeyD
             and subdivide this into something that can be decoded*/
             if((SymbSet == 31))
              Dcode4Dahs(n);
-            else int IndxPtr = AdvSrch4Match(SymbSet, true); // try to convert the current symbol set to text &
+            else int IndxPtr = AdvSrch4Match(n, SymbSet, true); // try to convert the current symbol set to text &
                                                         // and save/append the results to 'Msgbuf[]'
                                                         // start a new symbolset
-            LstLtrBrkCnt = 0;   //don't need this                                         
-        } else LstLtrBrkCnt++;   //don't need this
+            LstLtrBrkCnt = 0;                                           
+        } else LstLtrBrkCnt++; 
         if (Dbug)
         {
             printf("\tLBrkCd: %d", ExitPath[n]);
@@ -411,18 +418,26 @@ void AdvParser::SetSpltPt(Buckt_t arr[], int n)
     uint16_t NuSpltVal = 0;
     AllDah = true; // made this a class property so it could be used later in the "Tst4LtrBrk()" method
     bool AllDit = true;
+    int lastDitPtr = 0;
+    int lastDahPtr = n;
+    /*start with shortest & longest intervals ()1st & last entries) and work toward the middle*/
     for (i = 0; i <= (n + 1) / 2; i++)
     {
-        if ((2 * arr[i].Intrvl) < arr[n - i].Intrvl)
+        if ((2 * arr[i].Intrvl) < arr[lastDahPtr-i].Intrvl)
         {
-            NuSpltVal = arr[i].Intrvl + (arr[n - i].Intrvl - arr[i].Intrvl) / 2;
+            lastDitPtr = i;
         }
+        if ((2 * arr[lastDitPtr].Intrvl) < arr[n - i].Intrvl)
+        {
+            lastDahPtr = n-i;
+        }
+        NuSpltVal = arr[lastDitPtr].Intrvl + (arr[lastDahPtr].Intrvl - arr[lastDitPtr].Intrvl) / 2;
         if ((arr[i - 1].Intrvl < DitDahSplitVal) )
             AllDah = false;
         if ((arr[n -i].Intrvl > DitDahSplitVal) )
             AllDit = false;    
     }
-
+    printf("\nlastDitPtr =%d; lastDahPtr =%d; ditVal:%d; dahVal:%d\n", lastDitPtr, lastDahPtr, arr[lastDitPtr].Intrvl, arr[lastDahPtr].Intrvl);
     // for (i = 1; i <= n; i++)
     // {
     //     if ((arr[i - 1].Intrvl < DitDahSplitVal) || (arr[i].Intrvl < DitDahSplitVal))
@@ -744,12 +759,13 @@ bool AdvParser::BugRules(int n)
     return ltrbrkFlg;
 };
 ////////////////////////////////////////////////////////
-int AdvParser::AdvSrch4Match(unsigned int decodeval, bool DpScan)
+int AdvParser::AdvSrch4Match(int n, unsigned int decodeval, bool DpScan)
 {
     /*1st test, & confirm, there's sufficient space to add search results to the 'Msgbuf'*/
     if (LstLtrPrntd >= (MsgbufSize - 5))
         return 0;
-    int pos1 = linearSearchBreak(decodeval, CodeVal1, ARSIZE); // note: decodeval '255' returns SPACE character
+
+    /*make a copy of the current message buffer */
     char TmpBufA[MsgbufSize - 5];
     for (int i = 0; i < sizeof(TmpBufA); i++)
     {
@@ -757,12 +773,63 @@ int AdvParser::AdvSrch4Match(unsigned int decodeval, bool DpScan)
         if (this->Msgbuf[i] == 0)
             break;
     }
+    int pos1 = linearSearchBreak(decodeval, CodeVal1, ARSIZE); // note: decodeval '255' returns SPACE character
 
     if (pos1 < 0 && DpScan)
     { // did not find a match in the standard Morse table. So go check the extended dictionary
         pos1 = linearSearchBreak(decodeval, CodeVal2, ARSIZE2);
         if (pos1 < 0)
-            sprintf(this->Msgbuf, "%s%s", TmpBufA, "*");
+        { /*Still no match. Go back and sub divide this group timing inervals into two smaller set & look again*/
+            // sprintf(this->Msgbuf, "%s%s", TmpBufA, "*");
+            /*Build 2 new symbsets & try to decode them*/
+            /*find the longest keyup time in this interval group*/
+            int NuLtrBrk = 0;
+            uint16_t LongestKeyUptime = 0;
+            unsigned int Symbl1, Symbl2;
+            int Start = n - this->LstLtrBrkCnt;
+            //printf("\nLstLtrBrkCnt: %d; offset: %d; ",LstLtrBrkCnt, Start);
+            for (int i = Start; i < n; i++)//stop 1 short of the original letter break
+            {
+                if (TmpUpIntrvls[i] > LongestKeyUptime)
+                {
+                    NuLtrBrk = i;
+                    LongestKeyUptime = TmpUpIntrvls[i];
+                }
+            }
+            /** Build 1st symbol set based on start of the the original group & the found longest interval*/
+            Symbl1 = 1;
+            for (int i = Start; i <= NuLtrBrk; i++)
+            {
+                Symbl1 = Symbl1 << 1;                      // append a new bit to the symbolset & default it to a 'Dit'
+                if (TmpDwnIntrvls[i] + 8 > DitDahSplitVal) // if within *ms of the split value, its a 'dah'
+                    Symbl1 += 1;
+            }
+            //printf("\t1st Start:%d; NuLtrBrk:%d; Symbl1: %d; ", Start, NuLtrBrk, Symbl1);
+            Start = NuLtrBrk + 1;
+            Symbl2 = 1;
+            for (int i = Start; i <= n; i++)
+            {
+                Symbl2 = Symbl2 << 1;                      // append a new bit to the symbolset & default it to a 'Dit'
+                if (TmpDwnIntrvls[i] + 8 > DitDahSplitVal) // if within *ms of the split value, its a 'dah'
+                    Symbl2 += 1;
+            }
+            //printf("\t2nd Start:%d; n:%d; Symbl2: %d\n", Start, n, Symbl2);
+            /*Now find character matches for these two new symbol sets,
+             and append their results to the message buffer*/
+            pos1 = linearSearchBreak(Symbl1, CodeVal1, ARSIZE);
+            if(pos1 >0){
+            sprintf(this->Msgbuf, "%s%s", TmpBufA, DicTbl1[pos1]);
+            /*make another copy of the current message buffer */
+            for (int i = 0; i < sizeof(TmpBufA); i++)
+            {
+                TmpBufA[i] = this->Msgbuf[i];
+                if (this->Msgbuf[i] == 0)
+                    break;
+            }
+            }
+            pos1 = linearSearchBreak(Symbl2, CodeVal1, ARSIZE);
+            if(pos1 >0) sprintf(this->Msgbuf, "%s%s", TmpBufA, DicTbl1[pos1]);
+        }
         else
         {
 
@@ -795,52 +862,83 @@ int AdvParser::GetMsgLen(void)
     return this->LstLtrPrntd;
 };
 //////////////////////////////////////////////////////////////////////////////
-/*Bug test by noting the keyup interval is shorter between dahs vs dits
- * returns 2 for unknown; 0 for paddle; 1 for bug.
+/* Paddle/keybrd test by finding constant dah intervals.
+ * Bug test by noting the keyup interval is consistantly shorter between the dits vs dahs
+ * returns 0 or 1 for paddle, 2 for bug, &  3 for unknown;.
  */
 int AdvParser::DitDahBugTst(void)
 {
     int ditcnt;
-    int dahcnt = ditcnt = 0;
+    int dahDwncnt;
+    int dahcnt = ditcnt = dahDwncnt = 0;
     uint16_t dahInterval;
-    uint16_t ditInterval = dahInterval = 0;
-    int stop = TmpUpIntrvlsPtr-1;
+    uint16_t dahDwnInterval;
+    uint16_t ditInterval = dahInterval = dahDwnInterval = 0;
+    int stop = TmpUpIntrvlsPtr - 1;
     for (int n = 0; n < stop; n++)
     {
+        /*Sum the numbers for any non letterbreak terminated dah*/
+        if (n > 0 && (TmpDwnIntrvls[n] > DitDahSplitVal) &&
+            (TmpUpIntrvls[n] < 1.25 * DitDahSplitVal))
+        {
+            dahDwnInterval += TmpDwnIntrvls[n];
+            dahDwncnt++;
+        }
         /*test for 2 adjcent dahs. But only include if there's not an apparent letter break between them */
         if ((TmpDwnIntrvls[n] > DitDahSplitVal) &&
             (TmpDwnIntrvls[n + 1] > DitDahSplitVal) &&
-            (TmpUpIntrvls[n] < 1.25*DitDahSplitVal))
+            (TmpUpIntrvls[n] < 1.25 * DitDahSplitVal))
         {
             dahInterval += TmpUpIntrvls[n];
             dahcnt++;
         }
         /*test for 2 adjcent dits. But only include if there's not a letter break between them */
         else if ((TmpDwnIntrvls[n] < DitDahSplitVal) &&
-            (TmpDwnIntrvls[n + 1] < DitDahSplitVal) &&
-            (TmpUpIntrvls[n] < DitDahSplitVal))
+                 (TmpDwnIntrvls[n + 1] < DitDahSplitVal) &&
+                 (TmpUpIntrvls[n] < DitDahSplitVal))
         {
             ditInterval += TmpUpIntrvls[n];
             ditcnt++;
         }
     }
-    //printf("\nditcnt:%d; dahcnt:%d; interval cnt: %d\n", ditcnt, dahcnt, stop);
+    /*Test/check for constant dah intervals*/
+    if (dahDwncnt > 0)
+    {
+        /* average/normalize results */
+        dahDwnInterval /= dahDwncnt;
+
+        /*if all dah intervals are the same, its a paddle/keyboard */
+        bool same = true;
+        for (int n = 1; n < stop; n++)// skip the 1st key down event because testing showed the timing of the 1st event is often shorter than the rest in the group
+        {
+            if ((TmpDwnIntrvls[n] > DitDahSplitVal) &&
+                (TmpUpIntrvls[n] < 1.25 * DitDahSplitVal))
+            {
+                if ((TmpDwnIntrvls[n] > (dahDwnInterval + 6)) || (TmpDwnIntrvls[n] < (dahDwnInterval - 6)))
+                    same = false;
+            }
+        }
+        if (same)
+            return 0; // paddle/krybrd
+    }
+    // printf("\nditcnt:%d; dahcnt:%d; interval cnt: %d\n", ditcnt, dahcnt, stop);
     if (ditcnt > 0 && dahcnt > 0)
     {
         /* average/normalize results */
         dahInterval /= dahcnt;
         ditInterval /= ditcnt;
-        //printf("\nditcnt:%d; dahcnt:%d; ditInterval: %d; dahInterval: %d\n", ditcnt, dahcnt, ditInterval, dahInterval);
+        // printf("\nditcnt:%d; dahcnt:%d; ditInterval: %d; dahInterval: %d\n", ditcnt, dahcnt, ditInterval, dahInterval);
         if (dahInterval > ditInterval + 8)
-            return 1;
+            return 2; // bug
         else
-            return 0;
+            return 1; // paddle/krybrd
     }
     else
-        return 2; // not enough info to decide
+        return 3; // not enough info to decide
 };
 /////////////////////////////////////////////
- void AdvParser::Dcode4Dahs(int n){
+void AdvParser::Dcode4Dahs(int n)
+{
     int NuLtrBrk = 0;
     uint16_t LongestKeyUptime = 0;
     unsigned int Symbl1, Symbl2;
@@ -871,6 +969,6 @@ int AdvParser::DitDahBugTst(void)
         Symbl2 = 76; //"?"
         break;
     }
-    this->AdvSrch4Match(Symbl1, false);
-    this->AdvSrch4Match(Symbl2, false);
+    this->AdvSrch4Match(0, Symbl1, false);
+    this->AdvSrch4Match(0, Symbl2, false);
  };
