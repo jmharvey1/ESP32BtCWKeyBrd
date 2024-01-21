@@ -15,6 +15,7 @@
  * 20240117 added Dcode4Dahs() to class; parses 4 dahs into "TO" or "OT", "MM" also a possible result 
  * 20240119 added test for paddle/keybrd by finding all dahs have the same interval; added subparsing to AdvSrch4Match() method
  * 20240119 also revised SetSpltPt() method to better find the dit dah decision point
+ * 20240120 reworked DitDahBugTst() method to better detect bug vs paddle/keyboard signals plus minor tweaks to bug rule set
  * */
 #include "AdvParser.h"
 #include "DcodeCW.h"
@@ -164,7 +165,7 @@ void AdvParser::EvalTimeData(uint16_t KeyUpIntrvls[IntrvlBufSize], uint16_t KeyD
     else
     {
         /*the following tests choose between paddle or bug*/
-        switch (this->DitDahBugTst())
+        switch (this->DitDahBugTst()) //returns 0, 1, or 5 for paddle, 2,3,& 4 for bug, &  6 for unknown;
         {
         case 0:
             /* its a paddle */
@@ -173,17 +174,32 @@ void AdvParser::EvalTimeData(uint16_t KeyUpIntrvls[IntrvlBufSize], uint16_t KeyD
             break;
         case 1:
             /* its a paddle */
-            bgPdlCd = 75;
+            bgPdlCd = 71;
             BugKey = 0;
             break;
         case 2:
             /* its a bug */
             bgPdlCd = 80;
             BugKey = 1;
-            break;    
+            break;
+        case 3:
+            /* its a bug */
+            bgPdlCd = 81;
+            BugKey = 1;
+            break;
+        case 4:
+            /* its a bug */
+            bgPdlCd = 82;
+            BugKey = 1;
+            break;         
+        case 5:
+            /* its a paddle */
+            bgPdlCd = 72;
+            BugKey = 0;
+            break;       
 
         default:
-
+            /*if we are here BugKey value equals 1; i.e., "bug/straight"*/
             if (KeyDwnBucktPtr + 1 <= 2)
             {
                 bgPdlCd = 1;
@@ -194,12 +210,12 @@ void AdvParser::EvalTimeData(uint16_t KeyUpIntrvls[IntrvlBufSize], uint16_t KeyD
                         bgPdlCd = 2;
                         if (1.5 * KeyUpBuckts[MaxCntKyUpBcktPtr].Intrvl < KeyUpBuckts[MaxCntKyUpBcktPtr + 1].Intrvl)
                         {
-                            BugKey = 0;
+                            BugKey = 0; /* its a paddle */
                             bgPdlCd = 3;
                         }
                         else if (TmpUpIntrvlsPtr >= 7)
                         {
-                            BugKey = 0;
+                            BugKey = 0;/* its a paddle */
                             bgPdlCd = 4;
                         }
                         else
@@ -215,12 +231,12 @@ void AdvParser::EvalTimeData(uint16_t KeyUpIntrvls[IntrvlBufSize], uint16_t KeyD
                         bgPdlCd = 7;
                         if (1.5 * KeyUpBuckts[MaxCntKyUpBcktPtr].Intrvl < KeyUpBuckts[MaxCntKyUpBcktPtr + 1].Intrvl)
                         {
-                            BugKey = 0;
+                            BugKey = 0;/* its a paddle */
                             bgPdlCd = 8;
                         }
                         else if (TmpUpIntrvlsPtr >= 8)
                         {
-                            BugKey = 0;
+                            BugKey = 0;/* its a paddle */
                             bgPdlCd = 9;
                         }
                         else
@@ -437,7 +453,7 @@ void AdvParser::SetSpltPt(Buckt_t arr[], int n)
         if ((arr[n -i].Intrvl > DitDahSplitVal) )
             AllDit = false;    
     }
-    printf("\nlastDitPtr =%d; lastDahPtr =%d; ditVal:%d; dahVal:%d\n", lastDitPtr, lastDahPtr, arr[lastDitPtr].Intrvl, arr[lastDahPtr].Intrvl);
+    //printf("\nlastDitPtr =%d; lastDahPtr =%d; ditVal:%d; dahVal:%d\n", lastDitPtr, lastDahPtr, arr[lastDitPtr].Intrvl, arr[lastDahPtr].Intrvl);
     // for (i = 1; i <= n; i++)
     // {
     //     if ((arr[i - 1].Intrvl < DitDahSplitVal) || (arr[i].Intrvl < DitDahSplitVal))
@@ -684,18 +700,17 @@ bool AdvParser::BugRules(int n)
                 BrkFlg = '+';
                 return true;
             }
-
             else
             {
                 ExitPath[n] = 10;
                 return false;
             }
-            /*test for 2 adjacent 'dits'*/
         }
+        /*test for 2 adjacent 'dits'*/
         else if ((TmpDwnIntrvls[n] < DitDahSplitVal) && (TmpDwnIntrvls[n + 1] < DitDahSplitVal))
         {
             /*we have two adjcent dits, set letter break if the key up interval is 2.0x longer than the shortest of the 2 Dits*/
-            if ((TmpUpIntrvls[n] > 1.5 * TmpDwnIntrvls[n]) || (TmpUpIntrvls[n] > 2 * TmpDwnIntrvls[n + 1]))
+            if ((TmpUpIntrvls[n] > 2 * TmpDwnIntrvls[n]+8) || (TmpUpIntrvls[n] > 2 * TmpDwnIntrvls[n + 1]+8))
             {
                 ExitPath[n] = 11;
                 BrkFlg = '+';
@@ -710,8 +725,9 @@ bool AdvParser::BugRules(int n)
         }
         else if ((TmpDwnIntrvls[n] > DitDahSplitVal) && (TmpDwnIntrvls[n + 1] < DitDahSplitVal))
         {
-            /*We have Dah to dit transistion set letter break only if key up interval is > 1.6x the dit interval*/
-            if ((TmpUpIntrvls[n] > 1.6 * TmpDwnIntrvls[n + 1]))
+            /*We have Dah to dit transistion set letter break only if key up interval is > 1.6x the dit interval
+            And the keyup time is move than half the dah interval*/ //20240120 added this 2nd qualifier
+            if ((TmpUpIntrvls[n] > 1.6 * TmpDwnIntrvls[n + 1])&& (TmpUpIntrvls[n] > 0.5 * TmpDwnIntrvls[n]))
             {
                 ExitPath[n] = 13;
                 BrkFlg = '+';
@@ -864,7 +880,7 @@ int AdvParser::GetMsgLen(void)
 //////////////////////////////////////////////////////////////////////////////
 /* Paddle/keybrd test by finding constant dah intervals.
  * Bug test by noting the keyup interval is consistantly shorter between the dits vs dahs
- * returns 0 or 1 for paddle, 2 for bug, &  3 for unknown;.
+ * returns 0, 1, or 5 for paddle, 2,3,& 4 for bug, &  6 for unknown;.
  */
 int AdvParser::DitDahBugTst(void)
 {
@@ -902,24 +918,43 @@ int AdvParser::DitDahBugTst(void)
         }
     }
     /*Test/check for constant dah intervals*/
-    if (dahDwncnt > 0)
+    if (dahDwncnt > 1)
     {
         /* average/normalize results */
         dahDwnInterval /= dahDwncnt;
-
+        /*test1*/
         /*if all dah intervals are the same, its a paddle/keyboard */
         bool same = true;
-        for (int n = 1; n < stop; n++)// skip the 1st key down event because testing showed the timing of the 1st event is often shorter than the rest in the group
+        dahDwncnt = 0;
+        uint16_t Tolrenc = (uint16_t)(0.08*(float)dahDwnInterval);
+        //printf("\nTolrenc %d\n", Tolrenc);
+        for (int n = 1; n < stop; n++) // skip the 1st key down event because testing showed the timing of the 1st event is often shorter than the rest in the group
         {
             if ((TmpDwnIntrvls[n] > DitDahSplitVal) &&
                 (TmpUpIntrvls[n] < 1.25 * DitDahSplitVal))
             {
-                if ((TmpDwnIntrvls[n] > (dahDwnInterval + 6)) || (TmpDwnIntrvls[n] < (dahDwnInterval - 6)))
+                dahDwncnt++;
+                if ((TmpDwnIntrvls[n] > (dahDwnInterval + Tolrenc)) || (TmpDwnIntrvls[n] < (dahDwnInterval - Tolrenc)))
                     same = false;
             }
         }
-        if (same)
-            return 0; // paddle/krybrd
+        /*test2*/
+        if (same && (dahDwncnt > 1))
+        {
+            if (ditcnt > 0 && dahcnt > 0)
+            {
+                /* average/normalize results */
+                dahInterval /= dahcnt;
+                ditInterval /= ditcnt;
+                // printf("\nditcnt:%d; dahcnt:%d; ditInterval: %d; dahInterval: %d\n", ditcnt, dahcnt, ditInterval, dahInterval);
+                if (dahInterval > ditInterval + 8)
+                    return 2; // bug
+                else
+                    return 1; // paddle/krybrd
+            }
+            else
+                return 0; // paddle/krybrd
+        } else if (dahDwncnt > 1) return 3; // bug
     }
     // printf("\nditcnt:%d; dahcnt:%d; interval cnt: %d\n", ditcnt, dahcnt, stop);
     if (ditcnt > 0 && dahcnt > 0)
@@ -929,12 +964,12 @@ int AdvParser::DitDahBugTst(void)
         ditInterval /= ditcnt;
         // printf("\nditcnt:%d; dahcnt:%d; ditInterval: %d; dahInterval: %d\n", ditcnt, dahcnt, ditInterval, dahInterval);
         if (dahInterval > ditInterval + 8)
-            return 2; // bug
+            return 4; // bug
         else
-            return 1; // paddle/krybrd
+            return 5; // paddle/krybrd
     }
     else
-        return 3; // not enough info to decide
+        return 6; // not enough info to decide
 };
 /////////////////////////////////////////////
 void AdvParser::Dcode4Dahs(int n)

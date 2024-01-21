@@ -54,7 +54,10 @@
 /*20240110 Added Advparser Class */
 /*20240112 Continued development of Advparser Class */
 /*20240115 Continued development/enhancement of Advparser Class */
-/* 20240117 added Dcode4Dahs() to AdvParser class; parses 4 dahs into "TO" or "OT", "MM" also a possible result */
+/*20240117 added Dcode4Dahs() to AdvParser class; parses 4 dahs into "TO" or "OT", "MM" also a possible result */
+/*20240119 added test for paddle/keybrd by finding all dahs have the same interval;*/
+/*20240120 reworked DitDahBugTst() method to better detect bug vs paddle/keyboard signals plus minor tweaks to bug rule set*/
+
 #include "sdkconfig.h" //added for timer support
 #include "globals.h"
 #include "main.h"
@@ -108,10 +111,10 @@ uint8_t global_var;
 /*To make these variables available to other files/section of this App, Moved the following to main.h*/
 
 DF_t DFault;
-int DeBug = 1; // Debug factory default setting; 0 => Debug "OFF"; 1 => Debug "ON"
+int DeBug = 0; // Debug factory default setting; 0 => Debug "OFF"; 1 => Debug "ON"
 char StrdTxt[20] = {'\0'};
 /*Factory Default Settings*/
-char RevDate[9] = "20240119";
+char RevDate[9] = "20240120";
 char MyCall[10] = "KW4KD";
 char MemF2[80] = "VVV VVV TEST DE KW4KD";
 char MemF3[80] = "CQ CQ CQ DE KW4KD KW4KD";
