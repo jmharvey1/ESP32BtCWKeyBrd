@@ -679,12 +679,17 @@ bool AdvParser::BugRules(int& n)
         return true;
     }
     /*Middle keyup test to see this keyup is twice the lenght of the one following it,
-    If it is then call this one a letter break*/
-    if ((n < TmpUpIntrvlsPtr - 1) && (TmpUpIntrvls[n] > 2.4 * TmpUpIntrvls[n + 1]))
+    AND greater than the one that proceeded it, provided the proceeding keyup was not a letterbrk.
+    If all true, then call this one a letter break*/
+    if ((n < TmpUpIntrvlsPtr - 1) && (n > 0))
     {
-        ExitPath[n] = 4;
-        BrkFlg = '+';
-        return true;
+        if ((TmpUpIntrvls[n] > 2.4 * TmpUpIntrvls[n + 1]) && (TmpUpIntrvls[n] > TmpUpIntrvls[n - 1]) &&
+        LstLtrBrkCnt > 0)
+        {
+            ExitPath[n] = 4;
+            BrkFlg = '+';
+            return true;
+        }
     }
     /*test that there is another keydown interval after this one*/
     if (n < TmpUpIntrvlsPtr - 1)
@@ -771,8 +776,8 @@ bool AdvParser::BugRules(int& n)
         else if ((TmpDwnIntrvls[n] > DitDahSplitVal) && (TmpDwnIntrvls[n + 1] < DitDahSplitVal))
         {
             /*We have Dah to dit transistion set letter break only if key up interval is > 1.6x the dit interval
-            And the keyup time is move than half the dah interval*/ //20240120 added this 2nd qualifier
-            if ((TmpUpIntrvls[n] > 1.6 * TmpDwnIntrvls[n + 1])&& (TmpUpIntrvls[n] > 0.5 * TmpDwnIntrvls[n]))
+            And the keyup time is more than 0.6 the dah interval*/ //20240120 added this 2nd qualifier
+            if ((TmpUpIntrvls[n] > 1.6 * TmpDwnIntrvls[n + 1])&& (TmpUpIntrvls[n] > 0.6 * TmpDwnIntrvls[n]))
             {
                 ExitPath[n] = 14;
                 BrkFlg = '+';
