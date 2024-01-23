@@ -57,6 +57,8 @@
 /*20240117 added Dcode4Dahs() to AdvParser class; parses 4 dahs into "TO" or "OT", "MM" also a possible result */
 /*20240119 added test for paddle/keybrd by finding all dahs have the same interval;*/
 /*20240120 reworked DitDahBugTst() method to better detect bug vs paddle/keyboard signals plus minor tweaks to bug rule set*/
+/*20240122 revised AdvParser.cpp DitDahSplitVal averaging algorithm to be based on last 30 symbol set elements*/
+/*20240123 AdvParser.cpp - Added letterbrk bug test "2", to look for lttrbk based on "long" dah*/
 
 #include "sdkconfig.h" //added for timer support
 #include "globals.h"
@@ -114,7 +116,7 @@ DF_t DFault;
 int DeBug = 0; // Debug factory default setting; 0 => Debug "OFF"; 1 => Debug "ON"
 char StrdTxt[20] = {'\0'};
 /*Factory Default Settings*/
-char RevDate[9] = "20240120";
+char RevDate[9] = "20240123";
 char MyCall[10] = "KW4KD";
 char MemF2[80] = "VVV VVV TEST DE KW4KD";
 char MemF3[80] = "CQ CQ CQ DE KW4KD KW4KD";

@@ -43,11 +43,11 @@ private:
     unsigned int SymbSet;
     unsigned int LstLtrBrkCnt = 0;
     char BrkFlg;
-    bool Tst4LtrBrk(int n);
-    bool PadlRules(int n);
-    bool BugRules(int n);
-    bool CootyRules(int n);
-    bool Cooty2Rules(int n);
+    bool Tst4LtrBrk(int& n);
+    bool PadlRules(int& n);
+    bool BugRules(int& n);
+    bool CootyRules(int& n);
+    bool Cooty2Rules(int& n);
     void insertionSort(uint16_t arr[], int n);
 	void SetSpltPt(Buckt_t arr[], int n);
     int AdvSrch4Match(int n, unsigned int decodeval, bool DpScan);
