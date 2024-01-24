@@ -20,7 +20,8 @@
  * 20240103 Modified extented sysmbolset timing to only effect Bg1 mode
  * 20240114 Changed AdvPaser linking to handle post processed string overwrites that were longer than the origimal text
  * 20240116 Expanded time intervsl storage from 16 interval to 24 using MaxIntrvlCnt to support senders who think its ok to send more than five symbols W/o a letter break
- * 20240117 Addede AdvParser detected keymode to dispaly status line
+ * 20240117 Added AdvParser detected keymode to dispaly status line
+ * 20240124 added requirement that Key up & down arrays match in length before attempting to do a post reparse of the las word captured 
  *   */
  
 
@@ -1460,7 +1461,7 @@ bool chkChrCmplt(void)
 		// the contents of the AutoMode detector time buffers
 		if (KeyDwnPtr > 2 && KeyUpPtr > 2 && KeyUpIntrvls[0] > 0 && KeyDwnIntrvls[0] > 0)
 		{
-			if (LtrPtr > 1 && (wpm > 13))
+			if (LtrPtr > 1 && (wpm > 13) && (KeyDwnPtr == KeyUpPtr))// don't try to reparse if the key up & down pointers arent equal
 			{ // dont do post parsing with just one letter or WPMs <= 13
 				advparser.EvalTimeData(KeyUpIntrvls, KeyDwnIntrvls, KeyUpPtr, KeyDwnPtr);
 				/*Now compare Advparser decoded text to original text; If not the same,

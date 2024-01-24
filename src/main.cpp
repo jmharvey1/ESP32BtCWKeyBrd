@@ -59,6 +59,7 @@
 /*20240120 reworked DitDahBugTst() method to better detect bug vs paddle/keyboard signals plus minor tweaks to bug rule set*/
 /*20240122 revised AdvParser.cpp DitDahSplitVal averaging algorithm to be based on last 30 symbol set elements*/
 /*20240123 AdvParser.cpp - Added letterbrk bug test "2", to look for lttrbk based on "long" dah*/
+/*20240124 DcodeCW.cpp added requirement that Key up & down arrays match in length before attempting to do a post reparse of the last word captured*/
 
 #include "sdkconfig.h" //added for timer support
 #include "globals.h"
@@ -116,7 +117,7 @@ DF_t DFault;
 int DeBug = 0; // Debug factory default setting; 0 => Debug "OFF"; 1 => Debug "ON"
 char StrdTxt[20] = {'\0'};
 /*Factory Default Settings*/
-char RevDate[9] = "20240123";
+char RevDate[9] = "20240124";
 char MyCall[10] = "KW4KD";
 char MemF2[80] = "VVV VVV TEST DE KW4KD";
 char MemF3[80] = "CQ CQ CQ DE KW4KD KW4KD";
@@ -1104,49 +1105,56 @@ void ProcsKeyEntry(uint8_t keyVal)
   }
   else if ((keyVal == 0xA1))
   { // Cntrl+"G"; Sample interval 4ms / 8ms
-    int GainCnt =0;
-    if(NoisFlg) GainCnt = 2;
-    if(SlwFlg && !NoisFlg) GainCnt = 1;
-      GainCnt++;
-    if (GainCnt > 1)  GainCnt = 0;//20231029 decided that the 3rd gain mode was no longer needed, so locked it out
-      switch(GainCnt){
-        case 0:
-          SlwFlg = false;
-          NoisFlg = false;
-          break;
-        case 1:
-          SlwFlg = true;
-          NoisFlg = false;
-          break;
-        case 2:
-          SlwFlg = true;
-          NoisFlg = true;
-          break;  
-
-      }
-      DFault.SlwFlg = SlwFlg;
-      DFault.NoisFlg = NoisFlg;
-      InitGoertzel();
-      vTaskDelay(20);
-      showSpeed();
-      vTaskDelay(250);
+    // int GainCnt =0;
+    // if(NoisFlg) GainCnt = 2;
+    // if(SlwFlg && !NoisFlg) GainCnt = 1;
+    //   GainCnt++;
+    // if (GainCnt > 1)  GainCnt = 0;//20231029 decided that the 3rd gain mode was no longer needed, so locked it out
+    //   switch(GainCnt){
+        // case 0:
+        //   SlwFlg = false;
+        //   NoisFlg = false;
+        //   break;
+        // case 1:
+        //   SlwFlg = true;
+        //   NoisFlg = false;
+        //   break;
+        // case 2:
+        //   SlwFlg = true;
+        //   NoisFlg = true;
+        //   break;
+        /*20240123 Changed So that Ctrl+G now Enables/Disables Debug */
+        if(DeBug){
+          DeBug = false;
+          DFault.DeBug = false;
+        }else{
+          DeBug = true;
+          DFault.DeBug = true;
+        }
+      // DFault.SlwFlg = SlwFlg;
+      // DFault.NoisFlg = NoisFlg;
+      // InitGoertzel();
+      // vTaskDelay(20);
+      // showSpeed();
+      // vTaskDelay(250);
       return;
   }
-  else if ((keyVal == 0x9E))
-  { // LEFT Cntrl+"D"; Decode Modef()
+  /*20240123 Disabled Ctrl+D function; replaced by AdvParser Class & methods*/
+  // else if ((keyVal == 0x9E))
+  // { // LEFT Cntrl+"D"; Decode Modef()
 
-      /*Normal setup */
-      ModeCnt++;
-      if (ModeCnt > 3)
-      ModeCnt = 0;
-      DFault.ModeCnt = ModeCnt;
-      SetModFlgs(ModeCnt);
-      CurMdStng(ModeCnt);//added 20230104
-      vTaskDelay(20);
-      showSpeed();
-      vTaskDelay(250);
-      return;
-  }
+  //     /*Normal setup */
+  //     ModeCnt++;
+  //     if (ModeCnt > 3)
+  //     ModeCnt = 0;
+  //     DFault.ModeCnt = ModeCnt;
+  //     SetModFlgs(ModeCnt);
+  //     CurMdStng(ModeCnt);//added 20230104
+  //     vTaskDelay(20);
+  //     showSpeed();
+  //     vTaskDelay(250);
+  //     return;
+  // }
   else if ((keyVal == 0xA0))
   { // RIGHT Cntrl+"D"; Decode Modef()
 

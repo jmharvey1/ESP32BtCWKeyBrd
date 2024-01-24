@@ -18,6 +18,7 @@
  * 20240120 reworked DitDahBugTst() method to better detect bug vs paddle/keyboard signals plus minor tweaks to bug rule set
  * 20240122 revised DitDahSplitVal averaging algorithm to be based on last 30 symbol set elements
  * 20240123 Added letterbrk test "2" to look for lttrbk based on "long" dah 
+ * 20240124 Modified SetSpltPt method for finding the Dit/dah split point. Added new private class variable DitIntrvlVal
  * */
 #include "AdvParser.h"
 #include "DcodeCW.h"
@@ -104,7 +105,7 @@ void AdvParser::EvalTimeData(uint16_t KeyUpIntrvls[IntrvlBufSize], uint16_t KeyD
         }
     }
 
-    if (KeyDwnBucktPtr > 0 && KeyUpBucktPtr > 0)
+    if (KeyDwnBucktPtr >= 2 && KeyUpBucktPtr >= 2)
     {
         if (Dbug)
         {
@@ -459,14 +460,35 @@ void AdvParser::SetSpltPt(Buckt_t arr[], int n)
     int lastDitPtr = 0;
     int lastDahPtr = n;
     /*start with shortest & longest intervals ()1st & last entries) and work toward the middle*/
+    // for (i = 0; i <= (n + 1) / 2; i++)
+    // {
+    //     if ((2 * arr[i].Intrvl) < arr[lastDahPtr-i].Intrvl)
+    //     {
+    //         lastDitPtr = i;
+    //     }
+    //     if ((1.5 * arr[lastDitPtr].Intrvl) < arr[n - i].Intrvl)
+    //     {
+    //         lastDahPtr = n-i;
+    //     }
+    //     NuSpltVal = arr[lastDitPtr].Intrvl + (arr[lastDahPtr].Intrvl - arr[lastDitPtr].Intrvl) / 2;
+    //     if ((arr[i - 1].Intrvl < DitDahSplitVal) )
+    //         AllDah = false;
+    //     if ((arr[n -i].Intrvl > DitDahSplitVal) )
+    //         AllDit = false;    
+    // }
+    int  DitCnt, DahCnt;
+    DitCnt = DahCnt =0;
     for (i = 0; i <= (n + 1) / 2; i++)
     {
-        if ((2 * arr[i].Intrvl) < arr[lastDahPtr-i].Intrvl)
+        if(i >= n-i) break;//make absolutey certian that we the dits dont cross over the dahs
+        if ((arr[i].Cnt) >= DitCnt)
         {
+            DitCnt = arr[i].Cnt;
             lastDitPtr = i;
         }
-        if ((1.5 * arr[lastDitPtr].Intrvl) < arr[n - i].Intrvl)
+        if (arr[n - i].Cnt >= DahCnt)
         {
+            DahCnt = arr[n - i].Cnt;
             lastDahPtr = n-i;
         }
         NuSpltVal = arr[lastDitPtr].Intrvl + (arr[lastDahPtr].Intrvl - arr[lastDitPtr].Intrvl) / 2;
@@ -475,7 +497,8 @@ void AdvParser::SetSpltPt(Buckt_t arr[], int n)
         if ((arr[n -i].Intrvl > DitDahSplitVal) )
             AllDit = false;    
     }
-    if((lastDitPtr== lastDahPtr) && (lastDahPtr < n)) lastDahPtr++;
+    if((lastDitPtr== lastDahPtr) && (lastDahPtr < n)) lastDahPtr++;//another check/fix to ensure the dit & dah buckets are not the same bucket
+    DitIntrvlVal = arr[lastDitPtr].Intrvl;//use this later in bug letter break test as a sanity check
     //printf("\nlastDitPtr =%d; lastDahPtr =%d; ditVal:%d; dahVal:%d\n", lastDitPtr, lastDahPtr, arr[lastDitPtr].Intrvl, arr[lastDahPtr].Intrvl);
     
     /*if this group of key down intervals is either All Dits or All dahs,
@@ -671,8 +694,9 @@ bool AdvParser::BugRules(int& n)
 
     }
     /*Middle keyup test to see this keyup is twice the length of the one just before it,
+    And we are using a valid keyup reference interval & not just some random bit of noise.
     If it is then call this one a letter break*/
-    if (n > 0 && (TmpUpIntrvls[n] > 2.4 * TmpUpIntrvls[n - 1]))
+    if (n > 0 && (TmpUpIntrvls[n] > 2.4 * TmpUpIntrvls[n - 1]) && (TmpUpIntrvls[n - 1] >= DitIntrvlVal))
     {
         ExitPath[n] = 3;
         BrkFlg = '+';
