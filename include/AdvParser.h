@@ -25,7 +25,7 @@ class AdvParser
 private:
     bool AllDah;
     bool NewSpltVal;
-    int BugKey;//controls wich parsibool AdvParser::DitDahBugTst(void)ng rules are used 0 = paddle; 1 = bug; 2 = cootie
+    int BugKey;//controls wich parsing rules are used 0 = paddle; 1 = bug; 2 = cootie
     int MaxCntKyUpBcktPtr;
 
     uint8_t ExitPath[IntrvlBufSize];
@@ -37,6 +37,7 @@ private:
     int KeyDwnBucktPtr = 0;
     int TmpUpIntrvlsPtr = 0;
     int LstLtrPrntd = 0; //MsgBuf indx pointer to charter printed as Debug output
+    int wpm =0; //upated from DcodeCW.cpp through this class method EvalTimeData()
     uint16_t TmpUpIntrvls[IntrvlBufSize];
     uint16_t TmpDwnIntrvls[IntrvlBufSize];
     uint16_t DitDahSplitVal;
@@ -58,7 +59,7 @@ private:
 
 public:
 	AdvParser(void); //TFT_eSPI *tft_ptr, char *StrdTxt
-    void EvalTimeData(uint16_t KeyUpIntrvls[IntrvlBufSize], uint16_t KeyDwnIntrvls[IntrvlBufSize], int KeyUpPtr, int KeyDwnPtr);
+    void EvalTimeData(uint16_t KeyUpIntrvls[IntrvlBufSize], uint16_t KeyDwnIntrvls[IntrvlBufSize], int KeyUpPtr, int KeyDwnPtr, int curWPM);
 	char Msgbuf[MsgbufSize];
     /*controlls debug USB serial print*/
     bool Dbug = false;

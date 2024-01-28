@@ -197,7 +197,6 @@ float lastDit = (float)avgDit;
 float AvgSmblDedSpc =  (float)avgDit;
 
 volatile unsigned long avgDeadSpace = avgDit;
-// volatile unsigned long wordBrk = avgDah ;
 volatile unsigned long wordStrt;
 volatile unsigned long deadTime;
 volatile unsigned long MaxDeadTime;
@@ -428,22 +427,30 @@ void KeyEvntSR(uint8_t Kstate, unsigned long EvntTime)
 
 			if (wordBrkFlg)
 			{
+				
 				wordBrkFlg = false;
 				thisWordBrk = STart - wordStrt;
-				//if (thisWordBrk < 11 * avgDeadSpace)
-				if (thisWordBrk < 9 * avgDeadSpace) //20241012 changed to reduce string length of a word
-				{
-					if (GudSig)
-						wordBrk = (5 * wordBrk + thisWordBrk) / 6;
-					MaxDeadTime = 0;
-					charCnt = 0;
-				}
+				// printf("ReCal thisWordBrk: %d; avgDeadSpace: %d; wordBrk: %d\n", (int)thisWordBrk, (int)avgDeadSpace, (int)wordBrk);
+				// wordBrk = (5 * wordBrk + (6*avgDeadSpace)) / 6;//20240127 new approach to setting word break wait interval
+				MaxDeadTime = 0;
+				charCnt = 0;
+				// if (thisWordBrk < 8 * avgDeadSpace) //20240126 changed to reduce string length of a word
+				// {
+				// 	if (GudSig){
+				// 		wordBrk = (5 * wordBrk + thisWordBrk) / 6;
+				// 		printf("GudSig - wordBrk: %d\n", (int)wordBrk);
+				// 	}
+				// 	MaxDeadTime = 0;
+				// 	charCnt = 0;
+				// }
 			}
-			else if (charCnt > 12)
+			else if (charCnt > 12) //we've gone 12 characters w/o a word break; force a reset based on the longest keyup interval since last word break
 			{
 				if (MaxDeadTime < wordBrk)
 				{
+					//printf("  FIX wordBrk: %d; MaxDeadTime: %d\n", (int)wordBrk, (int)MaxDeadTime);
 					wordBrk = MaxDeadTime;
+					
 				}
 				MaxDeadTime = 0;
 				charCnt = 0;
@@ -1185,7 +1192,7 @@ void ChkDeadSpace(void)
 	CalcAvgdeadSpace = false;
 	//    printf(DeCodeVal);
 	if (NuWrd)
-		lastWrdVal = pdTICKS_TO_MS(xTaskGetTickCount()) - WrdStrt; //(GetTimr5Cnt()/10) - WrdStrt;
+		lastWrdVal = pdTICKS_TO_MS(xTaskGetTickCount()) - WrdStrt;
 	if ((deadSpace > 15) && (deadSpace < 240) && (!NuWrd))
 	{ // looks like we have a legit dead space interval(its between 5 & 50 WPM)
 		//      if (Bug2) {
@@ -1230,6 +1237,9 @@ void ChkDeadSpace(void)
 			}
 		}
 	}
+	/* 20240127 new approach to setting word break wait interval*/
+	wordBrk = (5 * wordBrk + (6*avgDeadSpace)) / 6;
+	//printf("ReCal WordBrk - avgDeadSpace: %d; wordBrk: %d\n", (int)avgDeadSpace, (int)wordBrk);
 	//    printf("\n\r");
 	//    printf("; ");
 	//    printf(avgDeadSpace);
@@ -1391,6 +1401,7 @@ void SetLtrBrk(void)
 
 	if (ltrBrk > wordBrk)
 	{
+		//printf("ltrBrk > wordBrk\n");
 		wordBrk = int(1.1 * float(ltrBrk));
 	}
 	/*Now work out what the average intersymbol space time is*/
@@ -1461,9 +1472,9 @@ bool chkChrCmplt(void)
 		// the contents of the AutoMode detector time buffers
 		if (KeyDwnPtr > 2 && KeyUpPtr > 2 && KeyUpIntrvls[0] > 0 && KeyDwnIntrvls[0] > 0)
 		{
-			if (LtrPtr > 1 && (wpm > 13) && (KeyDwnPtr == KeyUpPtr))// don't try to reparse if the key up & down pointers arent equal
+			if (LtrPtr > 1 && (wpm > 13)  && (wpm < 36) && (KeyDwnPtr == KeyUpPtr))// don't try to reparse if the key up & down pointers arent equal
 			{ // dont do post parsing with just one letter or WPMs <= 13
-				advparser.EvalTimeData(KeyUpIntrvls, KeyDwnIntrvls, KeyUpPtr, KeyDwnPtr);
+				advparser.EvalTimeData(KeyUpIntrvls, KeyDwnIntrvls, KeyUpPtr, KeyDwnPtr, wpm);
 				/*Now compare Advparser decoded text to original text; If not the same,
 				replace displayed with Advparser version*/
 				bool same = true;
@@ -2494,8 +2505,8 @@ void dispMsg(char Msgbuf[50])
 			}
 
 			if ((ShrtBrk[LtrCntr] < 0.6 * wordBrk) && curChar != ' ' && (info[0] == 0))
-			{														// if ((ShrtBrk[LtrCntr] < 0.6*wordBrk) & (ShrtBrk[LtrCntr]> ShrtBrkA)& (info[0] == 0)){ // this filter is based on Bug sent code
-				UsrLtrBrk = (5 * UsrLtrBrk + ShrtBrk[LtrCntr]) / 6; //(6*UsrLtrBrk+ShrtBrk[LtrCntr])/7; //(9*UsrLtrBrk+ShrtBrk[LtrCntr])/10;
+			{// this filter is based on Bug sent code
+				UsrLtrBrk = (5 * UsrLtrBrk + ShrtBrk[LtrCntr]) / 6; 
 			} 
 		}
 		if (Bug3 && SCD && Test)
@@ -2525,28 +2536,10 @@ void dispMsg(char Msgbuf[50])
 			i++;
 		}
 		msgpntr++;
-		// cnt++;
-		// /*Test to see if we just reached the end of the current display line*/
-		// if ((cnt - offset) * fontW >= displayW)
-		// {
-		// 	curRow++;
-		// 	cursorX = 0;
-		// 	cursorY = curRow * (fontH + 10);
-		// 	offset = cnt;
-			
-		// 	//  if (curRow + 1 > row) {//20230805 restoring this "if" statement to support decoder/parser error corrections
-		// 	//  	scrollpg();
-		// 	//  }
-		// }
-		// else
-		// {
-		// 	cursorX = (cnt - offset) * fontW;
-		// }
+	
 	}
 	LtrCntr = 0;
 	ChkDeadSpace();
-	// SetLtrBrk();
-	// chkChrCmplt();
 }
 //////////////////////////////////////////////////////////////////////
 // void scrollpg() {
@@ -2580,12 +2573,6 @@ void dispMsg(char Msgbuf[50])
 //   }
 // }
 /////////////////////////////////////////////////////////////////////
-
-/////////////////////////////////////////////////////////////////////
-
-/////////////////////////////////////////////////////////////////////
-
-///////////////////////////////////////////////////////////
 
 void showSpeed(void)
 {
