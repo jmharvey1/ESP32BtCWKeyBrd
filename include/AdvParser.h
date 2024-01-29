@@ -41,7 +41,7 @@ private:
     uint16_t TmpUpIntrvls[IntrvlBufSize];
     uint16_t TmpDwnIntrvls[IntrvlBufSize];
     uint16_t DitDahSplitVal;
-    uint16_t DitIntrvlVal; //used as sanity test/check in 'bug' letterbrk rule set
+    uint16_t DitIntrvlVal; //used as sanity test/check in 'bug' letterbrk rule set; 20240129 running average of the last 6 dits
     unsigned int SymbSet;
     unsigned int LstLtrBrkCnt = 0;
     char BrkFlg;
