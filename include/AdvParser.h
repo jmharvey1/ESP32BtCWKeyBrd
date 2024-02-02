@@ -44,7 +44,8 @@ private:
     uint16_t DitIntrvlVal; //used as sanity test/check in 'bug' letterbrk rule set; 20240129 running average of the last 6 dits
     unsigned int SymbSet;
     unsigned int LstLtrBrkCnt = 0;
-    float UnitIntvrl; //basic universal symbol interval; i.e. a standard dit  
+    uint16_t UnitIntvrlx2r5; //basic universal symbol interval; i.e. a standard dit X 2.4; used in b1 rule set to find letter breaks
+    uint16_t Bg1SplitPt; //bug1 rule set dit/dah decision value; derived from UnitIntvrlx2r5
     char BrkFlg;
     bool Tst4LtrBrk(int& n);
     bool PadlRules(int& n);
