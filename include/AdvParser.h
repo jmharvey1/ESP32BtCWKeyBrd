@@ -44,12 +44,15 @@ private:
     uint16_t DitIntrvlVal; //used as sanity test/check in 'bug' letterbrk rule set; 20240129 running average of the last 6 dits
     unsigned int SymbSet;
     unsigned int LstLtrBrkCnt = 0;
+    float UnitIntvrl; //basic universal symbol interval; i.e. a standard dit  
     char BrkFlg;
     bool Tst4LtrBrk(int& n);
     bool PadlRules(int& n);
-    bool BugRules(int& n);
+    bool Bug1Rules(int& n);
+    bool Bug2Rules(int& n);
     bool CootyRules(int& n);
     bool Cooty2Rules(int& n);
+    bool SKRules(int& n); //true straight key(i.e. J38)
     void insertionSort(uint16_t arr[], int n);
 	void SetSpltPt(Buckt_t arr[], int n);
     int AdvSrch4Match(int n, unsigned int decodeval, bool DpScan);

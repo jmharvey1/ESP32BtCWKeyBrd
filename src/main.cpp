@@ -61,6 +61,7 @@
 /*20240123 AdvParser.cpp - Added letterbrk bug test "2", to look for lttrbk based on "long" dah*/
 /*20240124 DcodeCW.cpp added requirement that Key up & down arrays match in length before attempting to do a post reparse of the last word captured*/
 /*20240129 AdvParser.cpp - improved method for calculating DitIntrvlVal + other tweaks to bug parsing rules*/
+/*20240201 AdvParser.cpp - Added Straight Key Rule Set & Detection; Revised Bug1 RS dit & dah runs parsing*/
 
 #include "sdkconfig.h" //added for timer support
 #include "globals.h"
@@ -118,7 +119,7 @@ DF_t DFault;
 int DeBug = 0; // Debug factory default setting; 0 => Debug "OFF"; 1 => Debug "ON"
 char StrdTxt[20] = {'\0'};
 /*Factory Default Settings*/
-char RevDate[9] = "20240129";
+char RevDate[9] = "20240201";
 char MyCall[10] = "KW4KD";
 char MemF2[80] = "VVV VVV TEST DE KW4KD";
 char MemF3[80] = "CQ CQ CQ DE KW4KD KW4KD";

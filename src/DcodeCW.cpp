@@ -295,6 +295,11 @@ void KeyEvntSR(uint8_t Kstate, unsigned long EvntTime)
 			if(KeyUpPtr < IntrvlBufSize && KeyDwnPtr >= 1){ //we have both a usable time & place to store it; and at least 1 keydwn interval has been captured
 				KeyUpIntrvls[KeyUpPtr] = (uint16_t)deadSpace;
 				KeyUpPtr++;
+				/*20240129 Added this check to catch out of sync keyup vs keydown interval history (arrays)*/
+				if(KeyDwnPtr != KeyUpPtr){
+					KeyUpPtr--;
+					//printf("ERROR KeyDwnPtr %d\n", KeyDwnPtr);
+				}
 			}
 			if (Bitpos <= 14)
 				SpaceStk[Bitpos + 1] = 0; // make sure the next time slot has been "0SftReset(void)" out
@@ -1472,8 +1477,14 @@ bool chkChrCmplt(void)
 		// the contents of the AutoMode detector time buffers
 		if (KeyDwnPtr > 2 && KeyUpPtr > 2 && KeyUpIntrvls[0] > 0 && KeyDwnIntrvls[0] > 0)
 		{
-			if (LtrPtr > 1 && (wpm > 13)  && (wpm < 36) && (KeyDwnPtr == KeyUpPtr))// don't try to reparse if the key up & down pointers arent equal
+			//printf("\nWORD BREAK - KeyDwnPtr: %d; KeyUpPtr:%d\n", KeyDwnPtr, KeyUpPtr);
+			if ((LtrPtr > 1 || KeyDwnPtr >= 9) && (wpm > 13)  && (wpm < 36) && (KeyDwnPtr == KeyUpPtr))// don't try to reparse if the key up & down pointers arent equal
 			{ // dont do post parsing with just one letter or WPMs <= 13
+				/*1st refresh/sync 'advparser.Dbug' */
+				if (DeBug)
+					advparser.Dbug = true;
+				else
+					advparser.Dbug = false;
 				advparser.EvalTimeData(KeyUpIntrvls, KeyDwnIntrvls, KeyUpPtr, KeyDwnPtr, wpm);
 				/*Now compare Advparser decoded text to original text; If not the same,
 				replace displayed with Advparser version*/
@@ -1481,10 +1492,7 @@ bool chkChrCmplt(void)
 				bool Tst4Match = true;
 				int i;
 				int FmtchPtr;
-				if (DeBug)
-					advparser.Dbug = true;
-				else
-					advparser.Dbug = false;
+				
 				/*Scan/compare last word displayed w/ advpaser's version*/
 				if (advparser.GetMsgLen() > LtrPtr)
 				{ // if the advparser verson is longer, then delete the last word printed
@@ -1518,16 +1526,16 @@ bool chkChrCmplt(void)
 					CptrTxt = true;
 					dletechar = oldDltState;
 				} // else printf("Match\n");
-			} else advparser.KeyType = 4;// round about way to update display status line to indicate no post processing
+			} else advparser.KeyType = 6;// round about way to update display status line to indicate no post processing
 		}
 		if (advparser.Dbug)
-			printf(LtrHoldr);
+			printf("%s\n", LtrHoldr);
  		//erase contents of LtrHoldr & rest its index pointer (LtrPtr)
 		for (int i = 0; i < LtrPtr; i++)
 			LtrHoldr[i] = 0;
 		LtrPtr = 0;
 		if (advparser.Dbug)
-			printf("\n--------\n\n");
+			printf("--------\n\n");
 		KeyDwnPtr = KeyUpPtr = 0; // resetbuffer pntrs
 
 		Pstate = 2; // have word
@@ -2626,7 +2634,7 @@ void showSpeed(void)
 			sprintf(tmpbufB, "E ");
 			break;
 		case 1:
-			sprintf(tmpbufB, "S ");
+			sprintf(tmpbufB, "B ");
 			break;
 		case 2:
 			sprintf(tmpbufB, "C ");
@@ -2635,8 +2643,14 @@ void showSpeed(void)
 			sprintf(tmpbufB, "c ");
 			break;
 		case 4:
+			sprintf(tmpbufB, "b ");
+			break;
+		case 5:
+			sprintf(tmpbufB, "S ");
+			break;	
+		case 6:
 			sprintf(tmpbufB, "- ");
-			break;			
+			break;				
 		default:
 			sprintf(tmpbufB, "? ");
 			break;
