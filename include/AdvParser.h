@@ -65,7 +65,7 @@ public:
 	AdvParser(void); //TFT_eSPI *tft_ptr, char *StrdTxt
     void EvalTimeData(uint16_t KeyUpIntrvls[IntrvlBufSize], uint16_t KeyDwnIntrvls[IntrvlBufSize], int KeyUpPtr, int KeyDwnPtr, int curWPM);
 	char Msgbuf[MsgbufSize];
-    /*controlls debug USB serial print*/
+    /*controls debug USB serial print*/
     bool Dbug = false;
     int KeyType = 0;//used for the display's status indicator("S" or "E")
     float AvgSmblDedSpc;

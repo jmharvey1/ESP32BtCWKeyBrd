@@ -29,7 +29,14 @@
 #include "Goertzel.h"
 AdvParser::AdvParser(void) // TFT_eSPI *tft_ptr, char *StrdTxt
 {
-    AvgSmblDedSpc = 1200 / 30;
+    this->AvgSmblDedSpc = 1200 / 30;
+    this->DitDahSplitVal =106;
+    this->AvgSmblDedSpc = 45.0;
+    this->Bg1SplitPt = 67;
+    this->UnitIntvrlx2r5 = 113;
+    this->DitIntrvlVal = 50;
+    this->BugKey = 0; //paddle rules
+
     // ptft = tft_ptr;
     // pStrdTxt = StrdTxt;
     // ToneColor = 0;
@@ -659,7 +666,8 @@ bool AdvParser::PadlRules(int& n)
     }
     /*Middle keyup test to see this keyup is twice the lenght of the one following it,
     If it is then call this one a letter break*/
-    if ((n < TmpUpIntrvlsPtr - 1) && (TmpUpIntrvls[n] > (2.0 * TmpUpIntrvls[n + 1])+8))
+    //if ((n < TmpUpIntrvlsPtr - 1) && (TmpUpIntrvls[n] > (2.0 * TmpUpIntrvls[n + 1])+8))
+    if ((n < TmpUpIntrvlsPtr - 1) && (TmpUpIntrvls[n] > UnitIntvrlx2r5))
     {
         ExitPath[n] = 101;
         BrkFlg = '+';
@@ -667,14 +675,9 @@ bool AdvParser::PadlRules(int& n)
     }
     if (NewSpltVal)
     {
-        //if ((TmpUpIntrvls[n] >= 1.5 * 1.2 * KeyUpBuckts[MaxCntKyUpBcktPtr].Intrvl) &&
-        //    (TmpUpIntrvls[n] > KeyDwnBuckts[0].Intrvl))
-        // if ((TmpUpIntrvls[n] >= 1.5 * DitIntrvlVal) &&
+        // if ((TmpUpIntrvls[n] >= DitDahSplitVal) &&
         //     (TmpUpIntrvls[n] > KeyDwnBuckts[0].Intrvl))
-        if ((TmpUpIntrvls[n] >= DitDahSplitVal) &&
-            (TmpUpIntrvls[n] > KeyDwnBuckts[0].Intrvl))
-            
-            
+        if (TmpUpIntrvls[n] >= Bg1SplitPt) //UnitIntvrlx2r5-16
         {
             BrkFlg = '+';
             ExitPath[n] = 102;
@@ -684,8 +687,8 @@ bool AdvParser::PadlRules(int& n)
             ExitPath[n] = 103;
         if (MaxCntKyUpBcktPtr < KeyUpBucktPtr) // safety check, before trying the real test
         {
-            // if (TmpUpIntrvls[n] >= KeyUpBuckts[MaxCntKyUpBcktPtr + 1].Intrvl)
-            if (TmpUpIntrvls[n] >= DitDahSplitVal)
+            //if (TmpUpIntrvls[n] >= DitDahSplitVal)
+            if (TmpUpIntrvls[n] >= UnitIntvrlx2r5)
             {
                 BrkFlg = '+';
                 ExitPath[n] = 104;
@@ -697,7 +700,8 @@ bool AdvParser::PadlRules(int& n)
     }
     else
     {
-        if (TmpUpIntrvls[n] >= DitDahSplitVal)
+        //if (TmpUpIntrvls[n] >= DitDahSplitVal)
+        if (TmpUpIntrvls[n] >= UnitIntvrlx2r5)
         {
             BrkFlg = '+';
             ExitPath[n] = 106;
@@ -763,8 +767,9 @@ bool AdvParser::Bug1Rules(int& n)
                 }
             }
             if ((TmpUpIntrvls[i] > 1.4 * TmpDwnIntrvls[i]) || 
-               ((TmpDwnIntrvls[i]>= KeyDwnBuckts[KeyDwnBucktPtr].Intrvl) && (TmpUpIntrvls[i]> Bg1SplitPt)) || 
-               (TmpUpIntrvls[i]>= KeyUpBuckts[KeyUpBucktPtr].Intrvl)) //(TmpUpIntrvls[i] > 1.1 * TmpDwnIntrvls[i])
+               (TmpUpIntrvls[i]>= KeyUpBuckts[KeyUpBucktPtr].Intrvl) ||
+               ((TmpDwnIntrvls[i]>= KeyDwnBuckts[KeyDwnBucktPtr].Intrvl) && (TmpUpIntrvls[i]>  UnitIntvrlx2r5)))
+             //((TmpDwnIntrvls[i]>= KeyDwnBuckts[KeyDwnBucktPtr].Intrvl) && (TmpUpIntrvls[i]> Bg1SplitPt)))
             {
                 ExtSmbl = '$';
                 break; // quit, Looks like a clear intention to signal a letterbreak
@@ -809,12 +814,6 @@ bool AdvParser::Bug1Rules(int& n)
     //else if (RunCnt > 1 && maxdah > 0 && (mindahIndx == maxdahIndx) && (TmpUpIntrvls[maxdahIndx] > TmpDwnIntrvls[maxdahIndx]))
     else if (RunCnt > 0 && ExtSmbl == '$' && n == maxdahIndx)
     { // the 1st dah seems to be a letter break
-        // while (n < maxdahIndx)
-        // {
-        //     n++;
-        //     SymbSet = SymbSet << 1; // append a new bit to the symbolset & default it to a 'Dit'
-        //     SymbSet += 1;
-        // }
         ExitPath[n] = 23;
         BrkFlg = '+';
         return true;
@@ -1356,10 +1355,11 @@ bool AdvParser::Bug2Rules(int& n)
 ////////////////////////////////////////////////////////
 bool AdvParser::SKRules(int& n)
 {
-    /*Paddle or Keyboard rules*/
-    /*Middle keyup test to see this keyup is twice the lenght of the one just before it,
+    /*Straight key Rules - Originally model form Paddle or Keyboard rules*/
+    /*Middle keyup test to see this keyup is greater than 'UnitIntvrlx2r5',
     If it is then call this one a letter break*/
-    if (n > 0 && (TmpUpIntrvls[n] > 2.0 * TmpUpIntrvls[n - 1]))
+    //if (n > 0 && (TmpUpIntrvls[n] > 2.0 * TmpUpIntrvls[n - 1]))
+    if (n > 0 && (TmpUpIntrvls[n] > UnitIntvrlx2r5))
     {
         ExitPath[n] = 100;
         BrkFlg = '+';
@@ -1375,14 +1375,7 @@ bool AdvParser::SKRules(int& n)
     }
     if (NewSpltVal)
     {
-        //if ((TmpUpIntrvls[n] >= 1.5 * 1.2 * KeyUpBuckts[MaxCntKyUpBcktPtr].Intrvl) &&
-        //    (TmpUpIntrvls[n] > KeyDwnBuckts[0].Intrvl))
-        // if ((TmpUpIntrvls[n] >= 1.5 * DitIntrvlVal) &&
-        //     (TmpUpIntrvls[n] > KeyDwnBuckts[0].Intrvl))
-        if ((TmpUpIntrvls[n] >= DitDahSplitVal) &&
-            (TmpUpIntrvls[n] > KeyDwnBuckts[0].Intrvl))
-            
-            
+        if (TmpUpIntrvls[n] >= UnitIntvrlx2r5)
         {
             BrkFlg = '+';
             ExitPath[n] = 102;
@@ -1390,18 +1383,19 @@ bool AdvParser::SKRules(int& n)
         }
         else
             ExitPath[n] = 103;
-        if (MaxCntKyUpBcktPtr < KeyUpBucktPtr) // safety check, before trying the real test
-        {
-            // if (TmpUpIntrvls[n] >= KeyUpBuckts[MaxCntKyUpBcktPtr + 1].Intrvl)
-            if (TmpUpIntrvls[n] >= DitDahSplitVal)
-            {
-                BrkFlg = '+';
-                ExitPath[n] = 104;
-                return true;
-            }
-        }
-        else
-            ExitPath[n] = 105;
+
+        // if (MaxCntKyUpBcktPtr < KeyUpBucktPtr) // safety check, before trying the real test
+        // {
+        //     // if (TmpUpIntrvls[n] >= KeyUpBuckts[MaxCntKyUpBcktPtr + 1].Intrvl)
+        //     if (TmpUpIntrvls[n] >= DitDahSplitVal)
+        //     {
+        //         BrkFlg = '+';
+        //         ExitPath[n] = 104;
+        //         return true;
+        //     }
+        // }
+        // else
+        //     ExitPath[n] = 105;
     }
     else
     {
