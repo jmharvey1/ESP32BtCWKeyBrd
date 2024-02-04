@@ -64,6 +64,7 @@
 /*20240201 AdvParser.cpp - Added Straight Key Rule Set & Detection; Revised Bug1 RS dit & dah runs parsing*/
 /*20240202 AdvParser.cpp - Added Bg1SplitPt & refined Bug1 "Dah run" code*/
 /*20240203 Added initialization values to AdvParser to imporve 1st decode/parsing results*/
+/*20240204 added GetState method to CWSndEngn class; primarily to notify decoder/Goertzl side to go into 'standby/sleep' mode*/
 
 #include "sdkconfig.h" //added for timer support
 #include "globals.h"
@@ -121,7 +122,7 @@ DF_t DFault;
 int DeBug = 0; // Debug factory default setting; 0 => Debug "OFF"; 1 => Debug "ON"
 char StrdTxt[20] = {'\0'};
 /*Factory Default Settings*/
-char RevDate[9] = "20240203";
+char RevDate[9] = "20240204";
 char MyCall[10] = "KW4KD";
 char MemF2[80] = "VVV VVV TEST DE KW4KD";
 char MemF3[80] = "CQ CQ CQ DE KW4KD KW4KD";
@@ -392,6 +393,7 @@ void GoertzelHandler(void *param)
 {
   static uint32_t thread_notification;
   static const char *TAG2 = "ADC_Read";
+  uint16_t curclr = 0;
   uint16_t oldclr = 0;
   int k;
   int offset = 0;
@@ -448,9 +450,12 @@ void GoertzelHandler(void *param)
           FrstPass = false;
         } else{
           FrstPass = true;
-        } 
-        if(FrstPass) ComputeMags(EvntStart);  //"EvntStart" is the time stamp for this dataset
-        uint16_t curclr = ToneClr();
+        }
+        //if(CWsndengn.GetState() == 0){ //Check CW Send Engine sate/status. If Active (state !=0), dont pass this data set to the decoder
+        if(!CWsndengn.IsActv()){
+          if(FrstPass) ComputeMags(EvntStart);  //"EvntStart" is the time stamp for this dataset
+          curclr = ToneClr();
+        }//else printf("%d\n", CWsndengn.GetState());//just for diagnostic testing
         if (oldclr != curclr)
         {
           oldclr = curclr;

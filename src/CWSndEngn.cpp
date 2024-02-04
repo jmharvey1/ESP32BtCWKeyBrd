@@ -6,7 +6,8 @@
  * 20220827 minor tweek to CWSNDENGN::Intr(void) code to allow F12 (SOT) to always stop key at the end of a letter
  * 20230429 Added code to set character timing speed to a minimum of 15wpm
  * 20230430 fixed crash issue related to changing speed while buffered code is being sent.
- * 20230502 reworked WPM screen refresh code & updates to dotclk timing interval to avoid TFT display crashes. 
+ * 20230502 reworked WPM screen refresh code & updates to dotclk timing interval to avoid TFT display crashes.
+ * 20240204 added GetState method; primarily to notify decoder/Goertzl side to go into 'standby/sleep' mode while the send side is active 
  */
 /*
  * Given:
@@ -97,16 +98,17 @@ int CWSNDENGN::Intr(void){
 	//bool UpdateTiming = false;
 	//20230430 moved changing dot clock timing to here to ensure timing changes are inserted at the begining of a new timing interval 
 	
-	if(!ActvFlg || (!SOTFlg && !SymblCnt && !KeyDwn)){ //added "&& !!SymblCnt" to make F12 stop at letter end
+	if(!ActvFlg || (!SOTFlg && !SymblCnt && !KeyDwn)){ //added "&& !SymblCnt" to make F12 stop at letter end
 		intcntr = 0;
 		TmInrvlCnt = 0;
+		//state = 0;//no activity
 		if(SndWPM != curWPM){
 			ShwWPM(SndWPM);
 			curWPM = SndWPM;
 			uSec = CalcARRval(curWPM);
 			ESP_ERROR_CHECK(esp_timer_restart(*DotClk, uSec));
 		}
-		return 0;//no activity
+		return state = 0;//no activity
 	}
 	state = 1;// processing
 	intcntr++;
@@ -433,6 +435,9 @@ void CWSNDENGN::RefreshWPM(void){
 };
 int CWSNDENGN::GetWPM(void){
 	return SndWPM;
+};
+int CWSNDENGN::GetState(void){
+	return this->state;
 };
 bool CWSNDENGN::GetSOTflg(void){
 	return SOTFlg;

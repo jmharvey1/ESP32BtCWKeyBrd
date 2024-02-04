@@ -5,6 +5,7 @@
  *      Author: jim
  * 20230418 expanded send buffer from 160 to 400 charater (4 line to 10 dispaly lines)
  * 20230502 changed RfrshSpd flag to public as partof the code changes to avoid TFT display crashes when dotclktiming is changed while buffered text is being sent.
+ * * 20240204 added GetState method; primarily to notify decoder/Goertzl side to go into 'standby/sleep' mode while the send side is active.
  */
 	/*
 	 * Given:
@@ -101,6 +102,7 @@ public:
 	void AbortSnd(void);
 	void RefreshWPM(void);
 	int GetWPM(void);
+	int GetState(void);
 	bool GetSOTflg(void);
 	void SetWPM(int newWPM);
 	void ShwWPM(int wpm);

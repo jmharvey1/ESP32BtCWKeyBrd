@@ -165,7 +165,7 @@ void AdvParser::EvalTimeData(uint16_t KeyUpIntrvls[IntrvlBufSize], uint16_t KeyD
     // }
     /*Figure out which Key type rule set to use. Paddle(BugKey = 0)/Bug(BugKey = 1)/Cootie(BugKey = 2)*/
     uint8_t bgPdlCd = 0;
-    BugKey = 1; // start by assuming its a standard bug type key
+    //BugKey = 1; // start by assuming its the same type key as last used
     /*select 'cootie' key based on extreme short keyup timing relative to keydown time*/
     // printf("\nAvgSmblDedSpc:%d; KeyDwnBuckts[0].Intrvl:%d; Intrvl / 3: %0.1f\n", (int)AvgSmblDedSpc, KeyDwnBuckts[0].Intrvl, KeyDwnBuckts[0].Intrvl / 2.7);
     if ((AvgSmblDedSpc < KeyDwnBuckts[0].Intrvl / 2.7) && (KeyUpBucktPtr < 5))
@@ -225,7 +225,8 @@ void AdvParser::EvalTimeData(uint16_t KeyUpIntrvls[IntrvlBufSize], uint16_t KeyD
             break;    
 
         default:
-            /*if we are here BugKey value equals 1; i.e., "bug/straight"*/
+            /*if we are here, start by assuming BugKey value equals 1; i.e., "bug1"*/
+            BugKey = 1; // 
             if (KeyDwnBucktPtr + 1 <= 2)
             {
                 bgPdlCd = 1;
@@ -325,12 +326,12 @@ void AdvParser::EvalTimeData(uint16_t KeyUpIntrvls[IntrvlBufSize], uint16_t KeyD
         printf("\nKeyDwnBuckt Cnt: %d ", KeyDwnBucktPtr + 1);
     }
     /*Now test for bug key type (1), and if true, decide which bug style (rule set to use)*/
-    if (BugKey == 1)
+    if (BugKey == 1 && bgPdlCd != 99)
     {
         if (DitIntrvlVal > 1.5 * AvgSmblDedSpc)
         {
             bgPdlCd += 100;
-            BugKey = 4;
+            BugKey = 4; // Bug2
         }
     }
     KeyType = BugKey; // let the outside world know what mode/rule set being used
@@ -339,7 +340,7 @@ void AdvParser::EvalTimeData(uint16_t KeyUpIntrvls[IntrvlBufSize], uint16_t KeyD
     case 0:          // paddle/keyboard
         ModeCnt = 0; // DcodeCW.cpp use "Normal" timing
         break;
-    case 1:          // Bug/straight key
+    case 1:          // Bug1
         ModeCnt = 0; // DcodeCW.cpp use "Normal" timing
         break;
     case 2:          // cootie type A
@@ -348,7 +349,7 @@ void AdvParser::EvalTimeData(uint16_t KeyUpIntrvls[IntrvlBufSize], uint16_t KeyD
     case 3:          // cootie typ B
         ModeCnt = 3; // DcodeCW.cpp use "cootie" settings/timing ; no glitch detection
         break;
-    case 4:          // paddle/keyboard
+    case 4:          // Bug2
         ModeCnt = 0; // DcodeCW.cpp use "Normal" timing
         break;
     case 5:          // Straight Key
@@ -378,7 +379,7 @@ void AdvParser::EvalTimeData(uint16_t KeyUpIntrvls[IntrvlBufSize], uint16_t KeyD
             printf(" Paddle/KeyBoard\n");
             break;
         case 1:
-            printf(" Bug1/Straight\n");
+            printf(" Bug1\n");
             break;
         case 2:
             printf(" Cootie\n");
@@ -1533,7 +1534,6 @@ int AdvParser::DitDahBugTst(void)
     bool same;
     for (int n = 0; n < stop; n++)
     {
-        
         /*Made the define the average dah, less restrictive; because paddle generated dahs should all have the same interval */
         if (n > 0 && (TmpDwnIntrvls[n] > DitDahSplitVal))
         {
@@ -1548,10 +1548,11 @@ int AdvParser::DitDahBugTst(void)
 
         /*Sum the KeyUp numbers for any non letterbreak terminated dah*/
         if ((TmpDwnIntrvls[n] > DitDahSplitVal) &&
-            (TmpUpIntrvls[n] < 1.25 * DitDahSplitVal))
+            (TmpUpIntrvls[n] < Bg1SplitPt))
         {
             dahInterval += TmpUpIntrvls[n];
             dahcnt++;
+            //printf("%d\n", n);
         }
         /*test adjcent dits KeyUp timing. But only include if there's not a letter break between them */
         else if ((TmpDwnIntrvls[n] < DitDahSplitVal) &&
@@ -1560,6 +1561,7 @@ int AdvParser::DitDahBugTst(void)
         {
             ditInterval += TmpUpIntrvls[n];
             ditcnt++;
+            //printf("\t%d\n", n);
         }
     }
     /*Test/check for Straight key, by dits with varying intervals*/
@@ -1619,10 +1621,14 @@ int AdvParser::DitDahBugTst(void)
         {
             if (ditcnt > 0 && dahcnt > 0)
             {
-                /* average/normalize the keyup invervals results */
+                /* average/normalize the Dit & Dah keyup invervals results */
+                // dahInterval = (uint16_t)((float)dahInterval/(float)dahcnt);
+                // ditInterval = (uint16_t)((float)ditInterval/(float)ditcnt);
                 dahInterval /= dahcnt;
                 ditInterval /= ditcnt;
-                // printf("\nditcnt:%d; dahcnt:%d; ditInterval: %d; dahInterval: %d\n", ditcnt, dahcnt, ditInterval, dahInterval);
+                //printf("\nditcnt:%d;  ditInterval: %d\ndahcnt:%d; dahInterval: %d\n", ditcnt, ditInterval, dahcnt, dahInterval);
+                /*If both intervals are essentially the same, then its likely electronic keying
+                while bug generated code almost always has longer dah keyup intervals*/
                 if (dahInterval > ditInterval + 8)
                     return 2; // bug (80)
                 else
@@ -1641,26 +1647,9 @@ int AdvParser::DitDahBugTst(void)
     else
     {
         return 6;// not enough info to decide
-
     }
-    return 7;// not enough info to decide
-
-
-
+    return 8;// not enough info to decide
     // printf("\nditcnt:%d; dahcnt:%d; interval cnt: %d\n", ditcnt, dahcnt, stop);
-    // if (ditcnt > 0 && dahcnt > 0)
-    // {
-    //     /* average/normalize results */
-    //     dahInterval /= dahcnt;
-    //     ditInterval /= ditcnt;
-    //     // printf("\nditcnt:%d; dahcnt:%d; ditInterval: %d; dahInterval: %d\n", ditcnt, dahcnt, ditInterval, dahInterval);
-    //     if (dahInterval > ditInterval + 8)
-    //         return 4; // bug
-    //     else
-    //         return 5; // paddle/krybrd
-    // }
-    // else
-    //     return 7; // not enough info to decide
 };
 /////////////////////////////////////////////
 void AdvParser::Dcode4Dahs(int n)
