@@ -1478,7 +1478,7 @@ bool chkChrCmplt(void)
 		if (KeyDwnPtr > 2 && KeyUpPtr > 2 && KeyUpIntrvls[0] > 0 && KeyDwnIntrvls[0] > 0)
 		{
 			//printf("\nWORD BREAK - KeyDwnPtr: %d; KeyUpPtr:%d\n", KeyDwnPtr, KeyUpPtr);
-			if ((LtrPtr > 1 || KeyDwnPtr >= 9) && (wpm > 13)  && (wpm < 36) && (KeyDwnPtr == KeyUpPtr))// don't try to reparse if the key up & down pointers arent equal
+			if ((LtrPtr > 1 || KeyDwnPtr >= 9) && ((wpm > 13) ||(LtrPtr > 3)) && (wpm < 36) && (KeyDwnPtr == KeyUpPtr))// don't try to reparse if the key up & down pointers arent equal
 			{ // dont do post parsing with just one letter or WPMs <= 13
 				/*1st refresh/sync 'advparser.Dbug' */
 				if (DeBug)

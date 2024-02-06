@@ -8,6 +8,7 @@
  * 20240114 numerous adds to methods properties and constants to extend/enhance this class )
  * 20240117 added Dcode4Dahs() to class; 
  * 20240205 added WrdBrkVal
+ * 20240206 added StrchdDah property
  * */
 #ifndef INC_ADVPARSER_H_
 #define INC_ADVPARSER_H_
@@ -26,6 +27,7 @@ class AdvParser
 private:
     bool AllDah;
     bool NewSpltVal;
+    bool StrchdDah; //used mainly to steer which rules to apply within the Bug1 rule set (when long dahs are detected certain simple rules are bypassed)
     int BugKey;//controls wich parsing rules are used 0 = paddle; 1 = bug; 2 = cootie
     int MaxCntKyUpBcktPtr;
 
