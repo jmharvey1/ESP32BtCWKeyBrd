@@ -7,6 +7,7 @@
 /* 
  * 20240114 numerous adds to methods properties and constants to extend/enhance this class )
  * 20240117 added Dcode4Dahs() to class; 
+ * 20240205 added WrdBrkVal
  * */
 #ifndef INC_ADVPARSER_H_
 #define INC_ADVPARSER_H_
@@ -42,6 +43,7 @@ private:
     uint16_t TmpDwnIntrvls[IntrvlBufSize];
     uint16_t DitDahSplitVal;
     uint16_t DitIntrvlVal; //used as sanity test/check in 'bug' letterbrk rule set; 20240129 running average of the last 6 dits
+    uint16_t WrdBrkVal; // serves in post parser as the value to insert a space in the reconstructed character string
     unsigned int SymbSet;
     unsigned int LstLtrBrkCnt = 0;
     uint16_t UnitIntvrlx2r5; //basic universal symbol interval; i.e. a standard dit X 2.4; used in b1 rule set to find letter breaks

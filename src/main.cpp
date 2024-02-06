@@ -65,6 +65,7 @@
 /*20240202 AdvParser.cpp - Added Bg1SplitPt & refined Bug1 "Dah run" code*/
 /*20240203 Added initialization values to AdvParser to imporve 1st decode/parsing results*/
 /*20240204 added GetState method to CWSndEngn class; primarily to notify decoder/Goertzl side to go into 'standby/sleep' mode*/
+/*20240205 added WrdBrkVal property Advparser Class + changes to Bug1 & DitDahBugTst*/
 
 #include "sdkconfig.h" //added for timer support
 #include "globals.h"
@@ -122,7 +123,7 @@ DF_t DFault;
 int DeBug = 0; // Debug factory default setting; 0 => Debug "OFF"; 1 => Debug "ON"
 char StrdTxt[20] = {'\0'};
 /*Factory Default Settings*/
-char RevDate[9] = "20240204";
+char RevDate[9] = "20240205";
 char MyCall[10] = "KW4KD";
 char MemF2[80] = "VVV VVV TEST DE KW4KD";
 char MemF3[80] = "CQ CQ CQ DE KW4KD KW4KD";
