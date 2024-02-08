@@ -67,6 +67,8 @@
 /*20240204 added GetState method to CWSndEngn class; primarily to notify decoder/Goertzl side to go into 'standby/sleep' mode*/
 /*20240205 added WrdBrkVal property Advparser Class + changes to Bug1 & DitDahBugTst*/
 /*20240206 added StrchdDah property to Advparser Class*/
+/*20240207 ammended 'Advparser.AdvSrch4Match' method for setting up 'follow on' search*/
+/*20240208 AdvParser.cpp, reworked 'LstLtrBrkCnt' management to better track the number of keyevents since the last letterbreak event */
 
 #include "sdkconfig.h" //added for timer support
 #include "globals.h"
@@ -102,7 +104,7 @@
 #define ADC_LL_CLKM_DIV_NUM_DEFAULT       15
 #define ADC_LL_CLKM_DIV_B_DEFAULT         1
 #define ADC_LL_CLKM_DIV_A_DEFAULT         0
-#define ADC_LL_DEFAULT_CONV_LIMIT_EN      0
+#define ADC_LL_DEFAULT_CONV_LIMIT_EN  6    0
 
 
 #define TFT_GREY 0x5AEB // New colour
@@ -124,7 +126,7 @@ DF_t DFault;
 int DeBug = 0; // Debug factory default setting; 0 => Debug "OFF"; 1 => Debug "ON"
 char StrdTxt[20] = {'\0'};
 /*Factory Default Settings*/
-char RevDate[9] = "20240206";
+char RevDate[9] = "20240208";
 char MyCall[10] = "KW4KD";
 char MemF2[80] = "VVV VVV TEST DE KW4KD";
 char MemF3[80] = "CQ CQ CQ DE KW4KD KW4KD";

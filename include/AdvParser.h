@@ -47,7 +47,7 @@ private:
     uint16_t DitIntrvlVal; //used as sanity test/check in 'bug' letterbrk rule set; 20240129 running average of the last 6 dits
     uint16_t WrdBrkVal; // serves in post parser as the value to insert a space in the reconstructed character string
     unsigned int SymbSet;
-    unsigned int LstLtrBrkCnt = 0;
+    unsigned int LstLtrBrkCnt = 0;//track the number of keyevents since last letterbreak.
     uint16_t UnitIntvrlx2r5; //basic universal symbol interval; i.e. a standard dit X 2.4; used in b1 rule set to find letter breaks
     uint16_t Bg1SplitPt; //bug1 rule set dit/dah decision value; derived from UnitIntvrlx2r5
     char BrkFlg;

@@ -25,6 +25,8 @@
  * 20240202 Added Bg1SplitPt & refined Bug1 "Dah run" code
  * 20240205 added WrdBrkVal property to insert space character in post parsed character string + changes to Bug1 & DitDahBugTst
  * 20240206 added StrchdDah property, to better devine which rules apply in bug1 rule set.
+ * 20240207 ammended 'AdvSrch4Match' method for setting up 'follow on' search, when 1st searches don't find a match
+ * 20240208 reworked 'LstLtrBrkCnt' management to better track the number of keyevents since last letterbreak event 
  * */
 #include "AdvParser.h"
 #include "DcodeCW.h"
@@ -412,12 +414,12 @@ void AdvParser::EvalTimeData(uint16_t KeyUpIntrvls[IntrvlBufSize], uint16_t KeyD
     }
 
     /*Now have everything needed to rebuild/Parse this group of Key down/key Up times*/
-    
+    this->LstLtrBrkCnt = 0;
     while (n < TmpUpIntrvlsPtr)
     {
         if (Dbug)
         {
-            printf("Dwn: %3d\t", TmpDwnIntrvls[n]);
+            printf("\n%d. Dwn: %3d\t", n, TmpDwnIntrvls[n]);
             if (n < KeyUpPtr)
                 printf("Up: %3d\t", TmpUpIntrvls[n]);
             else
@@ -438,14 +440,16 @@ void AdvParser::EvalTimeData(uint16_t KeyUpIntrvls[IntrvlBufSize], uint16_t KeyD
                 {
                     if (Dbug)
                     {
-                        printf("\nDwn: %3d\t", TmpDwnIntrvls[curN]);
+                        printf("\n%d. Dwn: %3d\t", n, TmpDwnIntrvls[curN]);
                         if (curN < KeyUpPtr)
                             printf("Up: %3d\t", TmpUpIntrvls[curN]);
                         else
                             printf("Up: ???\t");
                     }
                     curN++;
+                    this->LstLtrBrkCnt++;
                 }
+                //printf("n:%d; LstLtrBrkCnt: %d \n", n, this->LstLtrBrkCnt);
             }
             /*Now, if the symbol set = 31 (4 dits in a row), we need to figure out where the biggest key up interval is
             and subdivide this into something that can be decoded*/
@@ -455,12 +459,12 @@ void AdvParser::EvalTimeData(uint16_t KeyUpIntrvls[IntrvlBufSize], uint16_t KeyD
                 int IndxPtr = AdvSrch4Match(n, SymbSet, true); // try to convert the current symbol set to text &
                                                                // and save/append the results to 'Msgbuf[]'
                                                                // start a new symbolset
-            LstLtrBrkCnt = 0;
             /*We found a letter, but maybe its also a word; test by testing the keyup interval*/
             if(TmpUpIntrvls[n] > this->WrdBrkVal && ( n < this->TmpUpIntrvlsPtr-1)){//yes, it looks like a word break
                 //add " " (space) to reparsed string
                 this->AdvSrch4Match(n, 255, false);
             }
+            this->LstLtrBrkCnt = 0;
         }
         else if (ExitPath[n] == 4 && BrkFlg == '%')
         { // found a run but ended W/o a letter break. So for Debug output,need to advance/resync pointers
@@ -470,13 +474,17 @@ void AdvParser::EvalTimeData(uint16_t KeyUpIntrvls[IntrvlBufSize], uint16_t KeyD
                 {
                     printf("\nDwn: %3d\tUp: %3d\t", TmpDwnIntrvls[curN], TmpUpIntrvls[curN]);
                 }
-                LstLtrBrkCnt++;
+                this->LstLtrBrkCnt++;
                 curN++;
             }
+            this->LstLtrBrkCnt++;
+            //printf("n:%d; LstLtrBrkCnt: %d \n", n, this->LstLtrBrkCnt);
         }
-        else
-            LstLtrBrkCnt++;
-
+        else 
+        {
+            this->LstLtrBrkCnt++;
+            //printf("n:%d; LstLtrBrkCnt: %d \n", n, this->LstLtrBrkCnt);
+        }
         if (Dbug)
         {
             if (BrkFlg == NULL)
@@ -498,6 +506,7 @@ void AdvParser::EvalTimeData(uint16_t KeyUpIntrvls[IntrvlBufSize], uint16_t KeyD
             SymbSet = 1; // reset the symbolset for the next character
         }
         n++;
+        //printf("n:%d; LstLtrBrkCnt: %d \n", n, this->LstLtrBrkCnt);
     }
     /*Text string Analysis complete*/
    
@@ -786,43 +795,62 @@ bool AdvParser::Bug1Rules(int& n)
                 else if ((TmpUpIntrvls[i] > 1.4 * TmpDwnIntrvls[i]) ||
                          (TmpUpIntrvls[i] >= KeyUpBuckts[KeyUpBucktPtr].Intrvl))
                 {
-                    printf("EXIT A\t");
+                    if (this->Dbug)
+                    {
+                        printf("EXIT A\t");
+                    }
                     ExtSmbl = '#'; //(exit code 2)
                     break;         // quit, Looks like a clear intention to signal a letterbreak
                 }
                 /*Only consider the following "out", if we're not working with a collection of symbols that contains "Sterched" Dahs*/
                 else if (TmpUpIntrvls[i] >= this->UnitIntvrlx2r5 && !this->StrchdDah)
                 {
-                    printf("EXIT B %d; %d; %d\t", TmpUpIntrvls[i], i, RunCnt);
+                    if (this->Dbug)
+                    {
+                        printf("EXIT B %d; %d; %d\t", TmpUpIntrvls[i], i, RunCnt);
+                    }
+
                     ExtSmbl = '#'; //(exit code 2)
                     break;         // quit, Looks like a clear intention to signal a letterbreak
                 }
                 else if ((TmpDwnIntrvls[i] >= KeyDwnBuckts[KeyDwnBucktPtr].Intrvl) && (TmpUpIntrvls[i] > UnitIntvrlx2r5))
                 {
-                    printf("EXIT C\t");
+                    if (this->Dbug)
+                    {
+                        printf("EXIT C\t");
+                    }
                     ExtSmbl = '#'; //(exit code 2)
                     break;         // quit, Looks like a clear intention to signal a letterbreak
                 }
             }
-            else if ((TmpUpIntrvls[i] > 1.4 * TmpDwnIntrvls[i]) || 
-               (TmpUpIntrvls[i]>= KeyUpBuckts[KeyUpBucktPtr].Intrvl))
+            else if ((TmpUpIntrvls[i] > 1.4 * TmpDwnIntrvls[i]) ||
+                     (TmpUpIntrvls[i] >= KeyUpBuckts[KeyUpBucktPtr].Intrvl))
             {
-                printf("EXIT D\t");
+                if (this->Dbug)
+                {
+                    printf("EXIT D\t");
+                }
                 ExtSmbl = '$'; //(exit code 23)
-                break; // quit, Looks like a clear intention to signal a letterbreak
+                break;         // quit, Looks like a clear intention to signal a letterbreak
             }
             /*Only consider the following "out", if we're not working with a collection of symbols that contains "Sterched" Dahs*/
-            else if(TmpUpIntrvls[i] >= this->UnitIntvrlx2r5 && !this->StrchdDah)
+            else if (TmpUpIntrvls[i] >= this->UnitIntvrlx2r5 && !this->StrchdDah)
             {
-                printf("EXIT E %d; %d; %d\t",TmpUpIntrvls[i] ,i, RunCnt);
+                if (this->Dbug)
+                {
+                    printf("EXIT E %d; %d; %d\t", TmpUpIntrvls[i], i, RunCnt);
+                }
                 ExtSmbl = '$'; //(exit code 23)
-                break; // quit, Looks like a clear intention to signal a letterbreak                    
+                break;         // quit, Looks like a clear intention to signal a letterbreak
             }
-            else if((TmpDwnIntrvls[i]>= KeyDwnBuckts[KeyDwnBucktPtr].Intrvl) && (TmpUpIntrvls[i] >  UnitIntvrlx2r5))
+            else if ((TmpDwnIntrvls[i] >= KeyDwnBuckts[KeyDwnBucktPtr].Intrvl) && (TmpUpIntrvls[i] > UnitIntvrlx2r5))
             {
-                printf("EXIT F\t");
+                if (this->Dbug)
+                {
+                    printf("EXIT F\t");
+                }
                 ExtSmbl = '$'; //(exit code 23)
-                break; // quit, Looks like a clear intention to signal a letterbreak
+                break;         // quit, Looks like a clear intention to signal a letterbreak
             }
         }
     }
@@ -1034,7 +1062,8 @@ bool AdvParser::Bug1Rules(int& n)
             /*We have Dah to dit transition set letter break only if key up interval is > 1.6x the dit interval
             And the keyup time is more than 0.6 the dah interval //20240120 added this 2nd qualifier
             20240128 reduced 2nd qualifier to 0.4 & added 3rd 'OR' qualifier, this dah is the longest in the group*/
-            if ((TmpUpIntrvls[n] > 1.6 * TmpDwnIntrvls[n + 1]) && ((TmpUpIntrvls[n] > 0.4 * TmpDwnIntrvls[n]) || TmpDwnIntrvls[n] >= KeyDwnBuckts[KeyDwnBucktPtr].Intrvl))
+            if ((TmpUpIntrvls[n] > 1.6 * TmpDwnIntrvls[n + 1]) && ((TmpUpIntrvls[n] > 0.4 * TmpDwnIntrvls[n]) 
+                || TmpDwnIntrvls[n] >= KeyDwnBuckts[KeyDwnBucktPtr].Intrvl))
             {
                 ExitPath[n] = 16;
                 BrkFlg = '+';
@@ -1483,15 +1512,15 @@ int AdvParser::AdvSrch4Match(int n, unsigned int decodeval, bool DpScan)
     { // did not find a match in the standard Morse table. So go check the extended dictionary
         pos1 = linearSearchBreak(decodeval, CodeVal2, ARSIZE2);
         if (pos1 < 0)
-        { /*Still no match. Go back and sub divide this group timing inervals into two smaller set & look again*/
+        { /*Still no match. Go back and sub divide this group timing intervals into two smaller sets & look again*/
             // sprintf(this->Msgbuf, "%s%s", TmpBufA, "*");
             /*Build 2 new symbsets & try to decode them*/
             /*find the longest keyup time in this interval group*/
             int NuLtrBrk = 0;
             uint16_t LongestKeyUptime = 0;
             unsigned int Symbl1, Symbl2;
-            int Start = n - this->LstLtrBrkCnt;
-            //printf("\nLstLtrBrkCnt: %d; offset: %d; ",LstLtrBrkCnt, Start);
+            int Start = n - (this->LstLtrBrkCnt);//20240207 added the '+1' to the equation, because for the lstLtrBrkCnt, found to be one short of where we needed to start from
+            //printf("\tn: %d; LstLtrBrkCnt: %d; Start: %d; ", n, this->LstLtrBrkCnt, Start);
             for (int i = Start; i < n; i++)//stop 1 short of the original letter break
             {
                 if (TmpUpIntrvls[i] > LongestKeyUptime)
@@ -1508,7 +1537,7 @@ int AdvParser::AdvSrch4Match(int n, unsigned int decodeval, bool DpScan)
                 if (TmpDwnIntrvls[i] + 8 > DitDahSplitVal) // if within *ms of the split value, its a 'dah'
                     Symbl1 += 1;
             }
-            //printf("\t1st Start:%d; NuLtrBrk:%d; Symbl1: %d; ", Start, NuLtrBrk, Symbl1);
+            //printf("\t1st: NuLtrBrk:%d; Symbl1: %d; ", NuLtrBrk, Symbl1);
             Start = NuLtrBrk + 1;
             Symbl2 = 1;
             for (int i = Start; i <= n; i++)
