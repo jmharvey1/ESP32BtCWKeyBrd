@@ -61,9 +61,14 @@ private:
     void insertionSort(uint16_t arr[], int n);
 	void SetSpltPt(Buckt_t arr[], int n);
     int AdvSrch4Match(int n, unsigned int decodeval, bool DpScan);
+    bool SrchAgn(int n);
+    int BldCodeVal(int Start, int LtrBrk);
+    int FindLtrBrk(int Start, int End);
+    void SyncTmpBufA(void);
     void PrintThisChr(void);
     int DitDahBugTst(void); //returns 2 for unknown; 0 for paddle; 1 for bug
     void Dcode4Dahs(int n);
+    char TmpBufA[MsgbufSize - 5];
 
 public:
 	AdvParser(void); //TFT_eSPI *tft_ptr, char *StrdTxt

@@ -26,7 +26,8 @@
  * 20240205 added WrdBrkVal property to insert space character in post parsed character string + changes to Bug1 & DitDahBugTst
  * 20240206 added StrchdDah property, to better devine which rules apply in bug1 rule set.
  * 20240207 ammended 'AdvSrch4Match' method for setting up 'follow on' search, when 1st searches don't find a match
- * 20240208 reworked 'LstLtrBrkCnt' management to better track the number of keyevents since last letterbreak event 
+ * 20240208 reworked 'LstLtrBrkCnt' management to better track the number of keyevents since last letterbreak event
+ * 20240210 created new class metthod 'SrchAgn()' to handle deep dive search for Codevals/morse text, when normal codeval to text conversion fails
  * */
 #include "AdvParser.h"
 #include "DcodeCW.h"
@@ -419,7 +420,7 @@ void AdvParser::EvalTimeData(uint16_t KeyUpIntrvls[IntrvlBufSize], uint16_t KeyD
     {
         if (Dbug)
         {
-            printf("\n%d. Dwn: %3d\t", n, TmpDwnIntrvls[n]);
+            printf("%2d. DWn: %3d\t", n, TmpDwnIntrvls[n]);
             if (n < KeyUpPtr)
                 printf("Up: %3d\t", TmpUpIntrvls[n]);
             else
@@ -440,7 +441,7 @@ void AdvParser::EvalTimeData(uint16_t KeyUpIntrvls[IntrvlBufSize], uint16_t KeyD
                 {
                     if (Dbug)
                     {
-                        printf("\n%d. Dwn: %3d\t", n, TmpDwnIntrvls[curN]);
+                        printf("\n%2d. D0n: %3d\t", curN, TmpDwnIntrvls[curN]);
                         if (curN < KeyUpPtr)
                             printf("Up: %3d\t", TmpUpIntrvls[curN]);
                         else
@@ -472,7 +473,7 @@ void AdvParser::EvalTimeData(uint16_t KeyUpIntrvls[IntrvlBufSize], uint16_t KeyD
             {
                 if (Dbug)
                 {
-                    printf("\nDwn: %3d\tUp: %3d\t", TmpDwnIntrvls[curN], TmpUpIntrvls[curN]);
+                    printf("\n%2d. Dwn: %3d\tUp: %3d\t", curN, TmpDwnIntrvls[curN], TmpUpIntrvls[curN]);
                 }
                 this->LstLtrBrkCnt++;
                 curN++;
@@ -1499,10 +1500,10 @@ int AdvParser::AdvSrch4Match(int n, unsigned int decodeval, bool DpScan)
         return 0;
 
     /*make a copy of the current message buffer */
-    char TmpBufA[MsgbufSize - 5];
-    for (int i = 0; i < sizeof(TmpBufA); i++)
+    //char TmpBufA[MsgbufSize - 5];
+    for (int i = 0; i < sizeof(this->TmpBufA); i++)
     {
-        TmpBufA[i] = this->Msgbuf[i];
+        this->TmpBufA[i] = this->Msgbuf[i];
         if (this->Msgbuf[i] == 0)
             break;
     }
@@ -1512,68 +1513,171 @@ int AdvParser::AdvSrch4Match(int n, unsigned int decodeval, bool DpScan)
     { // did not find a match in the standard Morse table. So go check the extended dictionary
         pos1 = linearSearchBreak(decodeval, CodeVal2, ARSIZE2);
         if (pos1 < 0)
-        { /*Still no match. Go back and sub divide this group timing intervals into two smaller sets & look again*/
-            // sprintf(this->Msgbuf, "%s%s", TmpBufA, "*");
-            /*Build 2 new symbsets & try to decode them*/
-            /*find the longest keyup time in this interval group*/
-            int NuLtrBrk = 0;
-            uint16_t LongestKeyUptime = 0;
-            unsigned int Symbl1, Symbl2;
-            int Start = n - (this->LstLtrBrkCnt);//20240207 added the '+1' to the equation, because for the lstLtrBrkCnt, found to be one short of where we needed to start from
-            //printf("\tn: %d; LstLtrBrkCnt: %d; Start: %d; ", n, this->LstLtrBrkCnt, Start);
-            for (int i = Start; i < n; i++)//stop 1 short of the original letter break
-            {
-                if (TmpUpIntrvls[i] > LongestKeyUptime)
-                {
-                    NuLtrBrk = i;
-                    LongestKeyUptime = TmpUpIntrvls[i];
-                }
-            }
-            /** Build 1st symbol set based on start of the the original group & the found longest interval*/
-            Symbl1 = 1;
-            for (int i = Start; i <= NuLtrBrk; i++)
-            {
-                Symbl1 = Symbl1 << 1;                      // append a new bit to the symbolset & default it to a 'Dit'
-                if (TmpDwnIntrvls[i] + 8 > DitDahSplitVal) // if within *ms of the split value, its a 'dah'
-                    Symbl1 += 1;
-            }
-            //printf("\t1st: NuLtrBrk:%d; Symbl1: %d; ", NuLtrBrk, Symbl1);
-            Start = NuLtrBrk + 1;
-            Symbl2 = 1;
-            for (int i = Start; i <= n; i++)
-            {
-                Symbl2 = Symbl2 << 1;                      // append a new bit to the symbolset & default it to a 'Dit'
-                if (TmpDwnIntrvls[i] + 8 > DitDahSplitVal) // if within *ms of the split value, its a 'dah'
-                    Symbl2 += 1;
-            }
-            //printf("\t2nd Start:%d; n:%d; Symbl2: %d\n", Start, n, Symbl2);
-            /*Now find character matches for these two new symbol sets,
-             and append their results to the message buffer*/
-            pos1 = linearSearchBreak(Symbl1, CodeVal1, ARSIZE);
-            if(pos1 >0){
-            sprintf(this->Msgbuf, "%s%s", TmpBufA, DicTbl1[pos1]);
-            /*make another copy of the current message buffer */
-            for (int i = 0; i < sizeof(TmpBufA); i++)
-            {
-                TmpBufA[i] = this->Msgbuf[i];
-                if (this->Msgbuf[i] == 0)
-                    break;
-            }
-            }
-            pos1 = linearSearchBreak(Symbl2, CodeVal1, ARSIZE);
-            if(pos1 >0) sprintf(this->Msgbuf, "%s%s", TmpBufA, DicTbl1[pos1]);
+        { /*Still no match. Go back and sub divide this group timing intervals into two smaller sets to tese out embedded text codes*/
+            // printf("  SrchAgn  ");
+            //if(!this->SrchAgn(n)) printf("  SEARCHED FAILED  ");
+            this->SrchAgn(n);
         }
         else
         {
 
-            sprintf(this->Msgbuf, "%s%s", TmpBufA, DicTbl2[pos1]);
+            sprintf(this->Msgbuf, "%s%s", this->TmpBufA, DicTbl2[pos1]);
         }
     }
     else
-        sprintf(this->Msgbuf, "%s%s", TmpBufA, DicTbl1[pos1]); // sprintf( Msgbuf, "%s%s", Msgbuf, DicTbl1[pos1] );
+        sprintf(this->Msgbuf, "%s%s", this->TmpBufA, DicTbl1[pos1]); // sprintf( Msgbuf, "%s%s", Msgbuf, DicTbl1[pos1] );
     return pos1;
 };
 //////////////////////////////////////////////////////////////////////
+/*Returns 'true'*/
+/*Uses user supplied pointer 'n' & class property 'LstLtrBrkCnt' as boundry points to 
+to do a recursive search for Codevals embedded in the key down/up arrays, & append as text to the class
+property 'MsgBuf'. Returns with Success flag set to 'true', if scan seem to work*/
+bool AdvParser::SrchAgn(int n)
+{
+    /*Build new symbsets & try to decode them*/
+    /*find the longest keyup time in this interval group*/
+    int NuLtrBrk = 0;
+    int pos1;
+    bool SrchWrkd = true;
+    unsigned int Symbl1;
+    int Start = n - (this->LstLtrBrkCnt);
+    /*Look for most obvious letter break */
+    NuLtrBrk = this->FindLtrBrk(Start, n);
+    /** Build 1st symbol set based on start of the the original group & the found longest interval*/
+    Symbl1 = this->BldCodeVal(Start, NuLtrBrk);
+    
+    /*Now find character matches for this new symbol set,
+     and append their results to the message buffer*/
+    pos1 = linearSearchBreak(Symbl1, CodeVal1, ARSIZE);
+    if (pos1 >= 0)
+    {   
+        // printf("A");
+        sprintf(this->Msgbuf, "%s%s", this->TmpBufA, DicTbl1[pos1]);
+        /*make another copy of the current message buffer */
+        this->SyncTmpBufA();
+        // for (int i = 0; i < sizeof(this->TmpBufA); i++)
+        // {
+        //     this->TmpBufA[i] = this->Msgbuf[i];
+        //     if (this->Msgbuf[i] == 0)
+        //         break;
+        // }
+    }
+    else
+    {
+        /*1st remember where the previous letter brk */
+        int NuLtrBrk1 = NuLtrBrk;
+        /*Look for most obvious letter break */
+        NuLtrBrk1 = this->FindLtrBrk(Start, NuLtrBrk1);
+        /** Build 1st symbol set based on start of the the original group & the found longest interval*/
+        Symbl1 = this->BldCodeVal(Start, NuLtrBrk1);
+        /*Now find character match for this new symbol set,
+         and append the results to the message buffer*/
+        pos1 = linearSearchBreak(Symbl1, CodeVal1, ARSIZE);
+        if (pos1 >= 0)
+        {
+            // printf("B: %s; %d; %d", DicTbl1[pos1], NuLtrBrk1+1, NuLtrBrk );
+            /*append the results to the message buffer*/
+            sprintf(this->Msgbuf, "%s%s", this->TmpBufA, DicTbl1[pos1]);
+            /*make another copy of the current message buffer */
+            this->SyncTmpBufA();
+            /** Build 1st symbol set based on start of the the original group & the found longest interval*/
+            Symbl1 = this->BldCodeVal(NuLtrBrk1+1, NuLtrBrk);
+            /*Now find character match for this symbol set,
+            and append their results to the message buffer*/
+            pos1 = linearSearchBreak(Symbl1, CodeVal1, ARSIZE);
+            if (pos1 >= 0){
+                // printf(" C: %s ", DicTbl1[pos1]);
+                /*append the results to the message buffer*/
+                sprintf(this->Msgbuf, "%s%s", this->TmpBufA, DicTbl1[pos1]);
+                /*make another copy of the current message buffer */
+                this->SyncTmpBufA();
+            } else  SrchWrkd = false;
+        } else SrchWrkd = false;
+    }
+    /*Finished 1st half of the original split; Now try to resolve parse the 2nd half*/
+    Start = NuLtrBrk + 1;
+    Symbl1 = this->BldCodeVal(Start, n);
+    pos1 = linearSearchBreak(Symbl1, CodeVal1, ARSIZE);
+    if (pos1 >= 0)
+    {
+        // printf("D: %s;", DicTbl1[pos1]);
+        sprintf(this->Msgbuf, "%s%s", this->TmpBufA, DicTbl1[pos1]);
+        /*make another copy of the current message buffer */
+        this->SyncTmpBufA();// not really needed here, because your done with this symbol set
+    }
+    else
+    {
+        /*1st remember where the previous letter brk */
+        int NuLtrBrk1 = NuLtrBrk;
+        /*Look for the next most obvious letter break */
+        NuLtrBrk1 = this->FindLtrBrk(Start, NuLtrBrk1);
+        /** Build 1st symbol set based on start of the the original group & the found longest interval*/
+        Symbl1 = this->BldCodeVal(Start, NuLtrBrk1);
+       /*Now find character matches for this new symbol set,
+         and append their results to the message buffer*/
+        pos1 = linearSearchBreak(Symbl1, CodeVal1, ARSIZE);
+        if (pos1 >= 0)
+        {
+            // printf(" E: %s; %d; %d", DicTbl1[pos1], NuLtrBrk1+1, n );
+            sprintf(this->Msgbuf, "%s%s", this->TmpBufA, DicTbl1[pos1]);
+            /*make another copy of the current message buffer */
+            this->SyncTmpBufA();
+            /** Build 1st symbol set based on start of the the original group & the found longest interval*/
+            Symbl1 = this->BldCodeVal(NuLtrBrk1+1, n);
+            /*Now find character matches for this new symbol set,
+            and append their results to the message buffer*/
+            pos1 = linearSearchBreak(Symbl1, CodeVal1, ARSIZE);
+            if (pos1 >= 0){
+                // printf(" F: %s; ", DicTbl1[pos1]);
+                sprintf(this->Msgbuf, "%s%s", this->TmpBufA, DicTbl1[pos1]);
+            } else SrchWrkd = false;
+        } else{
+            SrchWrkd = false;
+        }
+    }
+    return SrchWrkd;
+};
+///////////////////////////////////////////////////////////////////////
+/*Build New CodeVal Based on current KeyDown Array & Using the supplied Sart & LtrBrk pointers*/
+int AdvParser::BldCodeVal(int Start, int LtrBrk){
+/** Build 1st symbol set based on start of the the original group & the found longest interval*/
+    int CodeVal = 1;
+    for (int i = Start; i <= LtrBrk; i++)
+    {
+       CodeVal = CodeVal << 1;                      // append a new bit to the symbolset & default it to a 'Dit'
+        if (TmpDwnIntrvls[i] + 8 > DitDahSplitVal) // if within *ms of the split value, its a 'dah'
+            CodeVal += 1;
+    }
+    // printf("!: CodeVal %d; %d; %d ", CodeVal, Start, LtrBrk);
+    return CodeVal;
+};
+///////////////////////////////////////////////////////////////////////
+/*using the Start & End pointer values, return the index pointer with the longest keyup interval  */
+int AdvParser::FindLtrBrk(int Start, int End){
+    int NuLtrBrk = Start;
+    uint16_t LongestKeyUptime = 0;
+    for (int i = Start; i < End; i++) // stop 1 short of the original letter break
+    {
+        if (TmpUpIntrvls[i] > LongestKeyUptime)
+        {
+            NuLtrBrk = i;
+            LongestKeyUptime = TmpUpIntrvls[i];
+        }
+    }
+    return  NuLtrBrk;
+};
+///////////////////////////////////////////////////////////////////////
+void AdvParser::SyncTmpBufA(void)
+{
+    for (int i = 0; i < sizeof(this->TmpBufA); i++)
+    {
+        this->TmpBufA[i] = this->Msgbuf[i];
+        if (this->Msgbuf[i] == 0)
+            break;
+    }
+};
+///////////////////////////////////////////////////////////////////////
 /*This function finds the Msgbuf current lenght regardless of Dbug's state */
 void AdvParser::PrintThisChr(void)
 {
@@ -1659,6 +1763,7 @@ int AdvParser::DitDahBugTst(void)
         }
     }
     DahVariance = MaxdahInterval - MindahInterval;
+    float DahVarPrcnt = (float)DahVariance/(float)MindahInterval; // used later to determine if sender is using strected dahs as a way of signaling letter breaks
     if(Longdahcnt > 0)this->StrchdDah = true;
     /*Test/check for Straight key, by dits with varying intervals*/
     if (ditDwncnt >= 4)
@@ -1728,7 +1833,7 @@ int AdvParser::DitDahBugTst(void)
                 /*If both keyup intervals are essentially the same, then its likely electronic keying
                 while bug generated code almost always has longer dah keyup intervals*/
                 if ((dahInterval > ditInterval + 9) || (DahVariance > 10))
-                    if (Longdahcnt > 0) // found streched dahs; need to use bug1 ruleset
+                    if (Longdahcnt > 0 && DahVarPrcnt > 0.25) // found streched dahs; need to use bug1 ruleset
                         return 9;  // bug (83)
                     else return 2; // bug (80)
                 else
@@ -1737,7 +1842,7 @@ int AdvParser::DitDahBugTst(void)
             else
                 return 4; // not enough info to decide
         }
-        else if (Longdahcnt > 0) // found streched dahs; need to use bug1 ruleset
+        else if (Longdahcnt > 0 && DahVarPrcnt > 0.25) // found streched dahs; need to use bug1 ruleset
             return 8;  // bug (82)
         else if (((float)GudDahCnt / (float)dahDwncnt > 0.8))
             return 5; // paddle/krybrd
