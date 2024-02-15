@@ -2430,7 +2430,7 @@ void dispMsg(char Msgbuf[50])
 		/*added the following 11 lines for AdvParser comparison*/
 		if (CptrTxt)
 		{
-			if (curChar != 32) //skip if charact = 'SPACE'
+			if (curChar != 32) //skip if curChar = 'SPACE'
 			{
 				LtrHoldr[LtrPtr] = curChar;
 				LtrHoldr[LtrPtr + 1] = 0;
@@ -2472,10 +2472,10 @@ void dispMsg(char Msgbuf[50])
 				sprintf(Msgbuf, " (%c%s", DcddChrBuf[lstCharPos - 2], "AC)");// test for "@" (%c%s", DcddChrBuf[lstCharPos - 2], "AC)"); //"true"; Insert preceeding character plus correction "AC"
 			}
 
-			if (DcddChrBuf[lstCharPos - 1] == 'P' && DcddChrBuf[lstCharPos] == 'D')
-			{															   // test for "PD"
-				sprintf(Msgbuf, " (%c%s", DcddChrBuf[lstCharPos - 2], "AND)"); //"true"; Insert preceeding character plus correction "AND"
-			}
+			// if (DcddChrBuf[lstCharPos - 1] == 'P' && DcddChrBuf[lstCharPos] == 'D')
+			// {															   // test for "PD"
+			// 	sprintf(Msgbuf, " (%c%s", DcddChrBuf[lstCharPos - 2], "AND)"); //"true"; Insert preceeding character plus correction "AND"
+			// }
 			if (DcddChrBuf[lstCharPos - 1] == '6' && DcddChrBuf[lstCharPos] == 'E')
 			{															   // test for "6E"
 				sprintf(Msgbuf, " (%c%s", DcddChrBuf[lstCharPos - 2], "THE)"); //"true"; Insert preceeding character plus correction "THE"

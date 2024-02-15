@@ -70,6 +70,8 @@
 /*20240207 ammended 'Advparser.AdvSrch4Match' method for setting up 'follow on' search*/
 /*20240208 AdvParser.cpp, reworked 'LstLtrBrkCnt' management to better track the number of keyevents since the last letterbreak event */
 /*20240210 created new class method 'Advparser.SrchAgn()'*/
+/*20240211 Made chnges to AdParser.cpp, mainly to align dit/dah decision points with the ruleset in play */
+/*20240215 AdParser.cpp - More minor tweeks to Bug1 Rule set & DitDahBugTst()*/
 
 #include "sdkconfig.h" //added for timer support
 #include "globals.h"
@@ -127,7 +129,7 @@ DF_t DFault;
 int DeBug = 0; // Debug factory default setting; 0 => Debug "OFF"; 1 => Debug "ON"
 char StrdTxt[20] = {'\0'};
 /*Factory Default Settings*/
-char RevDate[9] = "20240210";
+char RevDate[9] = "20240215";
 char MyCall[10] = "KW4KD";
 char MemF2[80] = "VVV VVV TEST DE KW4KD";
 char MemF3[80] = "CQ CQ CQ DE KW4KD KW4KD";
