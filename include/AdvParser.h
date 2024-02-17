@@ -39,7 +39,7 @@ private:
     int KeyUpBucktPtr = 0;
     int KeyDwnBucktPtr = 0;
     int TmpUpIntrvlsPtr = 0;
-    int LstLtrPrntd = 0; //MsgBuf indx pointer to charter printed as Debug output
+    int LstLtrPrntd = 0; //MsgBuf indx pointer to character printed as Debug output
     int wpm =0; //upated from DcodeCW.cpp through this class method EvalTimeData()
     uint16_t TmpUpIntrvls[IntrvlBufSize];
     uint16_t TmpDwnIntrvls[IntrvlBufSize];
@@ -68,6 +68,7 @@ private:
     void PrintThisChr(void);
     int DitDahBugTst(void); //returns 2 for unknown; 0 for paddle; 1 for bug
     void Dcode4Dahs(int n);
+    void FixClassicErrors(void);
     char TmpBufA[MsgbufSize - 5];
 
 public:

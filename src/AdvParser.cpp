@@ -29,6 +29,7 @@
  * 20240208 reworked 'LstLtrBrkCnt' management to better track the number of keyevents since last letterbreak event
  * 20240210 created new class method 'SrchAgn()' to handle deep dive search for Codevals/morse text, when normal codeval to text conversion fails
  * 20240215 More minor tweeks to Bug1 Rule set & DitDahBugTst
+ * 20240216 Added 'FixClassicErrors()' method
  * */
 #include "AdvParser.h"
 #include "DcodeCW.h"
@@ -523,7 +524,7 @@ void AdvParser::EvalTimeData(uint16_t KeyUpIntrvls[IntrvlBufSize], uint16_t KeyD
         //printf("n:%d; LstLtrBrkCnt: %d \n", n, this->LstLtrBrkCnt);
     }
     /*Text string Analysis complete*/
-   
+    this->FixClassicErrors();//now do a final check to look & correct classic parsing errors
     if (Dbug)
     {
         printf("%d; %d\n\n", KeyDwnPtr, KeyUpPtr);
@@ -1925,4 +1926,112 @@ void AdvParser::Dcode4Dahs(int n)
     }
     this->AdvSrch4Match(0, Symbl1, false);
     this->AdvSrch4Match(0, Symbl2, false);
+ };
+ //////////////////////////////////////////////
+ /* A final check to look for, & correct classic parsing errors*/
+ void AdvParser::FixClassicErrors(void)
+ { // No longer need to worry about if we have enough decoded characters evaluate the following sloppy strings this->Msgbuf now has enough data, to test for special character combos often found with sloppy sending
+     int lstCharPos = (this->LstLtrPrntd)-1;//sizeof(this->Msgbuf) - 2;
+     if(lstCharPos>2)
+     {
+         for (int i = 0; i < lstCharPos - 3; i++)
+         {
+            /*Look for the character sequence 'WXST', if found replace with 'JUST'*/
+             if (this->Msgbuf[i] == 'W' && this->Msgbuf[i + 1] == 'X' && this->Msgbuf[i + 2] == 'S' && this->Msgbuf[i + 3] == 'T')
+             {
+                this->Msgbuf[i] = 'J';
+                this->Msgbuf[i + 1] = 'U';
+             }
+         }
+     }
+
+    for (int i = 0; i <= lstCharPos - 1; i++)
+    {
+        /*Look for embedded character sequence 'PD', if found replace with 'AND'*/
+        if (this->Msgbuf[i] == 'P' && this->Msgbuf[i + 1] == 'D')
+        {   
+            //printf("PD test; lstCharPos: %d\n", lstCharPos);
+            int j;
+            for(j= 0; j<sizeof(this->TmpBufA)-1; j++){
+                this->TmpBufA[j] = this->Msgbuf[j+i+1];
+                this->TmpBufA[j+1] = 0;
+                if(this->Msgbuf[j+i+1] == 0) break;
+
+            }
+            this->Msgbuf[i] = 'A';
+            this->Msgbuf[i + 1] = 'N';
+            j= 0;
+            while(this->TmpBufA[j] != 0 ){
+                this->Msgbuf[i + 2+ j] = this->TmpBufA[j];
+                j++;
+            }
+            if((i + 2+ j) < sizeof(this->Msgbuf)) this->Msgbuf[i + 2+ j] = 0;
+            if(i +2 < lstCharPos) i += 2;
+        }
+         /*Look for embedded character sequence 'PLL', if found replace with 'WELL'*/
+        if (i + 2 < lstCharPos)
+        {
+            if (this->Msgbuf[i] == 'P' && this->Msgbuf[i + 1] == 'L' && this->Msgbuf[i + 2] == 'L')
+            {
+                // printf("PD test; lstCharPos: %d\n", lstCharPos);
+                int j;
+                for (j = 0; j < sizeof(this->TmpBufA) - 1; j++)
+                {
+                    this->TmpBufA[j] = this->Msgbuf[j + i + 1];
+                    this->TmpBufA[j + 1] = 0;
+                    if (this->Msgbuf[j + i + 1] == 0)
+                        break;
+                }
+                this->Msgbuf[i] = 'W';
+                this->Msgbuf[i + 1] = 'E';
+                j = 0;
+                while (this->TmpBufA[j] != 0)
+                {
+                    this->Msgbuf[i + 2 + j] = this->TmpBufA[j];
+                    j++;
+                }
+                if ((i + 2 + j) < sizeof(this->Msgbuf))
+                    this->Msgbuf[i + 2 + j] = 0;
+                if (i + 2 < lstCharPos)
+                    i += 2;
+            }
+        }
+    }
+
+     // printf("%c%c%c\n", this->Msgbuf[lstCharPos - 2],  this->Msgbuf[lstCharPos - 1], this->Msgbuf[lstCharPos] );// for debugging sloppy strings only
+     if (this->Msgbuf[lstCharPos - 1] == '@' && this->Msgbuf[lstCharPos] == 'D')
+     {
+        sprintf(Msgbuf, " (%c%s", this->Msgbuf[lstCharPos - 2], "AC)"); // test for "@" (%c%s", this->Msgbuf[lstCharPos - 2], "AC)"); //"true"; Insert preceeding character plus correction "AC"
+     }
+         
+    //  if (this->Msgbuf[lstCharPos - 1] == 'P' && this->Msgbuf[lstCharPos] == 'D')
+    //  {   
+    //     // test for "PD"
+    //      sprintf(Msgbuf, " (%c%s", this->Msgbuf[lstCharPos - 2], "AND)"); //"true"; Insert preceeding character plus correction "AND"
+    //  }
+
+     if (this->Msgbuf[lstCharPos - 1] == '6' && this->Msgbuf[lstCharPos] == 'E')
+     {                                                                    // test for "6E"
+         sprintf(Msgbuf, " (%c%s", this->Msgbuf[lstCharPos - 2], "THE)"); //"true"; Insert preceeding character plus correction "THE"
+     }
+     if (this->Msgbuf[lstCharPos - 1] == '6' && this->Msgbuf[lstCharPos] == 'A')
+     {                                                                    // test for "6A"
+         sprintf(Msgbuf, " (%c%s", this->Msgbuf[lstCharPos - 2], "THA)"); //"true"; Insert preceeding character plus correction "THA"
+     }
+     if (this->Msgbuf[lstCharPos - 1] == '9' && this->Msgbuf[lstCharPos] == 'E')
+     {                              // test for "9E"
+         sprintf(Msgbuf, " (ONE)"); //"true"; Insert correction "ONE"
+     }
+     if (this->Msgbuf[lstCharPos - 2] == 'P' && this->Msgbuf[lstCharPos - 1] == 'L' && this->Msgbuf[lstCharPos] == 'L')
+     {                               // test for "PLL"
+         sprintf(Msgbuf, " (WELL)"); //"true"; Insert correction "WELL"
+     }
+     if ((this->Msgbuf[lstCharPos - 2] == 'N' || this->Msgbuf[lstCharPos - 2] == 'L') && this->Msgbuf[lstCharPos - 1] == 'M' && this->Msgbuf[lstCharPos] == 'Y')
+     {                                                                   // test for "NMY/LMY"
+         sprintf(Msgbuf, " (%c%s", this->Msgbuf[lstCharPos - 2], "OW)"); //"true"; Insert correction "NOW"/"LOW"
+     }
+     if (this->Msgbuf[lstCharPos - 2] == 'T' && this->Msgbuf[lstCharPos - 1] == 'T' && this->Msgbuf[lstCharPos] == 'O')
+     {                             // test for "PD"
+         sprintf(Msgbuf, "  (0)"); //"true"; Insert correction "TTO" = "0"
+     }
  };

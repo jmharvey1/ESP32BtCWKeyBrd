@@ -2464,7 +2464,7 @@ void dispMsg(char Msgbuf[50])
 		
 		/* now test/correct letter groups that represent common mis-prints */
 		if (CptrTxt) // but don't do it with AdvParser built text
-		{ //No longer need to worry about if we haveenough decoded characters evaluate the following sloppy strings DcddChrBuf now has enough data, to test for special character combos often found with sloppy sending
+		{ //No longer need to worry about if we have enough decoded characters evaluate the following sloppy strings DcddChrBuf now has enough data, to test for special character combos often found with sloppy sending
 			int lstCharPos = sizeof(DcddChrBuf)-2;
 			//printf("%c%c%c\n", DcddChrBuf[lstCharPos - 2],  DcddChrBuf[lstCharPos - 1], DcddChrBuf[lstCharPos] );// for debugging sloppy strings only
 			if(DcddChrBuf[lstCharPos - 1] == '@' && DcddChrBuf[lstCharPos] == 'D')
