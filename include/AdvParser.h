@@ -25,6 +25,7 @@ struct Buckt_t
 class AdvParser
 {
 private:
+    /* Properties */
     bool AllDah;
     bool NewSpltVal;
     bool StrchdDah; //used mainly to steer which rules to apply within the Bug1 rule set (when long dahs are detected certain simple rules are bypassed)
@@ -44,6 +45,7 @@ private:
     uint16_t TmpUpIntrvls[IntrvlBufSize];
     uint16_t TmpDwnIntrvls[IntrvlBufSize];
     uint16_t DitDahSplitVal;
+    uint16_t NuSpltVal = 0;
     uint16_t DitIntrvlVal; //used as sanity test/check in 'bug' letterbrk rule set; 20240129 running average of the last 6 dits
     uint16_t WrdBrkVal; // serves in post parser as the value to insert a space in the reconstructed character string
     unsigned int SymbSet;
@@ -51,12 +53,14 @@ private:
     uint16_t UnitIntvrlx2r5; //basic universal symbol interval; i.e. a standard dit X 2.4; used in b1 rule set to find letter breaks
     uint16_t Bg1SplitPt; //bug1 rule set dit/dah decision value; derived from UnitIntvrlx2r5
     char BrkFlg;
+    /* Methods */
     bool Tst4LtrBrk(int& n);
     bool PadlRules(int& n);
     bool Bug1Rules(int& n);
     bool Bug2Rules(int& n);
     bool CootyRules(int& n);
     bool Cooty2Rules(int& n);
+    bool SloppyBgRules(int& n);
     bool SKRules(int& n); //true straight key(i.e. J38)
     void insertionSort(uint16_t arr[], int n);
 	void SetSpltPt(Buckt_t arr[], int n);

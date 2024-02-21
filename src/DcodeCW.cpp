@@ -1526,7 +1526,7 @@ bool chkChrCmplt(void)
 					CptrTxt = true;
 					dletechar = oldDltState;
 				} // else printf("Match\n");
-			} else advparser.KeyType = 6;// round about way to update display status line to indicate no post processing
+			} else advparser.KeyType = 7;// round about way to update display status line to indicate no post processing
 		}
 		if (advparser.Dbug)
 			printf("%s\n", LtrHoldr);
@@ -2634,7 +2634,7 @@ void showSpeed(void)
 			sprintf(tmpbufB, "E ");
 			break;
 		case 1:
-			sprintf(tmpbufB, "B ");
+			sprintf(tmpbufB, "B1");
 			break;
 		case 2:
 			sprintf(tmpbufB, "C ");
@@ -2643,12 +2643,15 @@ void showSpeed(void)
 			sprintf(tmpbufB, "c ");
 			break;
 		case 4:
-			sprintf(tmpbufB, "b ");
+			sprintf(tmpbufB, "B2");
 			break;
 		case 5:
 			sprintf(tmpbufB, "S ");
-			break;	
+			break;
 		case 6:
+			sprintf(tmpbufB, "B3");
+			break;			
+		case 7:
 			sprintf(tmpbufB, "- ");
 			break;				
 		default:
