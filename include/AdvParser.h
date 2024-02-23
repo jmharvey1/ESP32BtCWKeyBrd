@@ -42,6 +42,7 @@ private:
     int TmpUpIntrvlsPtr = 0;
     int LstLtrPrntd = 0; //MsgBuf indx pointer to character printed as Debug output
     int wpm =0; //upated from DcodeCW.cpp through this class method EvalTimeData()
+    float DahVarPrcnt;
     uint16_t TmpUpIntrvls[IntrvlBufSize];
     uint16_t TmpDwnIntrvls[IntrvlBufSize];
     uint16_t DitDahSplitVal;

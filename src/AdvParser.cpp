@@ -31,6 +31,7 @@
  * 20240215 More minor tweeks to Bug1 Rule set & DitDahBugTst
  * 20240216 Added 'FixClassicErrors()' method
  * 20240220 added 'SloppyBgRules()' method. Plus numerous changes to integrate this rule set into the existing code
+ * 20240223 numerous 'tweaks' to this file, mostly to better delineate between different key types
  * */
 #include "AdvParser.h"
 #include "DcodeCW.h"
@@ -192,7 +193,7 @@ void AdvParser::EvalTimeData(uint16_t KeyUpIntrvls[IntrvlBufSize], uint16_t KeyD
     {
         // propbablly not enough data to make a good decision; So stick with the old key type
         /*not enough info leave as is */
-        if (Dbug) printf("****\n");
+        if (Dbug) printf("Use old key type (Cd 99)\n\n\n\n\n\n");
         bgPdlCd = 99;
     }
     else
@@ -376,14 +377,15 @@ void AdvParser::EvalTimeData(uint16_t KeyUpIntrvls[IntrvlBufSize], uint16_t KeyD
     {
         printf("\nSplitPoint:%3d\tBg1SplitPt:%d\tDitIntrvlVal:%d\t", DitDahSplitVal, Bg1SplitPt, DitIntrvlVal);
         printf("AvgDedSpc:%0.1f\tUnitIntvrlx2r5:%d\tWrdBrkVal:%d\n", AvgSmblDedSpc, UnitIntvrlx2r5, WrdBrkVal);
-        printf("\nKeyDwnBuckt Cnt: %d ", KeyDwnBucktPtr + 1);
+        printf("\nKeyDwnBuckt Cnt: %d\n", KeyDwnBucktPtr + 1);
     }
     /*Now for bug key type (1), test which bug style (rule set to use)
     But if bgPdlCd = 82 or 83 (found stretched dahs) stick with bug1 rule set*/
-    if (BugKey == 1 && bgPdlCd != 99 && bgPdlCd == 80)
+    if (BugKey == 1 && bgPdlCd != 99)
     {
-        if (DitIntrvlVal > 1.5 * AvgSmblDedSpc)
-        {
+        //if ((DitIntrvlVal > 1.5 * AvgSmblDedSpc)  && bgPdlCd == 80)
+        if (!StrchdDah)
+        { /*This symbol set does not appear to have "Exagerated dahs so use bug2 rule set"*/
             bgPdlCd += 100;
             BugKey = 4; // Bug2
         }
@@ -418,10 +420,10 @@ void AdvParser::EvalTimeData(uint16_t KeyUpIntrvls[IntrvlBufSize], uint16_t KeyD
     SetModFlgs(ModeCnt); // DcodeCW.cpp routine; Update DcodeCW.cpp timing settings & ultimately update display status line
     CurMdStng(ModeCnt);  // convert to ModeVal for Goertzel.cpp to use (mainly glitch control)
 
-    if (Dbug)
-    {
-        printf(" CD:%d\n", bgPdlCd);
-    }
+    // if (Dbug)
+    // {
+    //     printf(" CD:%d\n", bgPdlCd);
+    // }
     int n = 0;
     SymbSet = 1;
     /*Reset the string buffer (Msgbuf)*/
@@ -429,34 +431,44 @@ void AdvParser::EvalTimeData(uint16_t KeyUpIntrvls[IntrvlBufSize], uint16_t KeyD
     ExitPtr = 0;
     if (Dbug)
     {
-        printf("Key Type:");
+        char txtbuf[16];
+        //printf("Key Type:");
         switch (BugKey)
         {
         case 0:
-            printf(" Paddle/KeyBoard\n");
+            sprintf(txtbuf,"Paddle/KeyBoard");
+            //printf(" Paddle/KeyBoard\t");
             break;
         case 1:
-            printf(" Bug1\n");
+            sprintf(txtbuf,"Bug1");
+            //printf(" Bug1\t");
             break;
         case 2:
-            printf(" Cootie\n");
+            sprintf(txtbuf,"Cootie");
+            //printf(" Cootie\t");
             break;
         case 3:
-            printf(" ShrtDits\n");
+            sprintf(txtbuf,"ShrtDits");
+            //printf(" ShrtDits\t");
             break;
         case 4:
-            printf(" Bug2\n");
+            sprintf(txtbuf,"Bug2");
+            //printf(" Bug2\t");
             break;
         case 5:
-            printf(" Str8Key\n");
+            sprintf(txtbuf,"Str8Key");
+            //printf(" Str8Key\t");
             break;
         case 6:
-            printf(" SloppyBug\n");
+            sprintf(txtbuf,"SloppyBug");
+            //printf(" SloppyBug\t");
             break;        
         default:
-            printf(" ???\n");
+            sprintf(txtbuf,"???");
+            //printf(" ???\t");
             break;
         }
+        printf("Key Type: %s; CD:%d\n", txtbuf, bgPdlCd);
     }
 
     /*Now have everything needed to rebuild/parse this group of Key Down/Up times*/
@@ -492,7 +504,7 @@ void AdvParser::EvalTimeData(uint16_t KeyUpIntrvls[IntrvlBufSize], uint16_t KeyD
         { /*if true we have a complete symbol set; So find matching character(s)*/
             /*But 1st, need to check if the letterbrk was based on exit-code 2,
             if so & in debug mode, need to do some logging cleanup/catchup work  */
-            if (ExitPath[n] == 2)
+            if (ExitPath[n] == 2 || ExitPath[n] == 24)
             {
                 while (curN <= n)
                 {
@@ -733,7 +745,7 @@ bool AdvParser::Tst4LtrBrk(int& n)
     }
 };
 /////////////////////////////////////////////////////////
-/*Rule set used to parse Sloppy Bug; i.e., an "O" sounds like, "dot, dot, dah"
+/*Rule set used to parse Sloppy Bug (B3); i.e., an "O" sounds like, "dot, dot, dah"
 main rule here is key down interval plus key up interval > 2.5*UnitIntvrlx2r5 is a letter break */
 bool AdvParser::SloppyBgRules(int& n)
 {
@@ -798,7 +810,7 @@ bool AdvParser::SloppyBgRules(int& n)
                 }
                 if (i > n)
                 {
-                    if (TmpDwnIntrvls[i] + TmpUpIntrvls[i] >= 2.3 * this->UnitIntvrlx2r5) // 2.5 * this->UnitIntvrlx2r5
+                    if ((TmpDwnIntrvls[i] + TmpUpIntrvls[i] >= 2.3 * this->UnitIntvrlx2r5) && ((float)TmpUpIntrvls[i] > (1.2 * (float)this->DitIntrvlVal))) // 2.5 * this->UnitIntvrlx2r5
                     {
                         if (this->Dbug)
                         {
@@ -1193,7 +1205,8 @@ bool AdvParser::PadlRules(int& n)
     /*Paddle or Keyboard rules*/
     /*Middle keyup test to see this keyup is twice the lenght of the one just before it,
     If it is then call this one a letter break*/
-    if (n > 0 && (TmpUpIntrvls[n] > 2.0 * TmpUpIntrvls[n - 1]))
+    //if (n > 0 && (TmpUpIntrvls[n] > 2.0 * TmpUpIntrvls[n - 1]))
+    if (n > 0 && (TmpUpIntrvls[n] > this->UnitIntvrlx2r5))
     {
         ExitPath[n] = 100;
         BrkFlg = '+';
@@ -1210,7 +1223,8 @@ bool AdvParser::PadlRules(int& n)
     }
     if (NewSpltVal)
     {
-        if (TmpUpIntrvls[n]+8 >= Bg1SplitPt )//(uint16_t)(0.9*(float)UnitIntvrlx2r5)//UnitIntvrlx2r5-16
+        //if (TmpUpIntrvls[n]+8 >= Bg1SplitPt )//(uint16_t)(0.9*(float)UnitIntvrlx2r5)//UnitIntvrlx2r5-16
+        if (TmpUpIntrvls[n] >= DitDahSplitVal) //AKA 'SplitPoint';
         {
             BrkFlg = '+';
             ExitPath[n] = 102;
@@ -1306,9 +1320,8 @@ bool AdvParser::Bug1Rules(int& n)
                     ExtSmbl = '#'; //(exit code 2) 
                     break;         // quit, Looks like a clear intention to signal a letterbreak
                 }
-                /*Only consider the following "out", if we're not working with a collection of symbols that 
-                contains "Stretched" Dahs*/
-                else if (TmpUpIntrvls[i] >= this->UnitIntvrlx2r5 && !this->StrchdDah)
+                
+                else if (TmpUpIntrvls[i] >= this->UnitIntvrlx2r5)
                 {
                     if (this->Dbug)
                     {
@@ -1437,7 +1450,8 @@ bool AdvParser::Bug1Rules(int& n)
             RunCnt++;
             maxdahIndx = i;
             
-            if ((TmpUpIntrvls[i] > UnitIntvrlx2r5)){
+            //if ((TmpUpIntrvls[i] > UnitIntvrlx2r5) || (TmpUpIntrvls[i] > 2* this->AvgSmblDedSpc)){
+            if ((TmpUpIntrvls[i] >= Bg1SplitPt) || (TmpUpIntrvls[i] > 2* this->AvgSmblDedSpc)){
                     //maxdahIndx = i;
                     ExtSmbl = '#';
                     break; // quit an there's an obvious letter break
@@ -1448,7 +1462,7 @@ bool AdvParser::Bug1Rules(int& n)
     if (RunCnt > 0 && maxdahIndx > 0 && (ExtSmbl == '#'))
     {
 
-        /*we have a run of dits, so build/grow the SymbSet to mach the found run of dits*/
+        /*we have a run of dits, so build/grow the SymbSet to match the found run of dits*/
         while (n < maxdahIndx)
         {
             n++;
@@ -1630,15 +1644,15 @@ bool AdvParser::Bug1Rules(int& n)
     return ltrbrkFlg;
 };
 
-////////////////////////////////////////////////////////
-
+/*Bug 2 rule set, differs from other bug rule sets, in that it doesn't look for long dahs to find letter breaks
+And relies primarily on key up interval timing */
 bool AdvParser::Bug2Rules(int& n)
 {
     /*Bug2 rules*/
     bool ltrbrkFlg = false;
     // DitIntrvlVal:98	AvgDedSpc:48.6
     uint16_t Bg2LtrBrk = Bg1SplitPt;
-    if(AvgSmblDedSpc < 0.6*(float)DitIntrvlVal) Bg2LtrBrk = (uint16_t)2*AvgSmblDedSpc;
+    //if(AvgSmblDedSpc < 0.6*(float)DitIntrvlVal) Bg2LtrBrk = (uint16_t)2*AvgSmblDedSpc;
     if (TmpUpIntrvls[n] >= KeyUpBuckts[KeyUpBucktPtr].Intrvl)
     {
         ExitPath[n] = 0;
@@ -1677,49 +1691,75 @@ bool AdvParser::Bug2Rules(int& n)
                 mindah = TmpDwnIntrvls[i];
                 mindahIndx = i;
             }
-            if (i > n)
-            {
-                if ((TmpDwnIntrvls[i] > 1.5 * TmpDwnIntrvls[i - 1]) && (TmpUpIntrvls[i] > 1.5 * DitIntrvlVal))
-                {
-                    ExtSmbl = '#';
-                    break; // quit now this Dah looks significantly stretched compared to its predecessor
-                }
-            }
-            if (TmpUpIntrvls[i] > 1.1 * TmpDwnIntrvls[i])
+            // if (i > n)
+            // {
+            //     if ((TmpDwnIntrvls[i] > 1.5 * TmpDwnIntrvls[i - 1]) && (TmpUpIntrvls[i] > 1.5 * DitIntrvlVal) && this->StrchdDah)
+            //     {
+            //         ExtSmbl = '#';
+            //         break; // quit now this Dah looks significantly stretched compared to its predecessor
+            //     }
+            // }
+            if (TmpUpIntrvls[i] > Bg1SplitPt) //20240222 (TmpUpIntrvls[i] >DitDahSplitVal)
             {
                 ExtSmbl = '$';
-                break; // quit, Looks like a clear intention to signal a letterbreak
+                break; // quit, Looks like a simple but clear intention to signal a letterbreak
             }
         }
     }
     /*Test that the long dah is significantly longer than its sisters,
       & it is also terminated/followed by a reasonable keyup interval*/
-    // if (this->Dbug)
-    // {
-    //     if (RunCnt > 0)
-    //         printf("RunCnt %d%c\t", RunCnt, ExtSmbl);
-    //     else
-    //         printf("\t\t");
-    // }
-    if (RunCnt > 1 && maxdahIndx > 0 && (maxdah > 1.3 * mindah) && (TmpUpIntrvls[maxdahIndx] > (DitIntrvlVal + 8)))
+      
+    if (ExtSmbl != '@')
     {
-        // if(maxdahIndx > 0 && (maxdah > 1.3*mindah) && (TmpUpIntrvls[maxdahIndx] > (0.8* DitDahSplitVal))){
-        /*we have a run of dahs, so build/grow the SymbSet to mach the found run of dahs*/
-        while (n < maxdahIndx)
+        // if (RunCnt > 1 && maxdahIndx > 0 && (maxdah > 1.3 * mindah) && (TmpUpIntrvls[maxdahIndx] > (DitIntrvlVal + 8)))
+        // {
+        //     // if(maxdahIndx > 0 && (maxdah > 1.3*mindah) && (TmpUpIntrvls[maxdahIndx] > (0.8* DitDahSplitVal))){
+        //     /*we have a run of dahs, so build/grow the SymbSet to mach the found run of dahs*/
+        //     while (n < maxdahIndx)
+        //     {
+        //         n++;
+        //         SymbSet = SymbSet << 1; // append a new bit to the symbolset & default it to a 'Dit'
+        //         SymbSet += 1;
+        //     }
+        //     ExitPath[n] = 2; //note for this rule set there are two ExitPath[n] = 2's; this is the 1st one
+        //     BrkFlg = '+';
+        //     return true;
+        // }
+        // else if (RunCnt > 1 && maxdah > 0 && (mindahIndx == maxdahIndx) && (TmpUpIntrvls[maxdahIndx] > TmpDwnIntrvls[maxdahIndx]))
+        // { // the 1st dah seems to be a letter break
+        //     ExitPath[n] = 21;
+        //     BrkFlg = '+';
+        //     return true;
+        // }
+        if (RunCnt > 1 && ExtSmbl == '$')
+        {
+            //printf("ExtSmbl: %c; RunCnt: %d\n", ExtSmbl, RunCnt);
+            /*we have a run of dahs terminated with a letter break, so build/grow the SymbSet to mach the found run of dahs*/
+            while (RunCnt > 1)
+            {
+                n++;
+                SymbSet = SymbSet << 1; // append a new bit to the symbolset & default it to a 'Dit'
+                SymbSet += 1;
+                RunCnt--;
+            }
+            ExitPath[n] = 2; //note for this rule set there are two ExitPath[n] = 2's; this is the 2nd one
+            BrkFlg = '+';
+            return true;
+        }
+    }else if(RunCnt > 1)
+    {
+        while (RunCnt > 1)
         {
             n++;
             SymbSet = SymbSet << 1; // append a new bit to the symbolset & default it to a 'Dit'
             SymbSet += 1;
+            RunCnt--;
         }
-        ExitPath[n] = 2;
-        BrkFlg = '+';
-        return true;
-    }
-    else if (RunCnt > 1 && maxdah > 0 && (mindahIndx == maxdahIndx) && (TmpUpIntrvls[maxdahIndx] > TmpDwnIntrvls[maxdahIndx]))
-    { // the 1st dah seems to be a letter break
-        ExitPath[n] = 21;
-        BrkFlg = '+';
-        return true;
+        //printf("A RunCnt %d; n %d; SymbSet %d; ExtSmbl %c\t", RunCnt, n, SymbSet, ExtSmbl);
+        ExitPath[n] = 4;//NOTE: there are two "ExitPath[n] = 4;"
+        BrkFlg = '%';
+        return false;
+
     }
     /*Now do a similar test/logic for run of 'n' dits in a row (to help better manage 'es' and the like parsing)*/
     /* set ltrbrk based on longest keyup interval in the group*/
@@ -1749,8 +1789,9 @@ bool AdvParser::Bug2Rules(int& n)
             }
             if (i > n)
             {
-                // if((TmpUpIntrvls[i]> 1.5* TmpUpIntrvls[i-1]) &&(TmpUpIntrvls[i]> 1.5* DitIntrvlVal) ) break; //quit now this Dit looks significantly stretched compared to its predecessor
-                if ((TmpUpIntrvls[i] > 1.5 * TmpUpIntrvls[i - 1])){
+                //if ((TmpUpIntrvls[i] > 1.5 * TmpUpIntrvls[i - 1]))
+                if ((TmpUpIntrvls[i] >= Bg1SplitPt))
+                {    
                     ExtSmbl = '#';
                     break; // quit when an obvious letter break is detected
                 }
@@ -1784,7 +1825,7 @@ bool AdvParser::Bug2Rules(int& n)
         ExitPath[n] = 2;
         BrkFlg = '&';
         return true;
-    } else if(RunCnt == 1 && (TmpUpIntrvls[n] > DitDahSplitVal)){
+    } else if(RunCnt == 1 && (TmpUpIntrvls[n]+10 > DitDahSplitVal)){
         // quit an there's an obvious letter break
         ExitPath[n] = 3;
         BrkFlg = '+';
@@ -1848,7 +1889,9 @@ bool AdvParser::Bug2Rules(int& n)
         if ((TmpDwnIntrvls[n] > DitDahSplitVal) && (TmpDwnIntrvls[n + 1] > DitDahSplitVal))
         {
             /*we have two adjcent dahs, set letter break if the key up interval is longer than the shortest of the 2 Dahs*/
-            if ((TmpUpIntrvls[n] > 5 + TmpDwnIntrvls[n]) || (TmpUpIntrvls[n] > 5 + TmpDwnIntrvls[n + 1]))
+            //if ((TmpUpIntrvls[n] > 5 + TmpDwnIntrvls[n]) || (TmpUpIntrvls[n] > 5 + TmpDwnIntrvls[n + 1]))
+            /*we have two adjcent dahs, but for bug2 use simple letterbreak test */
+            if (TmpUpIntrvls[n] > UnitIntvrlx2r5)
             {
                 ExitPath[n] = 8;
                 BrkFlg = '+';
@@ -1870,13 +1913,12 @@ bool AdvParser::Bug2Rules(int& n)
                 BrkFlg = '+';
                 return true;
             }
-            //else if ((TmpUpIntrvls[n] >= 1.4 * DitDahSplitVal))
-            else if ((TmpUpIntrvls[n] >= Bg2LtrBrk))//Bg1SplitPt 20240211 going to this to avoid adjacent letters ending with a dah & starting with dah to get treated as a single symblset
-            { // this Dah's keyup is lot longer than the next dah & it also has a longer Keyup time; so this looks like a letter break
-                ExitPath[n] = 11;
-                BrkFlg = '+';
-                return true;
-            }
+            // else if (((float)TmpUpIntrvls[n] >= (float)0.85*this->UnitIntvrlx2r5))//20240222 changed to UnitIntvrlx2r5 ///Bg1SplitPt 20240211 going to this to avoid adjacent letters ending with a dah & starting with dah to get treated as a single symblset
+            // { // this Dah's keyup is lot longer than the next dah & it also has a longer Keyup time; so this looks like a letter break
+            //     ExitPath[n] = 11;
+            //     BrkFlg = '+';
+            //     return true;
+            // }
             else
             {
                 ExitPath[n] = 12;
@@ -1903,11 +1945,11 @@ bool AdvParser::Bug2Rules(int& n)
         else if ((TmpDwnIntrvls[n] > DitDahSplitVal) && (TmpDwnIntrvls[n + 1] < DitDahSplitVal))
         {
             /*We have Dah to dit transition; set letter break only if key up interval is > 1.6x the dit interval
-            And the keyup time is more than 0.6 the dah interval //20240120 added this 2nd qualifier
+            
             20240128 reduced 2nd qualifier to 0.4 & added 3rd 'OR' qualifier, this dah is the longest in the group*/
-            //if ((TmpUpIntrvls[n] > 4.0 * AvgSmblDedSpc) && ((TmpUpIntrvls[n] > 0.4 * TmpDwnIntrvls[n]) || TmpDwnIntrvls[n] >= KeyDwnBuckts[KeyDwnBucktPtr].Intrvl))
-            if ((TmpUpIntrvls[n] > Bg2LtrBrk) || (TmpDwnIntrvls[n] >= KeyDwnBuckts[KeyDwnBucktPtr].Intrvl)) 
-              
+            /*20240128 deleted or qualifier since bg2 rule set no longer uses streched dahs as a letter break marker */
+            //if ((TmpUpIntrvls[n] > Bg2LtrBrk) || (TmpDwnIntrvls[n] >= KeyDwnBuckts[KeyDwnBucktPtr].Intrvl)) 
+            if ((TmpUpIntrvls[n] > Bg2LtrBrk) )  
             {
                 ExitPath[n] = 15;
                 BrkFlg = '+';
@@ -2242,23 +2284,21 @@ int AdvParser::DitDahBugTst(void)
     MindahInterval = 1000;
     int stop = TmpUpIntrvlsPtr - 1;
     bool same;
-    float DahVarPrcnt = 0.0;
+    this->DahVarPrcnt = 0.0;
     this->StrchdDah = false;
     for (int n = 0; n < stop; n++)
     {
         /*Made the define the average dah, less restrictive; because paddle generated dahs should all have the same interval */
-        if (n > 0 && (TmpDwnIntrvls[n] > DitDahSplitVal))
+        /*ALSO do NOT consider the 1st entry in the symbol set; its interval value may be truncated*/
+        if (n > 0 && (TmpDwnIntrvls[n] >= this->DitDahSplitVal))
         {
             dahDwnInterval += TmpDwnIntrvls[n];
             dahDwncnt++;
-            if (TmpDwnIntrvls[n] > UnitIntvrlx2r5)
-                Longdahcnt++;
-            if (TmpDwnIntrvls[n] > MaxdahInterval)
-                MaxdahInterval = TmpDwnIntrvls[n];
-            if (TmpDwnIntrvls[n] < MindahInterval)
-                MindahInterval = TmpDwnIntrvls[n];
+            if (TmpDwnIntrvls[n] > UnitIntvrlx2r5) Longdahcnt++;
+            if (TmpDwnIntrvls[n] > MaxdahInterval) MaxdahInterval = TmpDwnIntrvls[n];
+            if (TmpDwnIntrvls[n] < MindahInterval) MindahInterval = TmpDwnIntrvls[n];
         }
-        else if (n > 0 && (TmpDwnIntrvls[n] < DitDahSplitVal))
+        else if (n > 0 && (TmpDwnIntrvls[n] < this->DitDahSplitVal))
         {
             ditDwnInterval += TmpDwnIntrvls[n];
             ditDwncnt++;
@@ -2276,9 +2316,9 @@ int AdvParser::DitDahBugTst(void)
             // printf("%d\n", n);
         }
         /*test adjcent dits KeyUp timing. But only include if there's not a letter break between them */
-        else if ((TmpDwnIntrvls[n] < DitDahSplitVal) &&
-                 (TmpDwnIntrvls[n + 1] < DitDahSplitVal) &&
-                 (TmpUpIntrvls[n] < DitDahSplitVal))
+        else if ((TmpDwnIntrvls[n] < this->DitDahSplitVal) &&
+                 (TmpDwnIntrvls[n + 1] < this->DitDahSplitVal) &&
+                 (TmpUpIntrvls[n] < this->DitDahSplitVal))
         {
             ditInterval += TmpUpIntrvls[n];
             ditcnt++;
@@ -2287,10 +2327,18 @@ int AdvParser::DitDahBugTst(void)
     }
     if (dahDwncnt > 1)
     {
+        //printf("\tMindahInterval: %d\tMaxdahInterval: %d;\tDitDahSplitVal %d\n", MindahInterval, MaxdahInterval, this->DitDahSplitVal);
         DahVariance = MaxdahInterval - MindahInterval;
-        DahVarPrcnt = (float)DahVariance / (float)MindahInterval; // used later to determine if sender is using strected dahs as a way of signaling letter breaks
+        this->DahVarPrcnt = (float)DahVariance / (float)MindahInterval; // used later to determine if sender is using strected dahs as a way of signaling letter breaks
     }
-    if(Longdahcnt > 0)this->StrchdDah = true;
+    //if(Longdahcnt > 0) this->StrchdDah = true;
+    
+    if(this->DahVarPrcnt > 0.8) this->StrchdDah = true;
+    if (Dbug){
+        if(this->StrchdDah) printf("StrchdDah = true\n");
+        else  printf("StrchdDah = false\n");
+    }
+
     if(ditDwncnt == 0 || dahDwncnt == 0)// we have all dits or all dahs - 
     {
         if (Dbug) printf("code 99; ditDwncnt: %d; dahDwncnt: %d\n", ditDwncnt, dahDwncnt);
@@ -2300,38 +2348,33 @@ int AdvParser::DitDahBugTst(void)
     float Dit2SpltRatio = (float)this->NuSpltVal/this->DitIntrvlVal;
     if (Dbug)
     {
-        printf("\ndahDwncnt: %d\tDahVariance: %d\tDahVarPrcnt: %4.2f\n",dahDwncnt, DahVariance, DahVarPrcnt);
+        printf("\ndahDwncnt: %d\tDahVariance: %d\tDahVarPrcnt: %4.2f\n",dahDwncnt, DahVariance, this->DahVarPrcnt);
         printf("Sloppy: %4.2f\n", Dit2SpltRatio);
     }
        
     if (Dit2SpltRatio < 2)
     {
+        char DbgTxt[16] ={"NOT Sloppy"};
+        //if (Dbug) sprintf(DbgTxt, "NOT Sloppy"); 
+        int RetrnCD = 0;
+        if ((this->KeyDwnBucktPtr >= 4 && this->KeyUpBucktPtr >= 3 && this->StrchdDah )) //20240222 added this->StrchdDah qualifier
+        {
+            // its a Sloppy Bug
+            if (Dbug) sprintf(DbgTxt, "SLOPPY EXIT A");
+            RetrnCD = 10; // Sloppy Bug (40)
+        }
+        else if (this->DahVarPrcnt > 0.60) //this->DahVarPrcnt > 0.90
+        {
+            // its a Sloppy Bug
+            if (Dbug) sprintf(DbgTxt, "SLOPPY EXIT B");
+            RetrnCD = 10; // Sloppy Bug (40)
+        }
+        if (Dbug) printf("\n%s\n", DbgTxt);
+        if(RetrnCD != 0 ) return RetrnCD;
         
-        if ((this->KeyDwnBucktPtr >= 4 && this->KeyUpBucktPtr >= 3 ))
-        {
-            // its a Sloppy Bug
-            if (Dbug)
-            {
-                printf("\nSLOPPY EXIT A\n");
-            }
-            return 10; // Sloppy Bug (40)
-        }
-        else if ( (DahVarPrcnt > 0.90))
-        {
-            // its a Sloppy Bug
-            if (Dbug)
-            {
-                printf("\nSLOPPY EXIT B\n");
-            }    
-            return 10; // Sloppy Bug (40)
-        }
-        if (Dbug)
-        {
-            printf("NOT Sloppy\n");
-        }
     }
      /*  A very simple test for paddle keyboard sent code */
-    if((dahDwncnt > 1) && (DahVarPrcnt < 0.10)){
+    if((dahDwncnt > 1) && (this->DahVarPrcnt < 0.10)){
         //its a paddle or keyboard
         return 0; // paddle/krybrd (70)
     }
@@ -2404,7 +2447,7 @@ int AdvParser::DitDahBugTst(void)
                 /*If both keyup intervals are essentially the same, then its likely electronic keying
                 while bug generated code almost allways has longer dah keyup intervals*/
                 if ((dahInterval > ditInterval + 9) || (DahVariance > 10))
-                    if (Longdahcnt > 0 && DahVarPrcnt > 0.08) //DahVarPrcnt > 0.25  // found stretched dahs; need to use bug1 ruleset
+                    if (Longdahcnt > 0 && this->DahVarPrcnt > 0.08) //DahVarPrcnt > 0.25  // found stretched dahs; need to use bug1 ruleset
                         return 9;  // bug (83)
                     else return 2; // bug (80)
                 else
@@ -2413,10 +2456,10 @@ int AdvParser::DitDahBugTst(void)
             else
                 return 4; // not enough info to decide
         }
-        else if (Longdahcnt > 0 && DahVarPrcnt > 0.25) // found stretched dahs; need to use bug1 ruleset
+        else if (Longdahcnt > 0 && this->DahVarPrcnt > 0.25) // found stretched dahs; need to use bug1 ruleset
             return 8;  // bug (82)
         else if (((float)GudDahCnt / (float)dahDwncnt > 0.8))
-            return 5; // paddle/krybrd
+            return 5; // paddle/krybrd (72)
         else if (dahDwncnt > 1)
         {
             // printf("\nGudDahCnt:%d; dahDwncnt:%d\n",GudDahCnt, dahDwncnt);
@@ -2507,6 +2550,27 @@ void AdvParser::Dcode4Dahs(int n)
             }
             if((i + 2+ j) < sizeof(this->Msgbuf)) this->Msgbuf[i + 2+ j] = 0;
             if(i +2 < lstCharPos) i += 2;
+        }
+        /*Look for embedded character sequence 'S2', if found replace with 'SUM'*/
+        if (this->Msgbuf[i] == 'S' && this->Msgbuf[i + 1] == '2')
+        {   
+            int j;
+            for(j= 0; j<sizeof(this->TmpBufA)-1; j++){
+                this->TmpBufA[j] = this->Msgbuf[j+i+2];
+                this->TmpBufA[j+1] = 0;
+                if(this->Msgbuf[j+i+1] == 0) break;
+
+            }
+            this->Msgbuf[i] = 'S';
+            this->Msgbuf[i + 1] = 'U';
+            this->Msgbuf[i + 2] = 'M';
+            j= 0;
+            while(this->TmpBufA[j] != 0 ){
+                this->Msgbuf[i + 3+ j] = this->TmpBufA[j];
+                j++;
+            }
+            if((i + 3+ j) < sizeof(this->Msgbuf)) this->Msgbuf[i + 3+ j] = 0;
+            if(i +3 < lstCharPos) i += 3;
         }
          /*Look for embedded character sequence 'PLL', if found replace with 'WELL'*/
         if (i + 2 < lstCharPos)

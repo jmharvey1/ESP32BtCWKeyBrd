@@ -74,6 +74,7 @@
 /*20240215 AdParser.cpp - More minor tweeks to Bug1 Rule set & DitDahBugTst()*/
 /*20240216 AdParser.cpp - Added 'FixClassicErrors()' method*/
 /*20240220 AdParser.cpp - added 'SloppyBgRules()' method. Plus numerous changes to integrate this rule set into the existing code */
+/*20240223 numerous 'tweaks' to AdParser.cpp, mostly to better delineate between different key types*/
 
 #include "sdkconfig.h" //added for timer support
 #include "globals.h"
@@ -131,7 +132,7 @@ DF_t DFault;
 int DeBug = 0; // Debug factory default setting; 0 => Debug "OFF"; 1 => Debug "ON"
 char StrdTxt[20] = {'\0'};
 /*Factory Default Settings*/
-char RevDate[9] = "20240220";
+char RevDate[9] = "20240223";
 char MyCall[10] = "KW4KD";
 char MemF2[80] = "VVV VVV TEST DE KW4KD";
 char MemF3[80] = "CQ CQ CQ DE KW4KD KW4KD";
