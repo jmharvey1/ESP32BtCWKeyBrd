@@ -34,7 +34,7 @@
 /*20230730 blocked the gudsig function to imporve noisy signal decoding */
 /*20230731 Now launching the chkChrCmplt() strickly from goertzel/Chk4KeyDwn() task/routine*/
 /*20230801 Added Short/Long (4ms/8ms) sample interval; User selectable via Ctrl+g */
-/*20230804 Minor timing tweeks to  DecodeCW & Goertzel code*/
+/*20230804 Minor timing tweaks to  DecodeCW & Goertzel code*/
 /*20230807 rewrote sloppy string check code for ESP32; See CcodeCW.cpp */
 /*20230810 beta fix for crash linked to 1st time connection to previously 'paired keyboard. Requires stopping ADC sampling during the 'open' Keyboard event*/
 /*20230811 beta2 fix for crash linked to 1st time connection to previously 'paired keyboard. Requires stopping ADC sampling during the 'open' Keyboard event*/
@@ -48,8 +48,8 @@
 /*20231215 added DblChkDitDah() to DcodeCW.cpp, to further improve dit/dah decision tests */
 /*20231217 reworked file references to match framework-espidf @ 3.50100.0 (5.1.0) */
 /*20231221 minor tweek to DblChkDitDah (DeCodeCW.cpp) routine to improve resolving dits from dahs*/
-/*20231229 More tweeks to bug2 letter break code (DeCodeCW.cpp)*/
-/*20240101 More tweeks to bug2 letter break code (DeCodeCW.cpp)*/
+/*20231229 More tweaks to bug2 letter break code (DeCodeCW.cpp)*/
+/*20240101 More tweaks to bug2 letter break code (DeCodeCW.cpp)*/
 /*20240103 Modified extented sysmbolset timing to only effect Bg1 mode*/
 /*20240110 Added Advparser Class */
 /*20240112 Continued development of Advparser Class */
@@ -71,10 +71,11 @@
 /*20240208 AdvParser.cpp, reworked 'LstLtrBrkCnt' management to better track the number of keyevents since the last letterbreak event */
 /*20240210 created new class method 'Advparser.SrchAgn()'*/
 /*20240211 Made chnges to AdParser.cpp, mainly to align dit/dah decision points with the ruleset in play */
-/*20240215 AdParser.cpp - More minor tweeks to Bug1 Rule set & DitDahBugTst()*/
+/*20240215 AdParser.cpp - More minor tweaks to Bug1 Rule set & DitDahBugTst()*/
 /*20240216 AdParser.cpp - Added 'FixClassicErrors()' method*/
 /*20240220 AdParser.cpp - added 'SloppyBgRules()' method. Plus numerous changes to integrate this rule set into the existing code */
 /*20240223 numerous 'tweaks' to AdParser.cpp, mostly to better delineate between different key types*/
+/*20240225 AdParser.cpp - more 'tweaks' to bug2 & sloppybug rule sets */
 
 #include "sdkconfig.h" //added for timer support
 #include "globals.h"
@@ -132,7 +133,7 @@ DF_t DFault;
 int DeBug = 0; // Debug factory default setting; 0 => Debug "OFF"; 1 => Debug "ON"
 char StrdTxt[20] = {'\0'};
 /*Factory Default Settings*/
-char RevDate[9] = "20240223";
+char RevDate[9] = "20240225";
 char MyCall[10] = "KW4KD";
 char MemF2[80] = "VVV VVV TEST DE KW4KD";
 char MemF3[80] = "CQ CQ CQ DE KW4KD KW4KD";
