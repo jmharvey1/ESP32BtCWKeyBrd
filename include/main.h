@@ -54,6 +54,7 @@ struct DF_t
 
 //static xQueueHandle s_timer_queue;
 extern int DeBug; // factory default setting; 0 => Debug "OFF"; 1 => Debug "ON"
+extern TaskHandle_t AdvParserTaskHandle;
 extern SemaphoreHandle_t mutex;//JMH Added
 extern char StrdTxt[20];
 extern char MyCall[10];

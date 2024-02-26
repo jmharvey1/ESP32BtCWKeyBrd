@@ -34,9 +34,75 @@
  * 20240223 numerous 'tweaks' to this file, mostly to better delineate between different key types
  * 20240225 more 'tweaks' to bug2 & sloppybug rule sets; bug1 ruleset is getting little use due to current 'DitDahBugTst()' code
  * */
+//#include "freertos/task.h"
+//#include "freertos/semphr.h"
 #include "AdvParser.h"
 #include "DcodeCW.h"
 #include "Goertzel.h"
+#include "main.h"
+
+TaskHandle_t AdvParserTaskHandle = NULL;
+// /*AdvParserTask Task; Post Parser Code execution*/
+// void AdvParserTask(void *param)
+// {
+//   static uint32_t thread_notification;
+//   //uint8_t state;
+//   while (1)
+//   {
+//     /* Sleep until we are notified of a state change by an
+//      * interrupt handler. Note the first parameter is pdTRUE,
+//      * which has the effect of clearing the task's notification
+//      * value back to 0, making the notification value act like
+//      * a binary (rather than a counting) semaphore.  */
+//     thread_notification = ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+//     if (thread_notification)
+//     {
+//         advparser.EvalTimeData();
+//         /*Now compare Advparser decoded text to original text; If not the same,
+// 				replace displayed with Advparser version*/
+// 				bool same = true;
+// 				bool Tst4Match = true;
+// 				int i;
+// 				int FmtchPtr;
+				
+// 				/*Scan/compare last word displayed w/ advpaser's version*/
+// 				if (advparser.GetMsgLen() > LtrPtr)
+// 				{ // if the advparser verson is longer, then delete the last word printed
+// 					same = false;
+// 					i = LtrPtr;
+// 				}
+// 				else
+// 				{
+// 					for (i = 0; i < LtrPtr; i++)
+// 					{
+// 						if (advparser.Msgbuf[i] == 0)
+// 							Tst4Match = false;
+// 						if ((LtrHoldr[i] != advparser.Msgbuf[i]) && Tst4Match)
+// 						{
+// 							FmtchPtr = i;
+// 							same = false;
+// 						}
+// 						if (LtrHoldr[i] == 0)
+// 							break;
+// 					}
+// 				}
+// 				/*If they don't match, replace displayed text with AdvParser's version*/
+// 				if (!same)
+// 				{
+// 					bool oldDltState = dletechar;
+// 					dletechar = true;
+// 					MsgChrCnt[1] = i; // Load delete buffer w/ the number of characters to be deleted from the display
+// 					// printf("Pointer ERROR\n");/ printf("No Match @ %d; %d; %d\n", FmtchPtr, LtrHoldr[FmtchPtr], advparser.Msgbuf[FmtchPtr]);
+// 					CptrTxt = false;
+// 					dispMsg(advparser.Msgbuf);
+// 					CptrTxt = true;
+// 					dletechar = oldDltState;
+// 				} // else printf("Match\n");
+// 	}
+//   } // end while(1) loop
+//   /** JMH Added this to ESP32 version to handle random crashing with error,"Task Goertzel Task should not return, Aborting now" */
+//   vTaskDelete(NULL);
+// }
 AdvParser::AdvParser(void) // TFT_eSPI *tft_ptr, char *StrdTxt
 {
     this->AvgSmblDedSpc = 1200 / 30;
@@ -46,16 +112,17 @@ AdvParser::AdvParser(void) // TFT_eSPI *tft_ptr, char *StrdTxt
     this->UnitIntvrlx2r5 = 113;
     this->DitIntrvlVal = 50;
     this->BugKey = 0; //paddle rules
+    //xTaskCreate(AdvParserTask, "AdvParserTask Task", 8192, NULL, 2, &AdvParserTaskHandle);
 
     // ptft = tft_ptr;
     // pStrdTxt = StrdTxt;
     // ToneColor = 0;
 };
 /*Main entry point to post process the key time intervals used to create the current word*/
-void AdvParser::EvalTimeData(uint16_t KeyUpIntrvls[IntrvlBufSize], uint16_t KeyDwnIntrvls[IntrvlBufSize], int KeyUpPtr, int KeyDwnPtr, int curWPM)
+//void AdvParser::EvalTimeData(uint16_t KeyUpIntrvls[IntrvlBufSize], uint16_t KeyDwnIntrvls[IntrvlBufSize], int KeyUpPtr, int KeyDwnPtr, int curWPM)
+void AdvParser::EvalTimeData(void)
 {
-    //this->Dbug = false;
-    this->wpm = curWPM;
+    //this->wpm = curWPM;
     KeyDwnBucktPtr = KeyUpBucktPtr = 0; // reset Bucket pntrs
     bool prntOvrRide = false;
     bool oldDbugState = false;
@@ -74,24 +141,24 @@ void AdvParser::EvalTimeData(uint16_t KeyUpIntrvls[IntrvlBufSize], uint16_t KeyD
     TmpUpIntrvlsPtr = KeyDwnPtr;
     for (int i = 0; i < TmpUpIntrvlsPtr; i++)
     {
-        TmpDwnIntrvls[i] = KeyDwnIntrvls[i];
-        TmpUpIntrvls[i] = KeyUpIntrvls[i];
+        TmpDwnIntrvls[i] = this->KeyDwnIntrvls[i];
+        TmpUpIntrvls[i] = this->KeyUpIntrvls[i];
     }
     /*Now sort the referenced timing arrays*/
-    insertionSort(KeyDwnIntrvls, KeyDwnPtr);
-    insertionSort(KeyUpIntrvls, KeyUpPtr);
+    insertionSort(this->KeyDwnIntrvls, KeyDwnPtr);
+    insertionSort(this->KeyUpIntrvls, KeyUpPtr);
     
-    KeyDwnBuckts[KeyDwnBucktPtr].Intrvl = KeyDwnIntrvls[0]; // At this point KeyDwnBucktPtr = 0
+    KeyDwnBuckts[KeyDwnBucktPtr].Intrvl = this->KeyDwnIntrvls[0]; // At this point KeyDwnBucktPtr = 0
     KeyDwnBuckts[KeyDwnBucktPtr].Cnt = 1;
     /*Build the Key down Bucket table*/
-    uint16_t BucktAvg = KeyDwnIntrvls[0];;
+    uint16_t BucktAvg = this->KeyDwnIntrvls[0];;
     for (int i = 1; i < KeyDwnPtr; i++)
     {
         bool match = false;
         //if ((float)KeyDwnIntrvls[i] <= (4 + (1.2 * KeyDwnBuckts[KeyDwnBucktPtr].Intrvl)))
-        if ((float)KeyDwnIntrvls[i] <= (16+ KeyDwnBuckts[KeyDwnBucktPtr].Intrvl))//20240220 step buckets by timing error
+        if ((float)this->KeyDwnIntrvls[i] <= (16+ KeyDwnBuckts[KeyDwnBucktPtr].Intrvl))//20240220 step buckets by timing error
         {
-            BucktAvg += KeyDwnIntrvls[i];
+            BucktAvg += this->KeyDwnIntrvls[i];
             KeyDwnBuckts[KeyDwnBucktPtr].Cnt++;
             match = true;
         }
@@ -108,7 +175,7 @@ void AdvParser::EvalTimeData(uint16_t KeyUpIntrvls[IntrvlBufSize], uint16_t KeyD
                 break;
             }
             /*start a new average*/
-            BucktAvg = KeyDwnIntrvls[i];
+            BucktAvg = this->KeyDwnIntrvls[i];
             KeyDwnBuckts[KeyDwnBucktPtr].Intrvl = BucktAvg;
             KeyDwnBuckts[KeyDwnBucktPtr].Cnt = 1;
         }
@@ -116,12 +183,12 @@ void AdvParser::EvalTimeData(uint16_t KeyUpIntrvls[IntrvlBufSize], uint16_t KeyD
     /*cleanup by finding the average of the last group*/
     KeyDwnBuckts[KeyDwnBucktPtr].Intrvl = BucktAvg/KeyDwnBuckts[KeyDwnBucktPtr].Cnt;
     /*Build the Key Up Bucket table*/
-    KeyUpBuckts[KeyUpBucktPtr].Intrvl = KeyUpIntrvls[0]; // At this point KeyUpBucktPtr = 0
+    KeyUpBuckts[KeyUpBucktPtr].Intrvl = this->KeyUpIntrvls[0]; // At this point KeyUpBucktPtr = 0
     KeyUpBuckts[KeyUpBucktPtr].Cnt = 1;
     for (int i = 1; i < KeyUpPtr; i++)
     {
         bool match = false;
-        if ((float)KeyUpIntrvls[i] <= (4 + (1.2 * KeyUpBuckts[KeyUpBucktPtr].Intrvl)))
+        if ((float)this->KeyUpIntrvls[i] <= (4 + (1.2 * KeyUpBuckts[KeyUpBucktPtr].Intrvl)))
         {
             KeyUpBuckts[KeyUpBucktPtr].Cnt++;
             match = true;
@@ -134,7 +201,7 @@ void AdvParser::EvalTimeData(uint16_t KeyUpIntrvls[IntrvlBufSize], uint16_t KeyD
                 KeyUpBucktPtr = 14;
                 break;
             }
-            KeyUpBuckts[KeyUpBucktPtr].Intrvl = KeyUpIntrvls[i];
+            KeyUpBuckts[KeyUpBucktPtr].Intrvl = this->KeyUpIntrvls[i];
             KeyUpBuckts[KeyUpBucktPtr].Cnt = 1;
         }
     }

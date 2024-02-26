@@ -41,7 +41,7 @@ private:
     int KeyDwnBucktPtr = 0;
     int TmpUpIntrvlsPtr = 0;
     int LstLtrPrntd = 0; //MsgBuf indx pointer to character printed as Debug output
-    int wpm =0; //upated from DcodeCW.cpp through this class method EvalTimeData()
+    //int wpm =0; //upated from DcodeCW.cpp through this class method EvalTimeData()
     float DahVarPrcnt;
     uint16_t TmpUpIntrvls[IntrvlBufSize];
     uint16_t TmpDwnIntrvls[IntrvlBufSize];
@@ -78,14 +78,19 @@ private:
 
 public:
 	AdvParser(void); //TFT_eSPI *tft_ptr, char *StrdTxt
-    void EvalTimeData(uint16_t KeyUpIntrvls[IntrvlBufSize], uint16_t KeyDwnIntrvls[IntrvlBufSize], int KeyUpPtr, int KeyDwnPtr, int curWPM);
-	char Msgbuf[MsgbufSize];
+    //void EvalTimeData(uint16_t KeyUpIntrvls[IntrvlBufSize], uint16_t KeyDwnIntrvls[IntrvlBufSize], int KeyUpPtr, int KeyDwnPtr, int curWPM);
+	void EvalTimeData(void);
+    char Msgbuf[MsgbufSize];
     /*controls debug USB serial print*/
     bool Dbug = false;
     int KeyType = 0;//used for the display's status indicator("S" or "E")
     float AvgSmblDedSpc;
     int GetMsgLen(void);
-    
+    uint16_t KeyUpIntrvls[IntrvlBufSize];
+    uint16_t KeyDwnIntrvls[IntrvlBufSize];
+    int KeyUpPtr = 0;
+    int KeyDwnPtr = 0;
+    int wpm =0; //upated from DcodeCW.cpp
 	
 };
 

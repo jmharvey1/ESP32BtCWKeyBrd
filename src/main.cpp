@@ -594,6 +594,81 @@ void CWDecodeTask(void *param)
     }
   }
 }
+///////////////////////////////////////////////////////////////////////////////////
+/*AdvParserTask Task; Post Parser Code execution*/
+void AdvParserTask(void *param)
+{
+  // static uint32_t thread_notification;
+  // uint8_t state;
+  //UBaseType_t uxHighWaterMark;
+  while (1)
+  {
+    /* Sleep until we are notified of a state change by an
+     * interrupt handler. Note the first parameter is pdTRUE,
+     * which has the effect of clearing the task's notification
+     * value back to 0, making the notification value act like
+     * a binary (rather than a counting) semaphore.  */
+    // printf("AdvParserTask\n");
+    // thread_notification = ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+    // if (thread_notification)
+    // {
+
+    advparser.EvalTimeData();
+    /*Now compare Advparser decoded text to original text; If not the same,
+    replace displayed with Advparser version*/
+    bool same = true;
+    bool Tst4Match = true;
+    int i;
+    int FmtchPtr; // now only used for debugging
+
+    /*Scan/compare last word displayed w/ advpaser's version*/
+    if (advparser.GetMsgLen() > LtrPtr)
+    { // if the advparser verson is longer, then delete the last word printed
+      same = false;
+      i = LtrPtr;
+    }
+    else
+    {
+      for (i = 0; i < LtrPtr; i++)
+      {
+        if (advparser.Msgbuf[i] == 0)
+          Tst4Match = false;
+        if ((LtrHoldr[i] != advparser.Msgbuf[i]) && Tst4Match)
+        {
+          FmtchPtr = i;
+          same = false;
+        }
+        if (LtrHoldr[i] == 0)
+          break;
+      }
+    }
+    /*If they don't match, replace displayed text with AdvParser's version*/
+    if (!same)
+    {
+      bool oldDltState = dletechar;
+      dletechar = true;
+      MsgChrCnt[1] = i; // Load delete buffer w/ the number of characters to be deleted from the display
+      // printf("Pointer ERROR\n");/ printf("No Match @ %d; %d; %d\n", FmtchPtr, LtrHoldr[FmtchPtr], advparser.Msgbuf[FmtchPtr]);
+      CptrTxt = false;
+      dispMsg(advparser.Msgbuf);
+      CptrTxt = true;
+      dletechar = oldDltState;
+    }
+    if (advparser.Dbug)
+      printf("%s\n", LtrHoldr);
+    // erase contents of LtrHoldr & reset its index pointer (LtrPtr)
+    for (int i = 0; i < LtrPtr; i++)
+      LtrHoldr[i] = 0;
+    LtrPtr = 0;
+    if (advparser.Dbug)
+      printf("--------\n\n");
+    //uxHighWaterMark = uxTaskGetStackHighWaterMark( NULL );
+    //printf("AdvParserTask stack: %d\n", (int)uxHighWaterMark);  
+    vTaskSuspend(AdvParserTaskHandle);
+  } // end while(1) loop
+  /** JMH Added this to ESP32 version to handle random crashing with error,"Task Goertzel Task should not return, Aborting now" */
+  vTaskDelete(NULL);
+}
 
 ///////////////////////////////////////////////////////////////////////////////////
 
@@ -645,6 +720,9 @@ void app_main()
   state_que = xQueueCreate(state_que_len, sizeof(uint8_t));
   /*create DisplayUpDate Task*/
   xTaskCreate(DisplayUpDt, "DisplayUpDate Task", 8192, NULL, 2, &DsplUpDtTaskHandle);
+  /*Selected 2092 based on results found by using uxTaskGetStackHighWaterMark( NULL ) in AdvParserTask*/
+  xTaskCreate(AdvParserTask, "AdvParserTask Task", 2092, NULL, 2, &AdvParserTaskHandle); //8192
+  vTaskSuspend( AdvParserTaskHandle );
   // configASSERT(DsplUpDtTaskHandle != NULL);
   // xTaskNotifyWait(DsplUpDtTaskHandle);
   // xTaskNotifyGive(DsplUpDtTaskHandle);

@@ -1479,63 +1479,96 @@ bool chkChrCmplt(void)
 		{
 			//printf("\nWORD BREAK - KeyDwnPtr: %d; KeyUpPtr:%d\n", KeyDwnPtr, KeyUpPtr);
 			if ((LtrPtr > 1 || KeyDwnPtr >= 9) && ((wpm > 13) ||(LtrPtr > 3)) && (wpm < 36) && (KeyDwnPtr == KeyUpPtr))// don't try to reparse if the key up & down pointers arent equal
-			{ // dont do post parsing with just one letter or WPMs <= 13
+			{ // dont do "post parsing" with just one letter or WPMs <= 13
 				/*1st refresh/sync 'advparser.Dbug' */
 				if (DeBug)
 					advparser.Dbug = true;
 				else
 					advparser.Dbug = false;
-				advparser.EvalTimeData(KeyUpIntrvls, KeyDwnIntrvls, KeyUpPtr, KeyDwnPtr, wpm);
-				/*Now compare Advparser decoded text to original text; If not the same,
-				replace displayed with Advparser version*/
-				bool same = true;
-				bool Tst4Match = true;
-				int i;
-				int FmtchPtr;
+				/*Perpare advparser by 1st copying current decoder symbol sets into local advparser arrays*/	
+				for(int i= 0; i <= KeyDwnPtr; i++){
+					advparser.KeyUpIntrvls[i] = KeyUpIntrvls[i];
+					advparser.KeyDwnIntrvls[i] =  KeyDwnIntrvls[i];
+				}
+				advparser.KeyUpPtr = KeyUpPtr;
+				advparser.KeyDwnPtr = KeyDwnPtr;
+				advparser.wpm = wpm; 
+				//advparser.EvalTimeData(KeyUpIntrvls, KeyDwnIntrvls, KeyUpPtr, KeyDwnPtr, wpm);
+				//BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+  				//vTaskNotifyGiveFromISR(AdvParserTaskHandle, &xHigherPriorityTaskWoken); // AdvParserTask Task
+				//xTaskNotifyGive(AdvParserTaskHandle);
+				/*now we can resart the post parsing process */
+				vTaskResume( AdvParserTaskHandle );
+				//if (xHigherPriorityTaskWoken == pdTRUE) portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+
+
+				// /*Now compare Advparser decoded text to original text; If not the same,
+				// replace displayed with Advparser version*/
+				// bool same = true;
+				// bool Tst4Match = true;
+				// int i;
+				// int FmtchPtr;
 				
-				/*Scan/compare last word displayed w/ advpaser's version*/
-				if (advparser.GetMsgLen() > LtrPtr)
-				{ // if the advparser verson is longer, then delete the last word printed
-					same = false;
-					i = LtrPtr;
-				}
-				else
-				{
-					for (i = 0; i < LtrPtr; i++)
-					{
-						if (advparser.Msgbuf[i] == 0)
-							Tst4Match = false;
-						if ((LtrHoldr[i] != advparser.Msgbuf[i]) && Tst4Match)
-						{
-							FmtchPtr = i;
-							same = false;
-						}
-						if (LtrHoldr[i] == 0)
-							break;
-					}
-				}
-				/*If they don't match, replace displayed text with AdvParser's version*/
-				if (!same)
-				{
-					bool oldDltState = dletechar;
-					dletechar = true;
-					MsgChrCnt[1] = i; // Load delete buffer w/ the number of characters to be deleted from the display
-					// printf("Pointer ERROR\n");/ printf("No Match @ %d; %d; %d\n", FmtchPtr, LtrHoldr[FmtchPtr], advparser.Msgbuf[FmtchPtr]);
-					CptrTxt = false;
-					dispMsg(advparser.Msgbuf);
-					CptrTxt = true;
-					dletechar = oldDltState;
-				} // else printf("Match\n");
-			} else advparser.KeyType = 7;// round about way to update display status line to indicate no post processing
+				// /*Scan/compare last word displayed w/ advpaser's version*/
+				// if (advparser.GetMsgLen() > LtrPtr)
+				// { // if the advparser verson is longer, then delete the last word printed
+				// 	same = false;
+				// 	i = LtrPtr;
+				// }
+				// else
+				// {
+				// 	for (i = 0; i < LtrPtr; i++)
+				// 	{
+				// 		if (advparser.Msgbuf[i] == 0)
+				// 			Tst4Match = false;
+				// 		if ((LtrHoldr[i] != advparser.Msgbuf[i]) && Tst4Match)
+				// 		{
+				// 			FmtchPtr = i;
+				// 			same = false;
+				// 		}
+				// 		if (LtrHoldr[i] == 0)
+				// 			break;
+				// 	}
+				// }
+				// /*If they don't match, replace displayed text with AdvParser's version*/
+				// if (!same)
+				// {
+				// 	bool oldDltState = dletechar;
+				// 	dletechar = true;
+				// 	MsgChrCnt[1] = i; // Load delete buffer w/ the number of characters to be deleted from the display
+				// 	// printf("Pointer ERROR\n");/ printf("No Match @ %d; %d; %d\n", FmtchPtr, LtrHoldr[FmtchPtr], advparser.Msgbuf[FmtchPtr]);
+				// 	CptrTxt = false;
+				// 	dispMsg(advparser.Msgbuf);
+				// 	CptrTxt = true;
+				// 	dletechar = oldDltState;
+				// } // else printf("Match\n");
+			} 
+			else
+			{
+				advparser.KeyType = 7; // round about way to update display status line to indicate no post processing
+									   // erase contents of LtrHoldr & reset its index pointer (LtrPtr)
+				for (int i = 0; i < LtrPtr; i++)
+					LtrHoldr[i] = 0;
+				LtrPtr = 0;
+			}
 		}
-		if (advparser.Dbug)
-			printf("%s\n", LtrHoldr);
- 		//erase contents of LtrHoldr & rest its index pointer (LtrPtr)
-		for (int i = 0; i < LtrPtr; i++)
-			LtrHoldr[i] = 0;
-		LtrPtr = 0;
-		if (advparser.Dbug)
-			printf("--------\n\n");
+		else
+		{
+			for (int i = 0; i < LtrPtr; i++)
+				LtrHoldr[i] = 0;
+			LtrPtr = 0;
+		}
+		// if (advparser.Dbug)
+		// 	printf("%s\n", LtrHoldr);
+ 		// //erase contents of LtrHoldr & reset its index pointer (LtrPtr)
+		// for (int i = 0; i < LtrPtr; i++)
+		// 	LtrHoldr[i] = 0;
+		// LtrPtr = 0;
+		// if (advparser.Dbug)
+		// 	printf("--------\n\n");
+
+
+
 		KeyDwnPtr = KeyUpPtr = 0; // resetbuffer pntrs
 
 		Pstate = 2; // have word

@@ -29,6 +29,12 @@ extern volatile unsigned long wordBrk;
 extern bool AutoTune;
 extern int ModeCnt;
 extern int ltrCmplt;
+/*adv post parser variables*/
+extern char LtrHoldr[];
+extern int LtrPtr;
+extern bool dletechar;
+extern int MsgChrCnt[];
+extern bool CptrTxt;
 
 extern unsigned long SmpIntrl;
 extern struct DF_t DFault;
