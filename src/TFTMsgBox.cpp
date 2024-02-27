@@ -637,6 +637,11 @@ void TFTMsgBox::ShwTone(uint16_t color)
 	// if(RingbufPntr1 != RingbufPntr2 ) return;
 	// ptft->fillRect(Xpos, Ypos, Wdth, Hght, color);
 };
+////////////////////////////////////////////////////////
+char TFTMsgBox::GetLastChar(void)
+{
+	return Pgbuf[cnt - (CPL+1)];
+};
 /* This method was created to support DcodeCW.cpp; When called Deletes last character posted to screen*/
 // void TFTMsgBox::DelLastNtry(void)
 // {

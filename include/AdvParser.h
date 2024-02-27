@@ -81,6 +81,8 @@ public:
     //void EvalTimeData(uint16_t KeyUpIntrvls[IntrvlBufSize], uint16_t KeyDwnIntrvls[IntrvlBufSize], int KeyUpPtr, int KeyDwnPtr, int curWPM);
 	void EvalTimeData(void);
     char Msgbuf[MsgbufSize];
+    char LtrHoldr[30];
+    int LtrPtr = 0;
     /*controls debug USB serial print*/
     bool Dbug = false;
     int KeyType = 0;//used for the display's status indicator("S" or "E")

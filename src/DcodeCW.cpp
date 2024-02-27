@@ -100,6 +100,7 @@ char Msgbuf[50];
 char LstPstdchar[2]; // used for diagnostic testing only
 char P[13];
 char PrntBuf[150];
+//char curChar = 0;// 20240227 moved this to be a global variable so that it can also be tested in the advparser task 
 /*the following vairables were created for the AutoMode detector*/
 uint16_t KeyUpIntrvls[IntrvlBufSize];
 uint16_t KeyDwnIntrvls[IntrvlBufSize];
@@ -1465,7 +1466,8 @@ bool chkChrCmplt(void)
 		}
 	}
 	float noKeySig = (float)(Now - noSigStrt);
-	if ((noKeySig >= 0.75 * ((float)wordBrk)) && noSigStrt != 0 && !wordBrkFlg && (DeCodeVal == 0))
+	/*20240226 added or clause to prevent long run on text strings which often end up scrambled by the post parser*/
+	if (((noKeySig >= 0.75 * ((float)wordBrk)) && noSigStrt != 0 && !wordBrkFlg && (DeCodeVal == 0))||(LtrPtr > 11))
 	{
 		if (KeyUpPtr < IntrvlBufSize && KeyDwnPtr >= 1)
 		{ // we have both a usable time & place to store it; and at least 1 keydwn interval has been captured
@@ -1485,23 +1487,22 @@ bool chkChrCmplt(void)
 					advparser.Dbug = true;
 				else
 					advparser.Dbug = false;
-				/*Perpare advparser by 1st copying current decoder symbol sets into local advparser arrays*/	
+				/*Perpare advparser, by 1st copying current decoder symbol sets into local advparser arrays*/	
 				for(int i= 0; i <= KeyDwnPtr; i++){
 					advparser.KeyUpIntrvls[i] = KeyUpIntrvls[i];
 					advparser.KeyDwnIntrvls[i] =  KeyDwnIntrvls[i];
 				}
 				advparser.KeyUpPtr = KeyUpPtr;
 				advparser.KeyDwnPtr = KeyDwnPtr;
-				advparser.wpm = wpm; 
+				advparser.wpm = wpm;
+				advparser.LtrPtr = LtrPtr;
+				for(int i= 0; i <= LtrPtr; i++){
+					advparser.LtrHoldr[i] = LtrHoldr[i];
+				}
+				
 				//advparser.EvalTimeData(KeyUpIntrvls, KeyDwnIntrvls, KeyUpPtr, KeyDwnPtr, wpm);
-				//BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-  				//vTaskNotifyGiveFromISR(AdvParserTaskHandle, &xHigherPriorityTaskWoken); // AdvParserTask Task
-				//xTaskNotifyGive(AdvParserTaskHandle);
-				/*now we can resart the post parsing process */
+				/*now we can start/resart the post parsing process */
 				vTaskResume( AdvParserTaskHandle );
-				//if (xHigherPriorityTaskWoken == pdTRUE) portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
-
-
 				// /*Now compare Advparser decoded text to original text; If not the same,
 				// replace displayed with Advparser version*/
 				// bool same = true;
@@ -1543,27 +1544,27 @@ bool chkChrCmplt(void)
 				// 	dletechar = oldDltState;
 				// } // else printf("Match\n");
 			} 
-			else
-			{
-				advparser.KeyType = 7; // round about way to update display status line to indicate no post processing
-									   // erase contents of LtrHoldr & reset its index pointer (LtrPtr)
-				for (int i = 0; i < LtrPtr; i++)
-					LtrHoldr[i] = 0;
-				LtrPtr = 0;
-			}
+			// else
+			// {
+			// 	advparser.KeyType = 7; // round about way to update display status line to indicate no post processing
+			// 						   // erase contents of LtrHoldr & reset its index pointer (LtrPtr)
+			// 	for (int i = 0; i < LtrPtr; i++)
+			// 		LtrHoldr[i] = 0;
+			// 	LtrPtr = 0;
+			// }
 		}
-		else
-		{
-			for (int i = 0; i < LtrPtr; i++)
-				LtrHoldr[i] = 0;
-			LtrPtr = 0;
-		}
+		// else
+		// {
+		// 	for (int i = 0; i < LtrPtr; i++)
+		// 		LtrHoldr[i] = 0;
+		// 	LtrPtr = 0;
+		// }
 		// if (advparser.Dbug)
 		// 	printf("%s\n", LtrHoldr);
- 		// //erase contents of LtrHoldr & reset its index pointer (LtrPtr)
-		// for (int i = 0; i < LtrPtr; i++)
-		// 	LtrHoldr[i] = 0;
-		// LtrPtr = 0;
+ 		//erase contents of LtrHoldr & reset its index pointer (LtrPtr)
+		for (int i = 0; i < LtrPtr; i++)
+			LtrHoldr[i] = 0;
+		LtrPtr = 0;
 		// if (advparser.Dbug)
 		// 	printf("--------\n\n");
 
@@ -2375,7 +2376,7 @@ int linearSrchChr(char val, char arr[ARSIZE][2], int sz)
 void dispMsg(char Msgbuf[50])
 {
 
-	if (Test)
+	if (Test) //if (1)//
 	{
 		sprintf(PrntBuf, "\t\tdispMsg: \t%s\n\r", Msgbuf);
 		printf(PrntBuf);

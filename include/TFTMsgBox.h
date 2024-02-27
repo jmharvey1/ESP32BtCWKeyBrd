@@ -109,6 +109,7 @@ public:
 	void setCWActv(bool flg);
 	bool getBGHilite(void);
 	void ShwTone(uint16_t color);
+	char GetLastChar(void);
 	// void DelLastNtry(void);
 };
 

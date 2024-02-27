@@ -31,6 +31,7 @@ extern int ModeCnt;
 extern int ltrCmplt;
 /*adv post parser variables*/
 extern char LtrHoldr[];
+//extern char curChar;
 extern int LtrPtr;
 extern bool dletechar;
 extern int MsgChrCnt[];

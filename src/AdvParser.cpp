@@ -33,6 +33,7 @@
  * 20240220 added 'SloppyBgRules()' method. Plus numerous changes to integrate this rule set into the existing code
  * 20240223 numerous 'tweaks' to this file, mostly to better delineate between different key types
  * 20240225 more 'tweaks' to bug2 & sloppybug rule sets; bug1 ruleset is getting little use due to current 'DitDahBugTst()' code
+ * 20240227 reworked GetMsgLen(void), FixClassicErrors(void), & SloppyBgRules(int& n)
  * */
 //#include "freertos/task.h"
 //#include "freertos/semphr.h"
@@ -887,7 +888,7 @@ bool AdvParser::SloppyBgRules(int& n)
                 }
             }
         }
-        for (int i = n; i <= TmpUpIntrvlsPtr; i++)
+        for (int i = n; i < TmpUpIntrvlsPtr; i++)
         {
             if (TmpDwnIntrvls[i] < DitDahSplitVal)
             {
@@ -968,6 +969,15 @@ bool AdvParser::SloppyBgRules(int& n)
                     }
                     ExtSmbl = '$';
                     break; // quit now this Dah looks significantly stretched compared to its predecessor
+                }
+                else if (i == TmpUpIntrvlsPtr - 1)
+                {
+                    if (this->Dbug)
+                    {
+                        printf("EXIT F %d; TmpUpIntrvlsPtr: %d\t", RunCnt, TmpUpIntrvlsPtr);
+                    }
+                    ExtSmbl = '#';
+                    break; // quit now this Dah is the last symbolset entry, so has to be a letter break
                 }
                 // else if ((TmpUpIntrvls[i] > 1.4 * TmpDwnIntrvls[i]) ||
                 //          ((TmpUpIntrvls[i] >= UnitIntvrlx2r5) && (TmpUpIntrvls[i] > TmpDwnIntrvls[i]))) //20240214-Replaced the following commented out line with this
@@ -1055,7 +1065,7 @@ bool AdvParser::SloppyBgRules(int& n)
     RunCnt = 0;     // used to validate that there were at least two adjacent dahs or dits
     mindah = KeyUpBuckts[KeyDwnBucktPtr].Intrvl;
     ExtSmbl = ' ';
-    for (int i = n; i <= TmpUpIntrvlsPtr; i++)
+    for (int i = n; i < TmpUpIntrvlsPtr; i++)
     {
         //if ((TmpDwnIntrvls[i] + 8 > DitDahSplitVal))
         if (TmpDwnIntrvls[i] >= DitDahSplitVal)
@@ -1091,7 +1101,16 @@ bool AdvParser::SloppyBgRules(int& n)
                     printf("EXIT C %d\t", RunCnt);
                 }
                 ExtSmbl = '#';
-                break; // quit now this Dah looks significantly stretched compared to its predecessor
+                break; // quit now this Dit looks significantly stretched compared to its predecessor
+            }
+            if (i == TmpUpIntrvlsPtr - 1)
+            {
+                if (this->Dbug)
+                {
+                    printf("EXIT D %d; %d\t", RunCnt, TmpUpIntrvlsPtr);
+                }
+                ExtSmbl = '#';
+                break; // quit now this Dit is the last symbolset entry, so has to be a letter break
             }
         }
     }
@@ -1136,7 +1155,7 @@ bool AdvParser::SloppyBgRules(int& n)
         BrkFlg = '+';
         return true;
     }
-    /*Middle keyup test to see this keyup is twice the lenght of the one following it,
+    /*Middle keyup test to see this keyup is twice the length of the one following it,
     AND greater than the one that proceeded it, provided the proceeding keyup was not a letterbrk.
     If all true, then call this one a letter break*/
     if ((n < TmpUpIntrvlsPtr - 1) && (n > 0))
@@ -1318,7 +1337,7 @@ bool AdvParser::CootyRules(int& n)
 bool AdvParser::PadlRules(int& n)
 {
     /*Paddle or Keyboard rules*/
-    /*Middle keyup test to see this keyup is twice the lenght of the one just before it,
+    /*Middle keyup test to see this keyup is twice the length of the one just before it,
     If it is then call this one a letter break*/
     //if (n > 0 && (TmpUpIntrvls[n] > 2.0 * TmpUpIntrvls[n - 1]))
     if (n > 0 && (TmpUpIntrvls[n] > this->UnitIntvrlx2r5))
@@ -1327,7 +1346,7 @@ bool AdvParser::PadlRules(int& n)
         BrkFlg = '+';
         return true;
     }
-    /*Middle keyup test to see this keyup is twice the lenght of the one following it,
+    /*Middle keyup test to see this keyup is twice the length of the one following it,
     If it is then call this one a letter break*/
     //if ((n < TmpUpIntrvlsPtr - 1) && (TmpUpIntrvls[n] > (2.0 * TmpUpIntrvls[n + 1])+8))
     if ((n < TmpUpIntrvlsPtr - 1) && (TmpUpIntrvls[n] > UnitIntvrlx2r5))
@@ -1338,8 +1357,8 @@ bool AdvParser::PadlRules(int& n)
     }
     if (NewSpltVal)
     {
-        //if (TmpUpIntrvls[n]+8 >= Bg1SplitPt )//(uint16_t)(0.9*(float)UnitIntvrlx2r5)//UnitIntvrlx2r5-16
-        if (TmpUpIntrvls[n] >= DitDahSplitVal) //AKA 'SplitPoint';
+        //if (TmpUpIntrvls[n] >= DitDahSplitVal) // //AKA 'SplitPoint';
+        if (TmpUpIntrvls[n] >= Bg1SplitPt) 
         {
             BrkFlg = '+';
             ExitPath[n] = 102;
@@ -1393,7 +1412,7 @@ bool AdvParser::Bug1Rules(int& n)
     uint16_t maxdah = 0;
     uint16_t mindah = KeyDwnBuckts[KeyDwnBucktPtr].Intrvl;
     char ExtSmbl = ' ';
-    for (int i = n; i <= TmpUpIntrvlsPtr; i++)
+    for (int i = n; i < TmpUpIntrvlsPtr; i++)
     {
         if (TmpDwnIntrvls[i] < Bg1SplitPt)
         {
@@ -1552,7 +1571,7 @@ bool AdvParser::Bug1Rules(int& n)
     RunCnt = 0;     // used to validate that there were at least two adjacent dahs or dits
     mindah = KeyUpBuckts[KeyDwnBucktPtr].Intrvl;
     ExtSmbl = ' ';
-    for (int i = n; i <= TmpUpIntrvlsPtr; i++)
+    for (int i = n; i < TmpUpIntrvlsPtr; i++)
     {
         //if ((TmpDwnIntrvls[i] + 8 > DitDahSplitVal))
         if (TmpDwnIntrvls[i] >= Bg1SplitPt)
@@ -1609,7 +1628,7 @@ bool AdvParser::Bug1Rules(int& n)
         BrkFlg = '+';
         return true;
     }
-    /*Middle keyup test to see this keyup is twice the lenght of the one following it,
+    /*Middle keyup test to see this keyup is twice the length of the one following it,
     AND greater than the one that proceeded it, provided the proceeding keyup was not a letterbrk.
     If all true, then call this one a letter break*/
     if ((n < TmpUpIntrvlsPtr - 1) && (n > 0))
@@ -1786,7 +1805,7 @@ bool AdvParser::Bug2Rules(int& n)
     uint16_t maxdah = 0;
     uint16_t mindah = KeyDwnBuckts[KeyDwnBucktPtr].Intrvl;
     char ExtSmbl = ' ';
-    for (int i = n; i <= TmpUpIntrvlsPtr; i++)
+    for (int i = n; i < TmpUpIntrvlsPtr; i++)
     {
         if (TmpDwnIntrvls[i] < DitDahSplitVal)
         {
@@ -1902,7 +1921,7 @@ bool AdvParser::Bug2Rules(int& n)
     maxdah = 0;     // reuse this variable from Dah series test
     RunCnt = 0;     // used to validate that there were at least two adjacent dahs or dits
     mindah = KeyUpBuckts[KeyDwnBucktPtr].Intrvl;
-    for (int i = n; i <= TmpUpIntrvlsPtr; i++)
+    for (int i = n; i < TmpUpIntrvlsPtr; i++)
     {
         if ((TmpDwnIntrvls[i] >= DitDahSplitVal)){
             ExtSmbl = '@';
@@ -1975,7 +1994,7 @@ bool AdvParser::Bug2Rules(int& n)
         BrkFlg = '+';
         return true;
     }
-    /*Middle keyup test to see this keyup is twice the lenght of the one following it,
+    /*Middle keyup test to see this keyup is twice the length of the one following it,
     AND greater than the one that proceeded it, provided the proceeding keyup was not a letterbrk.
     If all true, then call this one a letter break*/
     if ((n < TmpUpIntrvlsPtr - 1) && (n > 0))
@@ -2144,7 +2163,7 @@ bool AdvParser::SKRules(int& n)
         BrkFlg = '+';
         return true;
     }
-    /*Middle keyup test to see this keyup is twice the lenght of the one following it,
+    /*Middle keyup test to see this keyup is twice the length of the one following it,
     If it is then call this one a letter break*/
     if ((n < TmpUpIntrvlsPtr - 1) && (TmpUpIntrvls[n] > (2.0 * TmpUpIntrvls[n + 1])+8))
     {
@@ -2375,7 +2394,7 @@ void AdvParser::SyncTmpBufA(void)
     }
 };
 ///////////////////////////////////////////////////////////////////////
-/*This function finds the Msgbuf current lenght regardless of Dbug's state */
+/*This function finds the Msgbuf current length regardless of Dbug's state */
 void AdvParser::PrintThisChr(void)
 {
     int curEnd = LstLtrPrntd;
@@ -2393,6 +2412,12 @@ void AdvParser::PrintThisChr(void)
 /*Return the current string length of the AdvParser MsgBuf*/
 int AdvParser::GetMsgLen(void)
 {
+    this->LstLtrPrntd =0;
+    while (Msgbuf[this->LstLtrPrntd] != 0)
+    {
+        this->LstLtrPrntd++;
+    }
+    //this->LstLtrPrntd--;
     return this->LstLtrPrntd;
 };
 //////////////////////////////////////////////////////////////////////////////
@@ -2706,9 +2731,10 @@ void AdvParser::Dcode4Dahs(int n)
             if((i + 3+ j) < sizeof(this->Msgbuf)) this->Msgbuf[i + 3+ j] = 0;
             if(i +3 < lstCharPos) i += 3;
         }
-         /*Look for embedded character sequence 'PLL', if found replace with 'WELL'*/
+         
         if (i + 2 < lstCharPos)
         {
+            /*Look for embedded character sequence 'PLL', if found replace with 'WELL'*/
             if (this->Msgbuf[i] == 'P' && this->Msgbuf[i + 1] == 'L' && this->Msgbuf[i + 2] == 'L')
             {
                 // printf("PD test; lstCharPos: %d\n", lstCharPos);
@@ -2733,6 +2759,60 @@ void AdvParser::Dcode4Dahs(int n)
                 if (i + 2 < lstCharPos)
                     i += 2;
             }
+            /*Look for embedded character sequence 'SJE', if found replace with 'SAME'*/
+            if (this->Msgbuf[i] == 'S' && this->Msgbuf[i + 1] == 'J' && this->Msgbuf[i + 2] == 'E')
+            { 
+                int NuLtrCnt = 4;
+                int j;
+                for (j = 0; j < sizeof(this->TmpBufA) - 1; j++)
+                {
+                    this->TmpBufA[j] = this->Msgbuf[j + i + 1];
+                    this->TmpBufA[j + 1] = 0;
+                    if (this->Msgbuf[j + i + 1] == 0)
+                        break;
+                }
+                this->Msgbuf[i] = 'S';
+                this->Msgbuf[i + 1] = 'A';
+                this->Msgbuf[i + 2] = 'M';
+                this->Msgbuf[i + 3] = 'E';
+                j = 0;
+                while (this->TmpBufA[j] != 0)
+                {
+                    this->Msgbuf[i + NuLtrCnt + j] = this->TmpBufA[j];
+                    j++;
+                }
+                if ((i + NuLtrCnt + j) < sizeof(this->Msgbuf))
+                    this->Msgbuf[i + NuLtrCnt + j] = 0;
+                if (i + NuLtrCnt < lstCharPos)
+                    i += NuLtrCnt;
+            }
+            /*Look for embedded character sequence 'TB3', if found replace with '73'*/
+            if (this->Msgbuf[i] == 'S' && this->Msgbuf[i + 1] == 'J' && this->Msgbuf[i + 2] == 'E')
+            { 
+                int NuLtrCnt = 2;
+                int j;
+                for (j = 0; j < sizeof(this->TmpBufA) - 1; j++)
+                {
+                    this->TmpBufA[j] = this->Msgbuf[j + i + 1];
+                    this->TmpBufA[j + 1] = 0;
+                    if (this->Msgbuf[j + i + 1] == 0)
+                        break;
+                }
+                this->Msgbuf[i] = '7';
+                this->Msgbuf[i + 1] = '3';
+                // this->Msgbuf[i + 2] = 'M';
+                // this->Msgbuf[i + 3] = 'E';
+                j = 0;
+                while (this->TmpBufA[j] != 0)
+                {
+                    this->Msgbuf[i + NuLtrCnt + j] = this->TmpBufA[j];
+                    j++;
+                }
+                if ((i + NuLtrCnt + j) < sizeof(this->Msgbuf))
+                    this->Msgbuf[i + NuLtrCnt + j] = 0;
+                if (i + NuLtrCnt < lstCharPos)
+                    i += NuLtrCnt;
+            }
         }
     }
 
@@ -2741,7 +2821,12 @@ void AdvParser::Dcode4Dahs(int n)
      {
         sprintf(Msgbuf, " (%c%s", this->Msgbuf[lstCharPos - 2], "AC)"); // test for "@" (%c%s", this->Msgbuf[lstCharPos - 2], "AC)"); //"true"; Insert preceeding character plus correction "AC"
      }
-         
+     if(lstCharPos >= 4){
+     if(this->Msgbuf[lstCharPos - 4] == '5' && this->Msgbuf[lstCharPos - 3] == 'O' && this->Msgbuf[lstCharPos-2] == 'N' && this->Msgbuf[lstCharPos - 1] == 'O' && this->Msgbuf[lstCharPos] == 'N')
+     {
+        sprintf(Msgbuf, "5NN");
+     }
+     }    
     //  if (this->Msgbuf[lstCharPos - 1] == 'P' && this->Msgbuf[lstCharPos] == 'D')
     //  {   
     //     // test for "PD"
