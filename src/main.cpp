@@ -78,6 +78,7 @@
 /*20240225 AdParser.cpp - more 'tweaks' to bug2 & sloppybug rule sets */
 /*20240225 setup post parsing to run as a task (AdvParserTask)*/
 /*20240227 reworked AdvParserTask() & setup to run on core 1; reworked AdvParser.cpp - GetMsgLen(void), FixClassicErrors(void), & SloppyBgRules(int& n)*/
+/*20240301 AdParser.cpp -Changed BG2 dah run to detect letterbreak on UnitIntvrlx2r5; chages to SetSpltPt()*/
 
 #include "sdkconfig.h" //added for timer support
 #include "globals.h"
@@ -135,7 +136,7 @@ DF_t DFault;
 int DeBug = 0; // Debug factory default setting; 0 => Debug "OFF"; 1 => Debug "ON"
 char StrdTxt[20] = {'\0'};
 /*Factory Default Settings*/
-char RevDate[9] = "20240227";
+char RevDate[9] = "20240301";
 char MyCall[10] = "KW4KD";
 char MemF2[80] = "VVV VVV TEST DE KW4KD";
 char MemF3[80] = "CQ CQ CQ DE KW4KD KW4KD";
@@ -163,7 +164,7 @@ static QueueHandle_t state_que;
 //static QueueHandle_t Sampl_que;
 
 SemaphoreHandle_t mutex;
-//SemaphoreHandle_t ADC_smpl_mutex;
+
 /* the following 2 entries are for diagnostic capture of raw DMA ADC data*/
 // int Smpl_buf[6 * Goertzel_SAMPLE_CNT];
 // int Smpl_Cntr = 0;
@@ -605,28 +606,25 @@ void AdvParserTask(void *param)
 {
   // static uint32_t thread_notification;
   // uint8_t state;
-  //UBaseType_t uxHighWaterMark;
+  // UBaseType_t uxHighWaterMark;
   while (1)
   {
     /* Sleep until instructed to resume from DcodeCW.cpp */
-    //printf("AdvParserTask\n");
-    // thread_notification = ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-    // if (thread_notification)
-    // {
-
-    advparser.EvalTimeData();
+    // printf("AdvParserTask\n");
     
+    advparser.EvalTimeData();
+
     /*Now compare Advparser decoded text to original text; If not the same,
     replace displayed with Advparser version*/
     bool same = true;
     bool Tst4Match = true;
     int i;
     int FmtchPtr; // now only used for debugging
-    //printf("Start Scan\n");
+    // printf("Start Scan\n");
     /*Scan/compare last word displayed w/ advpaser's version*/
     int NuMsgLen = advparser.GetMsgLen();
     int LtrPtr = advparser.LtrPtr;
-    //printf("NuMsgLen = %d; LtrPtr %d\n", NuMsgLen, LtrPtr);
+    // printf("NuMsgLen = %d; LtrPtr %d\n", NuMsgLen, LtrPtr);
     if (NuMsgLen > LtrPtr)
     { // if the advparser verson is longer, then delete the last word printed
       same = false;
@@ -650,12 +648,12 @@ void AdvParserTask(void *param)
     /*If they don't match, replace displayed text with AdvParser's version*/
     if (!same)
     {
-      
+
       bool oldDltState = dletechar;
       int deletCnt = 0;
       char spacemarker = 'Y';
       uint8_t LstChr = 0;
-      //printf("!Same\n");
+      // printf("!Same\n");
       if (LtrPtr <= 11)
       {
         while (LstChr != 0x20)
@@ -669,50 +667,56 @@ void AdvParserTask(void *param)
         vTaskDelay(50 / portTICK_PERIOD_MS); // wait long enough for the TFT display to get updated
         LstChr = tftmsgbx.GetLastChar();     // get the last character posted via the DcodeCW process (To test below for a 'space' [0x20])
       }
-      //printf("tftmsgbx.GetLastChar = %d\n", LstChr);
-      if(LstChr == 0x20)  //test to see if a word break space has been applied
+      // printf("tftmsgbx.GetLastChar = %d\n", LstChr);
+      if (LstChr == 0x20) // test to see if a word break space has been applied
       {
-        deletCnt = 1+ i;  // number of characters + space to be deleted
-        //tftmsgbx.Delete(1+ i);// this caused the ESP32 to crash on WatchDog timer timeout
-        //printf("MsgChrCnt[1] = %d\n", 1+ i);
-        // /*Add word break space to post parsed text*/
-        // advparser.Msgbuf[NuMsgLen] = 0x20;
-        // advparser.Msgbuf[NuMsgLen+1] = 0x0;
+        deletCnt = 1 + i; // number of characters + space to be deleted
+        // tftmsgbx.Delete(1+ i);// this caused the ESP32 to crash on WatchDog timer timeout
+        // printf("MsgChrCnt[1] = %d\n", 1+ i);
       }
       else
       {
         spacemarker = 'N';
         deletCnt = i; // number of characters (No space) to be deleted
-        //tftmsgbx.Delete(i);// this caused the ESP32 to crash on WatchDog timer timeout
-        //printf("MsgChrCnt[1] = %d\n", i);
+        // tftmsgbx.Delete(i);// this caused the ESP32 to crash on WatchDog timer timeout
+        // printf("MsgChrCnt[1] = %d\n", i);
       }
       /*Configure DCodeCW.cpp to erase/delete original text*/
       MsgChrCnt[1] = deletCnt; // Load delete buffer w/ the number of characters to be deleted
       dletechar = true;
-      //vTaskDelay(60 / portTICK_PERIOD_MS);
       /*Add word break space to post parsed text*/
-        advparser.Msgbuf[NuMsgLen] = 0x20;
-        advparser.Msgbuf[NuMsgLen+1] = 0x0;
-      printf("old txt %s;  new txt %s delete cnt %d; advparser.LtrPtr %d ; new txt length %d; Space Corrected = %c/%d \n",advparser.LtrHoldr ,advparser.Msgbuf , deletCnt, LtrPtr, NuMsgLen, spacemarker, LstChr);
+      advparser.Msgbuf[NuMsgLen] = 0x20;
+      advparser.Msgbuf[NuMsgLen + 1] = 0x0;
+      if (advparser.Dbug)
+        printf("old txt %s;  new txt %s delete cnt %d; advparser.LtrPtr %d ; new txt length %d; Space Corrected = %c/%d \n", advparser.LtrHoldr, advparser.Msgbuf, deletCnt, LtrPtr, NuMsgLen, spacemarker, LstChr);
       // printf("Pointer ERROR\n");/ printf("No Match @ %d; %d; %d\n", FmtchPtr, LtrHoldr[FmtchPtr], advparser.Msgbuf[FmtchPtr]);
       CptrTxt = false;
-      //printf("Step Complete\n");
-      dispMsg(advparser.Msgbuf); // send newly reparsed text over to DCodeCW.cpp to be displayed as replaced text
+      // printf("Step Complete\n");
+      // if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE)
+      // {
+      //   /* We were able to obtain the semaphore and can now access the
+      //   shared resource. */
+      //   mutexFLG = true;
+        dispMsg(advparser.Msgbuf); // send newly reparsed text over to DCodeCW.cpp to be displayed as replaced text
+      //                              /* We have finished accessing the shared resource.  Release the
+      //                                  semaphore. */
+      //   xSemaphoreGive(mutex);
+      //   mutexFLG = false;
+      // }
       CptrTxt = true;
       dletechar = oldDltState;
-      //vTaskResume(CWDecodeTaskHandle);
-    } //else printf("Same\n");
+    } // else printf("Same\n");
     if (advparser.Dbug)
       printf("%s\n", advparser.LtrHoldr);
-    //erase contents of LtrHoldr & reset its index pointer (LtrPtr)
+    // erase contents of LtrHoldr & reset its index pointer (LtrPtr)
     for (int i = 0; i < LtrPtr; i++)
       advparser.LtrHoldr[i] = 0;
     if (advparser.Dbug)
       printf("--------\n\n");
-    //uxHighWaterMark = uxTaskGetStackHighWaterMark( NULL );
-    //printf("AdvParserTask stack: %d\n", (int)uxHighWaterMark); 
-    //printf("AdvParserTask CoreID: %d\n", xPortGetCoreID());
-    //printf("Done\n"); 
+    // uxHighWaterMark = uxTaskGetStackHighWaterMark( NULL );
+    // printf("AdvParserTask stack: %d\n", (int)uxHighWaterMark);
+    // printf("AdvParserTask CoreID: %d\n", xPortGetCoreID());
+    // printf("Done\n");
     /* Sleep until instructed to resume from DcodeCW.cpp */
     vTaskSuspend(AdvParserTaskHandle);
   } // end while(1) loop
@@ -749,15 +753,7 @@ void app_main()
 {
 
   ModeCnt = 0;
-  /* coredump crash test code */
-  /*  vTaskDelay(10000/portTICK_PERIOD_MS);
-  for(int i = 25; i <0; i--){
-    printf("Crash in: %d seconds", i);
-    vTaskDelay(1000/portTICK_PERIOD_MS);
-  }
-  data_t *MyTestData = NULL;
-  show_data(MyTestData); */
-
+  
   // Configure pin
   gpio_config_t io_conf;
   io_conf.intr_type = GPIO_INTR_DISABLE;
@@ -769,9 +765,9 @@ void app_main()
   digitalWrite(KEY, Key_Up); // key 'UP' state
   state_que = xQueueCreate(state_que_len, sizeof(uint8_t));
   /*create DisplayUpDate Task*/
-  xTaskCreate(DisplayUpDt, "DisplayUpDate Task", 8192, NULL, 2, &DsplUpDtTaskHandle);
+  xTaskCreatePinnedToCore(DisplayUpDt, "DisplayUpDate Task", 8192, NULL, 2, &DsplUpDtTaskHandle, 0);
   /*Selected 2092 based on results found by using uxTaskGetStackHighWaterMark( NULL ) in AdvParserTask*/
-  //xTaskCreate(AdvParserTask, "AdvParserTask Task", 2092, NULL, 2, &AdvParserTaskHandle); //8192
+  xTaskCreate(AdvParserTask, "AdvParserTask Task", 2092, NULL, 2, &AdvParserTaskHandle); //8192
   xTaskCreatePinnedToCore(
       AdvParserTask, /* Function to implement the task */
       "AdvParserTask Task", /* Name of the task */
@@ -929,8 +925,8 @@ void app_main()
   if (bt_keyboard.setup(pairing_handler))
   {                             // Must be called once
     printf("START SCAN\n");
-    bt_keyboard.devices_scan(); // Required to discover new keyboards and for pairing
-                                // Default duration is 5 seconds
+    bt_keyboard.devices_scan(3); // Required to discover new keyboards and for pairing
+                                // Default duration is 3 seconds
     printf("EXIT SCAN\n");                            
   }
   else
@@ -1021,8 +1017,6 @@ void app_main()
         ESP_LOGI(TAG1, "SUSPEND CWDecodeTaskHandle TASK");
         // vTaskSuspend(DsplUpDtTaskHandle);
       }
-      // vTaskDelay(600 / portTICK_PERIOD_MS);
-      // if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE)  mutexFLG = true;
       break;
 
     case 2: // BT event complete restore/resume all other spi activities
