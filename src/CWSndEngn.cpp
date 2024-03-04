@@ -49,6 +49,9 @@
 #include "esp_timer.h"
 #include "sdkconfig.h" //added for timer support
 #include <esp_log.h>
+/*20240304 added the following two to support mutex control*/
+#include "main.h"
+#include "globals.h"
 
 
 CWSNDENGN::CWSNDENGN(esp_timer_handle_t *Timr_Hndl, TFT_eSPI *tft_ptr, TFTMsgBox *MsgBx_ptr){
@@ -69,6 +72,7 @@ CWSNDENGN::CWSNDENGN(esp_timer_handle_t *Timr_Hndl, TFT_eSPI *tft_ptr, TFTMsgBox
 	StrTxtFlg = false;
 	LstNtrySpcFlg =false;
 	RfrshSpd = true;
+	UpDtWPM = false;
 	ConfigKey(KeyDwn);
 	uSec = 80000;
 	SndWPM = 20;
@@ -103,7 +107,8 @@ int CWSNDENGN::Intr(void){
 		TmInrvlCnt = 0;
 		//state = 0;//no activity
 		if(SndWPM != curWPM){
-			ShwWPM(SndWPM);
+			UpDtWPM = true;
+			//ShwWPM(SndWPM);
 			curWPM = SndWPM;
 			uSec = CalcARRval(curWPM);
 			ESP_ERROR_CHECK(esp_timer_restart(*DotClk, uSec));
@@ -341,22 +346,25 @@ void CWSNDENGN::ShwWPM(int wpm)
 {
 	char buf[10];
 	char Curchar;
-	int Xpos = ScrnWdth -(FONTW*6);//410;
-	int Ypos = ScrnHght -20;//300;
-	int Wdth = (FONTW*6);//80;
+	int Xpos = ScrnWdth - (FONTW * 6); // 410;
+	int Ypos = ScrnHght - 20;		   // 300;
+	int Wdth = (FONTW * 6);			   // 80;
 	int Hght = 30;
-	if(wpm == curWPM && !RfrshSpd) return;
+	if (wpm == curWPM && !RfrshSpd)
+		return;
 	RfrshSpd = false;
 	sprintf(buf, "%d WPM", wpm);
 	ptft->setTextColor(TFT_WHITE);
-	ptft->fillRect(Xpos, Ypos, Wdth, Hght, TFT_BLACK); //erase old wpm value
+
+	ptft->fillRect(Xpos, Ypos, Wdth, Hght, TFT_BLACK); // erase old wpm value
 	ptft->setCursor(Xpos, Ypos);
-	for(int i=0; i<sizeof(buf); i++){
-		if(buf[i] ==0) break;
+	for (int i = 0; i < sizeof(buf); i++)
+	{
+		if (buf[i] == 0)
+			break;
 		Curchar = buf[i];
 		ptft->print(Curchar);
 	}
-
 };
 void CWSNDENGN::Tune(void)
 {

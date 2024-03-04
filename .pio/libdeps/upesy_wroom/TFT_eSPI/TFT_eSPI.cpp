@@ -17,6 +17,8 @@
 #include <esp32-hal-gpio.h> //JMH 20230207 added to work in espidf environment
 #include <esp32-hal-delay.h> //JMH 20230207 added to work in espidf environment
 #include "gpio_struct.h" //JMH 20230207 added to work in espidf environment
+#include "main.h" //JMH 20240303 added to work with mutex variable
+#include "globals.h"  //JMH 20240303 added to work with mutex variable
 #define ESP32 1
 
 #if defined (ESP32)
@@ -4679,7 +4681,11 @@ void TFT_eSPI::fillRect(int32_t x, int32_t y, int32_t w, int32_t h, uint32_t col
 
   //Serial.print(" x=");Serial.print( y);Serial.print(", y=");Serial.print( y);
   //Serial.print(", w=");Serial.print(w);Serial.print(", h=");Serial.println(h);
-
+// if (xSemaphoreTake(mutex, pdMS_TO_TICKS(10) ) == pdTRUE)  // portMAX_DELAY
+//       {
+//         /* We were able to obtain the semaphore and can now access the
+//         shared resource. */
+//         mutexFLG = true;
   begin_tft_write();
 
   setWindow(x, y, x + w - 1, y + h - 1);
@@ -4687,6 +4693,10 @@ void TFT_eSPI::fillRect(int32_t x, int32_t y, int32_t w, int32_t h, uint32_t col
   pushBlock(color, w * h);
 
   end_tft_write();
+      //   /* We have finished accessing the shared resource.  Release the semaphore. */
+      //   xSemaphoreGive(mutex);
+      //   mutexFLG = false;
+      // }  
 }
 
 

@@ -79,6 +79,7 @@
 /*20240225 setup post parsing to run as a task (AdvParserTask)*/
 /*20240227 reworked AdvParserTask() & setup to run on core 1; reworked AdvParser.cpp - GetMsgLen(void), FixClassicErrors(void), & SloppyBgRules(int& n)*/
 /*20240301 AdParser.cpp -Changed BG2 dah run to detect letterbreak on UnitIntvrlx2r5; chages to SetSpltPt()*/
+/*20240304 Reworked deployment of mutex to reduce code crashes linked to keyboard entries*/
 
 #include "sdkconfig.h" //added for timer support
 #include "globals.h"
@@ -136,7 +137,7 @@ DF_t DFault;
 int DeBug = 0; // Debug factory default setting; 0 => Debug "OFF"; 1 => Debug "ON"
 char StrdTxt[20] = {'\0'};
 /*Factory Default Settings*/
-char RevDate[9] = "20240301";
+char RevDate[9] = "20240304";
 char MyCall[10] = "KW4KD";
 char MemF2[80] = "VVV VVV TEST DE KW4KD";
 char MemF3[80] = "CQ CQ CQ DE KW4KD KW4KD";
@@ -512,12 +513,17 @@ void DisplayUpDt(void *param)
       if (mutex != NULL)
       {
         /* See if we can obtain the semaphore.  If the semaphore is not
-        available wait 10 ticks to see if it becomes free. */
+        available wait 10 ticks to see if it becomes free. 
+        note:  The macro pdMS_TO_TICKS() converts milliseconds to ticks */
         if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE)
         {
           /* We were able to obtain the semaphore and can now access the
           shared resource. */
           mutexFLG = true;
+          if(CWsndengn.UpDtWPM){
+            CWsndengn.UpDtWPM = false;
+            CWsndengn.RefreshWPM();
+          } 
           tftmsgbx.dispMsg2();
           while (xQueueReceive(state_que, (void *)&state, (TickType_t)10) == pdTRUE)
           {
@@ -692,17 +698,7 @@ void AdvParserTask(void *param)
       // printf("Pointer ERROR\n");/ printf("No Match @ %d; %d; %d\n", FmtchPtr, LtrHoldr[FmtchPtr], advparser.Msgbuf[FmtchPtr]);
       CptrTxt = false;
       // printf("Step Complete\n");
-      // if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE)
-      // {
-      //   /* We were able to obtain the semaphore and can now access the
-      //   shared resource. */
-      //   mutexFLG = true;
-        dispMsg(advparser.Msgbuf); // send newly reparsed text over to DCodeCW.cpp to be displayed as replaced text
-      //                              /* We have finished accessing the shared resource.  Release the
-      //                                  semaphore. */
-      //   xSemaphoreGive(mutex);
-      //   mutexFLG = false;
-      // }
+      dispMsg(advparser.Msgbuf); // send newly reparsed text over to DCodeCW.cpp to be displayed as replaced text
       CptrTxt = true;
       dletechar = oldDltState;
     } // else printf("Same\n");
@@ -985,7 +981,16 @@ void app_main()
       }
       /*Now ready to jump to "settings" screen */
       setuploop(&tft, &CWsndengn, &tftmsgbx, &bt_keyboard, &DFault); // function defined in SetUpScrn.cpp/.h file
+      // if (xSemaphoreTake(mutex, pdMS_TO_TICKS(20)) == pdTRUE)//pdMS_TO_TICKS()//portMAX_DELAY
+      // {
+      //   /* We were able to obtain the semaphore and can now access the
+      //   shared resource. */
+      //   mutexFLG = true;
       tftmsgbx.ReBldDsplay();
+      // /* We have finished accessing the shared resource.  Release the semaphore. */
+      //   xSemaphoreGive(mutex);
+      //   mutexFLG = false;
+      // }
       CWsndengn.RefreshWPM();
       if (IntSOTstate && !CWsndengn.GetSOTflg())
         CWsndengn.SOTmode(); // Send On Type was enabled when we went to 'settings' so re-enable it
@@ -1106,7 +1111,18 @@ void DsplTmr_callback(TimerHandle_t xtimer)
 void IRAM_ATTR DotClk_ISR(void *arg)
 {
   BaseType_t Woke;
-  uint8_t state = CWsndengn.Intr(); // check CW send Engine & process as code as needed
+  uint8_t state =0;
+  // if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE) // pdMS_TO_TICKS()//portMAX_DELAY
+  // {
+  //   /* We were able to obtain the semaphore and can now access the
+  //   shared resource. 
+  //   this was placed here because CWsndengn.Intr() can cause the SHOWWPM function to write to the display*/
+  //   mutexFLG = true;
+    state = CWsndengn.Intr(); // check CW send Engine & process as code as needed
+                                      /* We have finished accessing the shared resource.  Release the semaphore. */
+  //   xSemaphoreGive(mutex);
+  //   mutexFLG = false;
+  // }
   if (state != 0)
   {
     vTaskSuspend(CWDecodeTaskHandle);
@@ -1122,18 +1138,18 @@ void IRAM_ATTR DotClk_ISR(void *arg)
     }
   }
   /*Push returned "state" values on the que */
-  if (xQueueSendFromISR(state_que, &state, &Woke) == pdFALSE){
-     QuequeFulFlg = true;
-     QueFullstate = state;
+  if (xQueueSendFromISR(state_que, &state, &Woke) == pdFALSE)
+  {
+    QuequeFulFlg = true;
+    QueFullstate = state;
   }
   if (Woke == pdTRUE)
-      portYIELD_FROM_ISR(Woke);
-    /*Woke == pdTRUE, if sending to the queue caused a task to unblock, 
-    and the unblocked task has a priority higher than the currently running task. 
-    If xQueueSendFromISR() sets this value to pdTRUE,
-    then a context switch should be requested before the interrupt is exited.*/
-     //WokeFlg = true;
-  
+    portYIELD_FROM_ISR(Woke);
+  /*Woke == pdTRUE, if sending to the queue caused a task to unblock,
+  and the unblocked task has a priority higher than the currently running task.
+  If xQueueSendFromISR() sets this value to pdTRUE,
+  then a context switch should be requested before the interrupt is exited.*/
+  // WokeFlg = true;
 }
 ///////////////////////////////////////////////////////////////////////////////////
 
@@ -1143,12 +1159,9 @@ void ProcsKeyEntry(uint8_t keyVal)
 {
   bool addspce = false;
   char SpcChr = char(0x20);
-  // sprintf(Title, "%02x\n", keyVal);
-  // printf(Title);
-  // tftmsgbx.dispMsg(Title, TFT_GOLD);
-  // return;
+
   if (keyVal == 0x8)
-  {                                    //"BACKSpace" key pressed
+  {                                  //"BACKSpace" key pressed
     int ChrCnt = CWsndengn.Delete(); // test to see if there's an "unsent" character that can be deleted
     if (ChrCnt > 0)
     {
@@ -1162,7 +1175,7 @@ void ProcsKeyEntry(uint8_t keyVal)
         // vTaskSuspend(CWDecodeTaskHandle);
         // ESP_LOGI(TAG1, "SUSPEND CWDecodeTaskHandle TASK");
       }
-      if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE) //wait forever
+      if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE) // wait forever
       {
         /* We were able to obtain the semaphore and can now access the
         shared resource. */
@@ -1188,87 +1201,123 @@ void ProcsKeyEntry(uint8_t keyVal)
   }
   else if (keyVal == 0x98)
   { // PG/arrow UP
-      CWsndengn.IncWPM();
-      DFault.WPM = CWsndengn.GetWPM();
-      return;
+    CWsndengn.IncWPM();
+    DFault.WPM = CWsndengn.GetWPM();
+    return;
   }
   else if (keyVal == 0x97)
   { // PG/arrow DOWN
-      CWsndengn.DecWPM();
-      DFault.WPM = CWsndengn.GetWPM();
-      return;
+    CWsndengn.DecWPM();
+    DFault.WPM = CWsndengn.GetWPM();
+    return;
   }
   else if (keyVal == 0x8C)
   { // F12 key (Alternate action SOT [Send On type])
+    if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE)
+    {
+      /* We were able to obtain the semaphore and can now access the
+      shared resource. */
+      mutexFLG = true;
       CWsndengn.SOTmode();
-      return;
+      /* We have finished accessing the shared resource.  Release the semaphore. */
+      xSemaphoreGive(mutex);
+      mutexFLG = false;
+    }
+    return;
   }
   else if (keyVal == 0x81)
   { // F1 key (store TEXT)
+    if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE)
+    {
+      /* We were able to obtain the semaphore and can now access the
+      shared resource. */
+      mutexFLG = true;
       CWsndengn.StrTxtmode();
-      return;
+      /* We have finished accessing the shared resource.  Release the semaphore. */
+      xSemaphoreGive(mutex);
+      mutexFLG = false;
+    }
+    return;
   }
   else if (keyVal == 0x82)
   { // F2 key (Send MemF2)
-      if (CWsndengn.IsActv() && !CWsndengn.LstNtrySpc())
+    if (CWsndengn.IsActv() && !CWsndengn.LstNtrySpc())
       CWsndengn.AddNewChar(&SpcChr);
-      CWsndengn.LdMsg(DFault.MemF2, sizeof(DFault.MemF2));
-      return;
+    CWsndengn.LdMsg(DFault.MemF2, sizeof(DFault.MemF2));
+    return;
   }
   else if (keyVal == 0x83)
   { // F3 key (Send MemF3)
-      if (CWsndengn.IsActv() && !CWsndengn.LstNtrySpc())
+    if (CWsndengn.IsActv() && !CWsndengn.LstNtrySpc())
       CWsndengn.AddNewChar(&SpcChr);
-      CWsndengn.LdMsg(DFault.MemF3, sizeof(DFault.MemF3));
-      return;
+    CWsndengn.LdMsg(DFault.MemF3, sizeof(DFault.MemF3));
+    return;
   }
   else if (keyVal == 0x84)
   { // F4 key (Send MemF4)
-      if (CWsndengn.IsActv() && !CWsndengn.LstNtrySpc())
+    if (CWsndengn.IsActv() && !CWsndengn.LstNtrySpc())
       CWsndengn.AddNewChar(&SpcChr);
-      CWsndengn.LdMsg(DFault.MemF4, sizeof(DFault.MemF4));
-      return;
+    CWsndengn.LdMsg(DFault.MemF4, sizeof(DFault.MemF4));
+    return;
   }
   else if (keyVal == 0x85)
   { // F5 key (Send MemF5)
-      if (CWsndengn.IsActv() && !CWsndengn.LstNtrySpc())
+    if (CWsndengn.IsActv() && !CWsndengn.LstNtrySpc())
       CWsndengn.AddNewChar(&SpcChr);
-      CWsndengn.LdMsg(DFault.MemF5, sizeof(DFault.MemF5));
-      return;
+    CWsndengn.LdMsg(DFault.MemF5, sizeof(DFault.MemF5));
+    return;
   }
   else if (keyVal == 0x95)
   { // Right Arrow Key (Alternate action SOT [Send On type])
-      CWsndengn.SOTmode();
-      return;
+  if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE)
+    {
+      /* We were able to obtain the semaphore and can now access the
+      shared resource. */
+      mutexFLG = true;
+    CWsndengn.SOTmode();
+    /* We have finished accessing the shared resource.  Release the semaphore. */
+      xSemaphoreGive(mutex);
+      mutexFLG = false;
+    }
+    return;
   }
   else if (keyVal == 0x96)
   { // Left Arrow Key (store TEXT)
-      CWsndengn.StrTxtmode();
-      return;
+  if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE)
+    {
+      /* We were able to obtain the semaphore and can now access the
+      shared resource. */
+      mutexFLG = true;
+    CWsndengn.StrTxtmode();
+    /* We have finished accessing the shared resource.  Release the semaphore. */
+      xSemaphoreGive(mutex);
+      mutexFLG = false;
+    }
+    return;
   }
   else if (keyVal == 0x1B)
   { // ESC key (Kill Send)
-      CWsndengn.AbortSnd();
-      return;
+    CWsndengn.AbortSnd();
+    return;
   }
   else if ((keyVal == 0x9B))
   { // Cntrl+"T"
-      CWsndengn.Tune();
-      return;
+    CWsndengn.Tune();
+    return;
   }
   else if ((keyVal == 0x9C))
   { // Cntrl+"S"
-      setupFlg = !setupFlg;
-      return;
+    setupFlg = !setupFlg;
+    return;
   }
   else if ((keyVal == 0x9D))
   { // Cntrl+"F"; auto-tune/ freqLocked
-      AutoTune = !AutoTune;
-      DFault.AutoTune = AutoTune;
-      vTaskDelay(20);
-      showSpeed();
-      vTaskDelay(250);
-      return;
+    AutoTune = !AutoTune;
+    DFault.AutoTune = AutoTune;
+    vTaskDelay(20);
+    showSpeed();
+    vTaskDelay(250);
+    return;
   }
   else if ((keyVal == 0xA1))
   { // Cntrl+"G"; Sample interval 4ms / 8ms
@@ -1278,33 +1327,36 @@ void ProcsKeyEntry(uint8_t keyVal)
     //   GainCnt++;
     // if (GainCnt > 1)  GainCnt = 0;//20231029 decided that the 3rd gain mode was no longer needed, so locked it out
     //   switch(GainCnt){
-        // case 0:
-        //   SlwFlg = false;
-        //   NoisFlg = false;
-        //   break;
-        // case 1:
-        //   SlwFlg = true;
-        //   NoisFlg = false;
-        //   break;
-        // case 2:
-        //   SlwFlg = true;
-        //   NoisFlg = true;
-        //   break;
-        /*20240123 Changed So that Ctrl+G now Enables/Disables Debug */
-        if(DeBug){
-          DeBug = false;
-          DFault.DeBug = false;
-        }else{
-          DeBug = true;
-          DFault.DeBug = true;
-        }
-      // DFault.SlwFlg = SlwFlg;
-      // DFault.NoisFlg = NoisFlg;
-      // InitGoertzel();
-      // vTaskDelay(20);
-      // showSpeed();
-      // vTaskDelay(250);
-      return;
+    // case 0:
+    //   SlwFlg = false;
+    //   NoisFlg = false;
+    //   break;
+    // case 1:
+    //   SlwFlg = true;
+    //   NoisFlg = false;
+    //   break;
+    // case 2:
+    //   SlwFlg = true;
+    //   NoisFlg = true;
+    //   break;
+    /*20240123 Changed So that Ctrl+G now Enables/Disables Debug */
+    if (DeBug)
+    {
+      DeBug = false;
+      DFault.DeBug = false;
+    }
+    else
+    {
+      DeBug = true;
+      DFault.DeBug = true;
+    }
+    // DFault.SlwFlg = SlwFlg;
+    // DFault.NoisFlg = NoisFlg;
+    // InitGoertzel();
+    // vTaskDelay(20);
+    // showSpeed();
+    // vTaskDelay(250);
+    return;
   }
   /*20240123 Disabled Ctrl+D function; replaced by AdvParser Class & methods*/
   // else if ((keyVal == 0x9E))
@@ -1325,57 +1377,57 @@ void ProcsKeyEntry(uint8_t keyVal)
   else if ((keyVal == 0xA0))
   { // RIGHT Cntrl+"D"; Decode Modef()
 
-      /*Normal setup */
-      // if (ModeCnt == 4)
-      // {
-      //   ESP_LOGI(TAG1, "RESUME CWDecodeTaskHandle TASK");
-      //   vTaskResume(CWDecodeTaskHandle);
-      //   ESP_LOGI(TAG1, "RESUME GoertzelHandler TASK");
-      //   vTaskResume(GoertzelTaskHandle);
-      //   ESP_ERROR_CHECK(adc_continuous_start(adc_handle));
-      //   adcON =true;
-      //   vTaskDelay(20);
-      // }
-      ModeCnt--;
-      if (ModeCnt < 0)
+    /*Normal setup */
+    // if (ModeCnt == 4)
+    // {
+    //   ESP_LOGI(TAG1, "RESUME CWDecodeTaskHandle TASK");
+    //   vTaskResume(CWDecodeTaskHandle);
+    //   ESP_LOGI(TAG1, "RESUME GoertzelHandler TASK");
+    //   vTaskResume(GoertzelTaskHandle);
+    //   ESP_ERROR_CHECK(adc_continuous_start(adc_handle));
+    //   adcON =true;
+    //   vTaskDelay(20);
+    // }
+    ModeCnt--;
+    if (ModeCnt < 0)
       ModeCnt = 3;
-      DFault.ModeCnt = ModeCnt;
-      SetModFlgs(ModeCnt);
-      CurMdStng(ModeCnt);//added 20230104
-      vTaskDelay(20);
-      showSpeed();
-      vTaskDelay(250);
-      return;
+    DFault.ModeCnt = ModeCnt;
+    SetModFlgs(ModeCnt);
+    CurMdStng(ModeCnt); // added 20230104
+    vTaskDelay(20);
+    showSpeed();
+    vTaskDelay(250);
+    return;
   }
   else if ((keyVal == 0x9F))
   { // Cntrl+"P"; CW decode ADC plot Enable/Disable
-      PlotFlg = !PlotFlg;
-      // DFault.AutoTune = AutoTune;
-      vTaskDelay(250);
-      return;
+    PlotFlg = !PlotFlg;
+    // DFault.AutoTune = AutoTune;
+    vTaskDelay(250);
+    return;
   }
   else if ((keyVal == 0xD))
   { // "ENTER" Key send myCallSign
-      if (CWsndengn.IsActv() && !CWsndengn.LstNtrySpc())
+    if (CWsndengn.IsActv() && !CWsndengn.LstNtrySpc())
       CWsndengn.AddNewChar(&SpcChr);
-      CWsndengn.LdMsg(DFault.MyCall, sizeof(DFault.MyCall));
-      return;
+    CWsndengn.LdMsg(DFault.MyCall, sizeof(DFault.MyCall));
+    return;
   }
   else if ((keyVal == 0x9A))
   { // "Cntrl+ENTER" send StrdTxt call
-      if (CWsndengn.IsActv() && !CWsndengn.LstNtrySpc())
+    if (CWsndengn.IsActv() && !CWsndengn.LstNtrySpc())
       CWsndengn.AddNewChar(&SpcChr);
-      CWsndengn.LdMsg(StrdTxt, 20);
-      return;
+    CWsndengn.LdMsg(StrdTxt, 20);
+    return;
   }
   else if ((keyVal == 0x99))
   { // "shift+ENTER" send both calls (StrdTxt & MyCall)
-      if (CWsndengn.IsActv() && !CWsndengn.LstNtrySpc())
+    if (CWsndengn.IsActv() && !CWsndengn.LstNtrySpc())
       CWsndengn.AddNewChar(&SpcChr);
-      // char buf[20]="";
-      sprintf(Title, "%s DE %s", StrdTxt, DFault.MyCall);
-      CWsndengn.LdMsg(Title, 20);
-      return;
+    // char buf[20]="";
+    sprintf(Title, "%s DE %s", StrdTxt, DFault.MyCall);
+    CWsndengn.LdMsg(Title, 20);
+    return;
   }
   // else if ((keyVal ==  0xA1))
   // { /* special test for Left ctr+'g'
@@ -1395,30 +1447,30 @@ void ProcsKeyEntry(uint8_t keyVal)
   // }
   if ((keyVal >= 97) & (keyVal <= 122))
   {
-      keyVal = keyVal - 32;
+    keyVal = keyVal - 32;
   }
   char Ltr2Bsent = (char)keyVal;
   switch (Ltr2Bsent)
   {
   case '=':
-      addspce = true; //<BT>
-      break;
+    addspce = true; //<BT>
+    break;
   case '+':
-      addspce = true; //<KN>
-      break;
+    addspce = true; //<KN>
+    break;
   case '%':
-      addspce = true;
-      ; //<SK>
-      break;
+    addspce = true;
+    ; //<SK>
+    break;
   case '>':
-      addspce = true; //<BT>
-      break;
+    addspce = true; //<BT>
+    break;
   case '<':
-      addspce = true; //<BT>
-      break;
+    addspce = true; //<BT>
+    break;
   }
   if (addspce && CWsndengn.IsActv() && !CWsndengn.LstNtrySpc())
-      CWsndengn.AddNewChar(&SpcChr);
+    CWsndengn.AddNewChar(&SpcChr);
   CWsndengn.AddNewChar(&Ltr2Bsent);
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

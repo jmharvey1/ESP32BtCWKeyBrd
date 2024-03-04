@@ -87,6 +87,7 @@ private:
 
 public:
 	bool RfrshSpd;
+	bool UpDtWPM;
 	CWSNDENGN(esp_timer_handle_t *Timr_Hndl, TFT_eSPI *tft_ptr, TFTMsgBox *pMsgBx_ptr);
 	bool IsActv(void);
 	bool LstNtrySpc(void);

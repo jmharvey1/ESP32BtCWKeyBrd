@@ -6,6 +6,8 @@
  * 20230617 To support advanced DcodeCW "Bug" processes, reworked dispMsg2(void) to handle ASCII chacacter 0x8 "Backspace" symbol
  */
 #include "TFTMsgBox.h"
+#include "main.h"
+#include "globals.h"
 // #include "Arduino.h"//needed to support "delay()" function call
 
 TFTMsgBox::TFTMsgBox(TFT_eSPI *tft_ptr, char *StrdTxt)
@@ -47,7 +49,16 @@ void TFTMsgBox::InitDsplay(void)
 /*Originally written to be called after returning from setup/settings screen*/
 void TFTMsgBox::ReBldDsplay(void)
 {
-	ptft->fillScreen(TFT_BLACK);
+	if (xSemaphoreTake(mutex, pdMS_TO_TICKS(20)) == pdTRUE) // pdMS_TO_TICKS()//portMAX_DELAY
+	{
+		/* We were able to obtain the semaphore and can now access the
+		shared resource. */
+		mutexFLG = true;
+		ptft->fillScreen(TFT_BLACK);
+		/* We have finished accessing the shared resource.  Release the semaphore. */
+		xSemaphoreGive(mutex);
+		mutexFLG = false;
+	}
 	ReStrSettings();
 	// char temp[50];
 	// sprintf(temp, "%d;  %d;  %d;  %d; %d; %d", RingbufPntr1, RingbufPntr2, CursorPntr, cnt, curRow, offset);

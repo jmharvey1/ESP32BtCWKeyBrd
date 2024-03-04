@@ -2844,6 +2844,34 @@ void AdvParser::Dcode4Dahs(int n)
                     i += NuLtrCnt;
             }
 
+            /*Look for embedded character sequence 'D9T', if found replace with 'DONT'*/
+            if (this->Msgbuf[i] == 'S' && this->Msgbuf[i + 1] == 'J' && this->Msgbuf[i + 2] == 'E')
+            { 
+                int NuLtrCnt = 4;
+                int j;
+                for (j = 0; j < sizeof(this->TmpBufA) - 1; j++)
+                {
+                    this->TmpBufA[j] = this->Msgbuf[j + i + 3];
+                    this->TmpBufA[j + 1] = 0;
+                    if (this->Msgbuf[j + i + 3] == 0)
+                        break;
+                }
+                this->Msgbuf[i] = 'D';
+                this->Msgbuf[i + 1] = 'O';
+                this->Msgbuf[i + 2] = 'N';
+                this->Msgbuf[i + 3] = 'T';
+                j = 0;
+                while (this->TmpBufA[j] != 0)
+                {
+                    this->Msgbuf[i + NuLtrCnt + j] = this->TmpBufA[j];
+                    j++;
+                    if((i + NuLtrCnt + j) == MsgbufSize) break;
+                }
+                if ((i + NuLtrCnt + j) < sizeof(this->Msgbuf))
+                    this->Msgbuf[i + NuLtrCnt + j] = 0;
+                if (i + NuLtrCnt < lstCharPos)
+                    i += NuLtrCnt;
+            }
             /*Look for embedded character sequence 'SOG', if found replace with 'SOME'*/
             if (this->Msgbuf[i] == 'S' && this->Msgbuf[i + 1] == 'O' && this->Msgbuf[i + 2] == 'G')
             { 

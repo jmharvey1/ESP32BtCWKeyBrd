@@ -18,7 +18,7 @@
 #include "SetUpScrn.h"
 #include "esp32-hal-delay.h"
 #include "main.h"
-//#include "Goertzel.h"
+#include "globals.h"
 #include "DcodeCW.h"
 
 
@@ -92,11 +92,19 @@ void setuploop(TFT_eSPI *tft_ptr, CWSNDENGN *cwsnd_ptr, TFTMsgBox *msgbx_ptr, BT
 	uint8_t CurFntSz = tft_ptr->textsize;
 	scrnHeight = tft_ptr->height();
 	scrnWidth = tft_ptr->width();
-	tft_ptr->fillScreen(TFT_BLACK);
-	tft_ptr->fillScreen(TFT_BLACK); // need to call this twice, to ensure full erasure of old display
-									//	const int paramCnt = 6;// Total number of parameters/settings that can be edited on this screen
-									//	TxtNtryBox NtryBoxGrp[paramCnt];
-	//int BtnIndx = 0;
+	if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE)
+	{
+		/* We were able to obtain the semaphore and can now access the
+		shared resource. */
+		mutexFLG = true;
+		tft_ptr->fillScreen(TFT_BLACK);
+		tft_ptr->fillScreen(TFT_BLACK); // need to call this twice, to ensure full erasure of old display
+										//	const int paramCnt = 6;// Total number of parameters/settings that can be edited on this screen
+										//	TxtNtryBox NtryBoxGrp[paramCnt];
+										/* We have finished accessing the shared resource.  Release the semaphore. */
+		xSemaphoreGive(mutex);
+		mutexFLG = false;
+	}
 	const char CallBtnCaptn[9] = {'M', 'y', ' ', 'C', 'a', 'l', 'l', ':'};
 	const char *CaptnPtr = CallBtnCaptn;
 	struct BtnParams MycallBxsettings;
@@ -776,11 +784,29 @@ void SaveUsrVals(void)
 	if (GudFlg)
 	{
 		sprintf(buf, "User Params SAVED");
+		 if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE)
+      {
+        /* We were able to obtain the semaphore and can now access the
+        shared resource. */
+        mutexFLG = true;
 		ptftmsgbx->dispStat(buf, TFT_GREEN);
+		 /* We have finished accessing the shared resource.  Release the semaphore. */
+        xSemaphoreGive(mutex);
+        mutexFLG = false;
+      }
 	}
 	else
 	{
 		sprintf(buf, "SAVE FAILED");
+		 if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE)
+      {
+        /* We were able to obtain the semaphore and can now access the
+        shared resource. */
+        mutexFLG = true;
 		ptftmsgbx->dispStat(buf, TFT_RED);
+		 /* We have finished accessing the shared resource.  Release the semaphore. */
+        xSemaphoreGive(mutex);
+        mutexFLG = false;
+      }
 	}
 }
