@@ -74,6 +74,7 @@ private:
     int DitDahBugTst(void); //returns 2 for unknown; 0 for paddle; 1 for bug
     void Dcode4Dahs(int n);
     void FixClassicErrors(void);
+    int SrchEsReplace(int MsgBufIndx, char srchTerm[10], char NuTerm[10]);
     char TmpBufA[MsgbufSize - 5];
 
 public:

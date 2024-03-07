@@ -36,6 +36,7 @@
  * 20240227 reworked GetMsgLen(void), FixClassicErrors(void), & SloppyBgRules(int& n)
  * 20240228 reworked SetSpltP() to better ignore noise & return/set DitIntrvlVal & NuSpltVal
  * 20240301 Changed BG2 dah run to detect letterbreak on UnitIntvrlx2r5; chages to SetSpltPt()
+ * 20240307 Added SrchEsReplace() function & and simplified the code in FixClassicErrors()
  * */
 //#include "freertos/task.h"
 //#include "freertos/semphr.h"
@@ -227,10 +228,6 @@ void AdvParser::EvalTimeData(void)
         SetSpltPt(KeyDwnBuckts, KeyDwnBucktPtr);
         NewSpltVal = true;
     }
-    // if (Dbug)
-    // {
-    //     printf("\nSplitPoint:%3d\tDitIntrvlVal:%d\t", DitDahSplitVal, DitIntrvlVal);
-    // }
     /*Set the "MaxCntKyUpBcktPtr" property with Key Up Bucket index with the most intervals*/
     uint8_t maxCnt = 0;
     for (int i = 0; i <= KeyUpBucktPtr; i++)
@@ -691,6 +688,7 @@ void AdvParser::insertionSort(uint16_t arr[], int n)
 void AdvParser::SetSpltPt(Buckt_t arr[], int n)
 {
     int i;
+    uint16_t OldSpltVal = this->DitDahSplitVal;
     this->NuSpltVal = 0;
     this->AllDah = true; // made this a class property so it could be used later in the "Tst4LtrBrk()" method
     bool AllDit = true;
@@ -815,6 +813,7 @@ void AdvParser::SetSpltPt(Buckt_t arr[], int n)
             }
             // DitDahSplitVal = (3 * DitDahSplitVal + NuSpltVal) / 4;
     }else{
+        if(this->DitDahSplitVal == 0 ) this->DitDahSplitVal = OldSpltVal;
         this->NuSpltVal = DitDahSplitVal;//make sure that NuSpltVal !=0
     }
 };
@@ -876,7 +875,10 @@ bool AdvParser::SloppyBgRules(int& n)
     char ExtSmbl = ' ';
     if(SymbSet & 1) // if the current symbol is a dah, do the following tests
     {/*Current keydwn state represents a dah */
-        if (TmpDwnIntrvls[n] >= KeyDwnBuckts[KeyDwnBucktPtr].Intrvl && this->StrchdDah){
+        if (TmpDwnIntrvls[n] >= KeyDwnBuckts[KeyDwnBucktPtr].Intrvl 
+            && this->StrchdDah
+            && RunCnt != 0 && SymbSet == 3) //dont consider strected dah on very 1st sybmol
+        {
             ExitPath[n] = 25;
             BrkFlg = '+';
             return true;
@@ -953,7 +955,7 @@ bool AdvParser::SloppyBgRules(int& n)
                     /*20240301 removed the middle term based & raised >UnitIntvrlx2r5 multpilier from 2.3 to 4*/
                     if ((TmpDwnIntrvls[i] + TmpUpIntrvls[i] >= 2.4 * this->UnitIntvrlx2r5) 
                         && RunCnt !=3) // && ((float)TmpUpIntrvls[i] > (1.2 * (float)this->DitIntrvlVal))
-                        /*don't consider this out on 3rd time, becuase we have already done "O" checks*/
+                        /*don't consider this out on 3rd time, because we have already done "O" checks*/
                     {
                         if (this->Dbug)
                         {
@@ -961,6 +963,20 @@ bool AdvParser::SloppyBgRules(int& n)
                         }
                         ExtSmbl = '#';
                         break; // quit now this Dah looks significantly stretched compared to its predecessor
+                    }
+                    if (RunCnt == 3)
+                    { /* we have 3 dahs; & it didn't pass the earlier "o" checks, but it might be part of a 'J' */
+                        if ((TmpDwnIntrvls[i] >= 1.25* TmpDwnIntrvls[i - 1]) 
+                            && (TmpDwnIntrvls[i] >= TmpDwnIntrvls[i - 2])
+                            && (TmpDwnIntrvls[i] >= TmpDwnIntrvls[i + 1]))
+                        { /*the 3rd dah was the longest in this serries of 3 & its longer than the next keydown interval*/
+                            if (this->Dbug)
+                            {
+                                printf("EXIT H %d\t", RunCnt);
+                            }
+                            ExtSmbl = '#';
+                            break; // quit now this Dah looks significantly stretched compared to its predecessor
+                        }
                     }
                     // if ((TmpDwnIntrvls[i] > 1.5 * TmpDwnIntrvls[i - 1]) && (TmpUpIntrvls[i] > 1.5 * DitIntrvlVal))
                     // {
@@ -2725,286 +2741,109 @@ void AdvParser::Dcode4Dahs(int n)
  //////////////////////////////////////////////
  /* A final check to look for, & correct classic parsing errors*/
  void AdvParser::FixClassicErrors(void)
- { // No longer need to worry about if we have enough decoded characters evaluate the following sloppy strings this->Msgbuf now has enough data, to test for special character combos often found with sloppy sending
-     int lstCharPos = (this->LstLtrPrntd)-1;//sizeof(this->Msgbuf) - 2;
-     if(lstCharPos>2)
+ {                                             // No longer need to worry about if we have enough decoded characters evaluate the following sloppy strings this->Msgbuf now has enough data, to test for special character combos often found with sloppy sending
+     int lstCharPos = (this->LstLtrPrntd) - 1; // sizeof(this->Msgbuf) - 2;
+     char SrchTerm[10];
+     char RplaceTerm[10];
+
+     // printf("lstCharPos: %d; this->Msgbuf: %s \n", lstCharPos, this->Msgbuf);
+     for (int i = 0; i < this->LstLtrPrntd - 1; i++)
      {
-         for (int i = 0; i < lstCharPos - 2; i++)
+         if (i + 1 < this->LstLtrPrntd)
+         {   // i.e. this search term group has a maxium 2 characters
+             /*Look for embedded character sequence 'PD', if found replace with 'AND'*/
+             i = this->SrchEsReplace(i, SrchTerm, RplaceTerm);
+             sprintf(SrchTerm, "PD");
+             sprintf(RplaceTerm, "AND");
+             i = this->SrchEsReplace(i, SrchTerm, RplaceTerm);
+
+             /*Look for embedded character sequence 'S2', if found replace with 'SUM'*/
+             sprintf(SrchTerm, "S2");
+             sprintf(RplaceTerm, "SUM");
+             i = this->SrchEsReplace(i, SrchTerm, RplaceTerm);
+         }
+         if (i + 2 < this->LstLtrPrntd) // i.e. search term has 3 characters
          {
-            /*Look for the character sequence 'WXST', if found replace with 'JUST'*/
-             if (this->Msgbuf[i] == 'W' && this->Msgbuf[i + 1] == 'X' && this->Msgbuf[i + 2] == 'S' && this->Msgbuf[i + 3] == 'T')
-             {
-                this->Msgbuf[i] = 'J';
-                this->Msgbuf[i + 1] = 'U';
-             }
+             /*Look for embedded character sequence 'TB3', if found replace with '73'*/
+             sprintf(SrchTerm, "TB3");
+             sprintf(RplaceTerm, "73");
+             i = this->SrchEsReplace(i, SrchTerm, RplaceTerm);
+
+             /*Look for embedded character sequence 'PLL', if found replace with 'WELL'*/
+             sprintf(SrchTerm, "PLL");
+             sprintf(RplaceTerm, "WELL");
+             i = this->SrchEsReplace(i, SrchTerm, RplaceTerm);
+
+             /*Look for embedded character sequence 'SJE', if found replace with 'SAME'*/
+             sprintf(SrchTerm, "SJE");
+             sprintf(RplaceTerm, "SAME");
+             i = this->SrchEsReplace(i, SrchTerm, RplaceTerm);
+
+             /*Look for embedded character sequence 'CPT', if found replace with 'CANT'*/
+             sprintf(SrchTerm, "CPT");
+             sprintf(RplaceTerm, "CANT");
+             i = this->SrchEsReplace(i, SrchTerm, RplaceTerm);
+
+             /*Look for embedded character sequence 'RLN', if found replace with 'RAIN'*/
+             sprintf(SrchTerm, "RLN");
+             sprintf(RplaceTerm, "RAIN");
+             i = this->SrchEsReplace(i, SrchTerm, RplaceTerm);
+
+             /*Look for embedded character sequence 'D9T', if found replace with 'DONT'*/
+             sprintf(SrchTerm, "D9T");
+             sprintf(RplaceTerm, "DONT");
+             i = this->SrchEsReplace(i, SrchTerm, RplaceTerm);
+
+             /*Look for embedded character sequence 'TNN', if found replace with 'GN'*/
+             sprintf(SrchTerm, "TNN");
+             sprintf(RplaceTerm, "GN");
+             i = this->SrchEsReplace(i, SrchTerm, RplaceTerm);
+
+             /*Look for embedded character sequence 'SOG', if found replace with 'SOME'*/
+             sprintf(SrchTerm, "SOG");
+             sprintf(RplaceTerm, "SOME");
+             i = this->SrchEsReplace(i, SrchTerm, RplaceTerm);
+
+             /*Look for embedded character sequence 'D9T', if found replace with 'DONT'*/
+             sprintf(SrchTerm, "D9T");
+             sprintf(RplaceTerm, "DONT");
+             i = this->SrchEsReplace(i, SrchTerm, RplaceTerm);
+
+             /*Look for embedded character sequence 'CHW', if found replace with 'CHAT'*/
+             sprintf(SrchTerm, "CHW");
+             sprintf(RplaceTerm, "CHAT");
+             i = this->SrchEsReplace(i, SrchTerm, RplaceTerm);
+         }
+         if (i + 3 < this->LstLtrPrntd)
+         { // this search term group has a maxium of 4 characters
+             /*Look for embedded character sequence 'WXST', if found replace with 'JUST'*/
+             sprintf(SrchTerm, "WXST");
+             sprintf(RplaceTerm, "JUST");
+             i = this->SrchEsReplace(i, SrchTerm, RplaceTerm);   
+             /*Look for embedded character sequence 'TTTN', if found replace with 'ON'*/
+             sprintf(SrchTerm, "TTTN");
+             sprintf(RplaceTerm, "ON");
+             i = this->SrchEsReplace(i, SrchTerm, RplaceTerm);
          }
      }
-
-    for (int i = 0; i <= lstCharPos - 1; i++)
-    {
-        /*Look for embedded character sequence 'PD', if found replace with 'AND'*/
-        if (this->Msgbuf[i] == 'P' && this->Msgbuf[i + 1] == 'D')
-        {   
-            //printf("PD test; lstCharPos: %d\n", lstCharPos);
-            int j;
-            for(j= 0; j<sizeof(this->TmpBufA)-1; j++){
-                this->TmpBufA[j] = this->Msgbuf[j+i+1];
-                this->TmpBufA[j+1] = 0;
-                if(this->Msgbuf[j+i+1] == 0) break;
-
-            }
-            this->Msgbuf[i] = 'A';
-            this->Msgbuf[i + 1] = 'N';
-            j= 0;
-            while(this->TmpBufA[j] != 0 ){
-                this->Msgbuf[i + 2+ j] = this->TmpBufA[j];
-                j++;
-                if((i + 2 + j) == MsgbufSize) break;
-            }
-            if((i + 2+ j) < sizeof(this->Msgbuf)) this->Msgbuf[i + 2+ j] = 0;
-            if(i +2 < lstCharPos) i += 2;
-        }
-        /*Look for embedded character sequence 'S2', if found replace with 'SUM'*/
-        if (this->Msgbuf[i] == 'S' && this->Msgbuf[i + 1] == '2')
-        {   
-            int j;
-            for(j= 0; j<sizeof(this->TmpBufA)-1; j++){
-                this->TmpBufA[j] = this->Msgbuf[j+i+2];
-                this->TmpBufA[j+1] = 0;
-                if(this->Msgbuf[j+i+1] == 0) break;
-
-            }
-            this->Msgbuf[i] = 'S';
-            this->Msgbuf[i + 1] = 'U';
-            this->Msgbuf[i + 2] = 'M';
-            j= 0;
-            while(this->TmpBufA[j] != 0 ){
-                this->Msgbuf[i + 3+ j] = this->TmpBufA[j];
-                j++;
-                if((i + 3 + j) == MsgbufSize) break;
-            }
-            if((i + 3+ j) < sizeof(this->Msgbuf)) this->Msgbuf[i + 3+ j] = 0;
-            if(i +3 < lstCharPos) i += 3;
-        }
-         
-        if (i + 2 < lstCharPos)
-        {
-            /*Look for embedded character sequence 'PLL', if found replace with 'WELL'*/
-            if (this->Msgbuf[i] == 'P' && this->Msgbuf[i + 1] == 'L' && this->Msgbuf[i + 2] == 'L')
-            {
-                // printf("PD test; lstCharPos: %d\n", lstCharPos);
-                int j;
-                for (j = 0; j < sizeof(this->TmpBufA) - 1; j++)
-                {
-                    this->TmpBufA[j] = this->Msgbuf[j + i + 1];
-                    this->TmpBufA[j + 1] = 0;
-                    if (this->Msgbuf[j + i + 1] == 0)
-                        break;
-                }
-                this->Msgbuf[i] = 'W';
-                this->Msgbuf[i + 1] = 'E';
-                j = 0;
-                while (this->TmpBufA[j] != 0)
-                {
-                    this->Msgbuf[i + 2 + j] = this->TmpBufA[j];
-                    j++;
-                    if((i + 2 + j) == MsgbufSize) break;
-                }
-                if ((i + 2 + j) < sizeof(this->Msgbuf))
-                    this->Msgbuf[i + 2 + j] = 0;
-                if (i + 2 < lstCharPos)
-                    i += 2;
-            }
-            /*Look for embedded character sequence 'SJE', if found replace with 'SAME'*/
-            if (this->Msgbuf[i] == 'S' && this->Msgbuf[i + 1] == 'J' && this->Msgbuf[i + 2] == 'E')
-            { 
-                int NuLtrCnt = 4;
-                int j;
-                for (j = 0; j < sizeof(this->TmpBufA) - 1; j++)
-                {
-                    this->TmpBufA[j] = this->Msgbuf[j + i + 3];
-                    this->TmpBufA[j + 1] = 0;
-                    if (this->Msgbuf[j + i + 3] == 0)
-                        break;
-                }
-                this->Msgbuf[i] = 'S';
-                this->Msgbuf[i + 1] = 'A';
-                this->Msgbuf[i + 2] = 'M';
-                this->Msgbuf[i + 3] = 'E';
-                j = 0;
-                while (this->TmpBufA[j] != 0)
-                {
-                    this->Msgbuf[i + NuLtrCnt + j] = this->TmpBufA[j];
-                    j++;
-                    if((i + NuLtrCnt + j) == MsgbufSize) break;
-                }
-                if ((i + NuLtrCnt + j) < sizeof(this->Msgbuf))
-                    this->Msgbuf[i + NuLtrCnt + j] = 0;
-                if (i + NuLtrCnt < lstCharPos)
-                    i += NuLtrCnt;
-            }
-
-            /*Look for embedded character sequence 'D9T', if found replace with 'DONT'*/
-            if (this->Msgbuf[i] == 'S' && this->Msgbuf[i + 1] == 'J' && this->Msgbuf[i + 2] == 'E')
-            { 
-                int NuLtrCnt = 4;
-                int j;
-                for (j = 0; j < sizeof(this->TmpBufA) - 1; j++)
-                {
-                    this->TmpBufA[j] = this->Msgbuf[j + i + 3];
-                    this->TmpBufA[j + 1] = 0;
-                    if (this->Msgbuf[j + i + 3] == 0)
-                        break;
-                }
-                this->Msgbuf[i] = 'D';
-                this->Msgbuf[i + 1] = 'O';
-                this->Msgbuf[i + 2] = 'N';
-                this->Msgbuf[i + 3] = 'T';
-                j = 0;
-                while (this->TmpBufA[j] != 0)
-                {
-                    this->Msgbuf[i + NuLtrCnt + j] = this->TmpBufA[j];
-                    j++;
-                    if((i + NuLtrCnt + j) == MsgbufSize) break;
-                }
-                if ((i + NuLtrCnt + j) < sizeof(this->Msgbuf))
-                    this->Msgbuf[i + NuLtrCnt + j] = 0;
-                if (i + NuLtrCnt < lstCharPos)
-                    i += NuLtrCnt;
-            }
-            /*Look for embedded character sequence 'SOG', if found replace with 'SOME'*/
-            if (this->Msgbuf[i] == 'S' && this->Msgbuf[i + 1] == 'O' && this->Msgbuf[i + 2] == 'G')
-            { 
-                int NuLtrCnt = 4;
-                int j;
-                for (j = 0; j < sizeof(this->TmpBufA) - 1; j++)
-                {
-                    this->TmpBufA[j] = this->Msgbuf[j + i + 3];
-                    this->TmpBufA[j + 1] = 0;
-                    if (this->Msgbuf[j + i + 3] == 0)
-                        break;
-                }
-                this->Msgbuf[i] = 'S';
-                this->Msgbuf[i + 1] = 'O';
-                this->Msgbuf[i + 2] = 'M';
-                this->Msgbuf[i + 3] = 'E';
-                j = 0;
-                while (this->TmpBufA[j] != 0)
-                {
-                    this->Msgbuf[i + NuLtrCnt + j] = this->TmpBufA[j];
-                    j++;
-                    if((i + NuLtrCnt + j) == MsgbufSize) break;
-                }
-                if ((i + NuLtrCnt + j) < sizeof(this->Msgbuf))
-                    this->Msgbuf[i + NuLtrCnt + j] = 0;
-                if (i + NuLtrCnt < lstCharPos)
-                    i += NuLtrCnt;
-            }
-
-            /*Look for embedded character sequence 'D9T', if found replace with 'DONT'*/
-            if (this->Msgbuf[i] == 'D' && this->Msgbuf[i + 1] == '9' && this->Msgbuf[i + 2] == 'T')
-            { 
-                int NuLtrCnt = 4;
-                int j;
-                for (j = 0; j < sizeof(this->TmpBufA) - 1; j++)
-                {
-                    this->TmpBufA[j] = this->Msgbuf[j + i + 3];
-                    this->TmpBufA[j + 1] = 0;
-                    if (this->Msgbuf[j + i + 3] == 0)
-                        break;
-                }
-                this->Msgbuf[i] = 'D';
-                this->Msgbuf[i + 1] = 'O';
-                this->Msgbuf[i + 2] = 'N';
-                this->Msgbuf[i + 3] = 'T';
-                j = 0;
-                while (this->TmpBufA[j] != 0)
-                {
-                    this->Msgbuf[i + NuLtrCnt + j] = this->TmpBufA[j];
-                    j++;
-                    if((i + NuLtrCnt + j) == MsgbufSize) break;
-                }
-                if ((i + NuLtrCnt + j) < sizeof(this->Msgbuf))
-                    this->Msgbuf[i + NuLtrCnt + j] = 0;
-                if (i + NuLtrCnt < lstCharPos)
-                    i += NuLtrCnt;
-            }
-
-            /*Look for embedded character sequence 'CHW', if found replace with 'CHAT'*/
-            if (this->Msgbuf[i] == 'C' && this->Msgbuf[i + 1] == 'H' && this->Msgbuf[i + 2] == 'W')
-            { 
-                int NuLtrCnt = 4;
-                int j;
-                for (j = 0; j < sizeof(this->TmpBufA) - 1; j++)
-                {
-                    this->TmpBufA[j] = this->Msgbuf[j + i + 3];
-                    this->TmpBufA[j + 1] = 0;
-                    if (this->Msgbuf[j + i + 3] == 0)
-                        break;
-                }
-                this->Msgbuf[i] = 'C';
-                this->Msgbuf[i + 1] = 'H';
-                this->Msgbuf[i + 2] = 'A';
-                this->Msgbuf[i + 3] = 'T';
-                j = 0;
-                while (this->TmpBufA[j] != 0)
-                {
-                    this->Msgbuf[i + NuLtrCnt + j] = this->TmpBufA[j];
-                    j++;
-                    if((i + NuLtrCnt + j) == MsgbufSize) break;
-                }
-                if ((i + NuLtrCnt + j) < sizeof(this->Msgbuf))
-                    this->Msgbuf[i + NuLtrCnt + j] = 0;
-                if (i + NuLtrCnt < lstCharPos)
-                    i += NuLtrCnt;
-            }
-            /*Look for embedded character sequence 'TB3', if found replace with '73'*/
-            if (this->Msgbuf[i] == 'S' && this->Msgbuf[i + 1] == 'J' && this->Msgbuf[i + 2] == 'E')
-            { 
-                int NuLtrCnt = 2;
-                int j;
-                for (j = 0; j < sizeof(this->TmpBufA) - 1; j++)
-                {
-                    this->TmpBufA[j] = this->Msgbuf[j + i + 1];
-                    this->TmpBufA[j + 1] = 0;
-                    if (this->Msgbuf[j + i + 1] == 0)
-                        break;
-                }
-                this->Msgbuf[i] = '7';
-                this->Msgbuf[i + 1] = '3';
-                // this->Msgbuf[i + 2] = 'M';
-                // this->Msgbuf[i + 3] = 'E';
-                j = 0;
-                while (this->TmpBufA[j] != 0)
-                {
-                    this->Msgbuf[i + NuLtrCnt + j] = this->TmpBufA[j];
-                    j++;
-                    if((i + NuLtrCnt + j) == MsgbufSize) break;
-                }
-                if ((i + NuLtrCnt + j) < sizeof(this->Msgbuf))
-                    this->Msgbuf[i + NuLtrCnt + j] = 0;
-                if (i + NuLtrCnt < lstCharPos)
-                    i += NuLtrCnt;
-            }
-        }
-    }
 
      // printf("%c%c%c\n", this->Msgbuf[lstCharPos - 2],  this->Msgbuf[lstCharPos - 1], this->Msgbuf[lstCharPos] );// for debugging sloppy strings only
      if (this->Msgbuf[lstCharPos - 1] == '@' && this->Msgbuf[lstCharPos] == 'D')
      {
-        sprintf(Msgbuf, " (%c%s", this->Msgbuf[lstCharPos - 2], "AC)"); // test for "@" (%c%s", this->Msgbuf[lstCharPos - 2], "AC)"); //"true"; Insert preceeding character plus correction "AC"
+         sprintf(Msgbuf, " (%c%s", this->Msgbuf[lstCharPos - 2], "AC)"); // test for "@" (%c%s", this->Msgbuf[lstCharPos - 2], "AC)"); //"true"; Insert preceeding character plus correction "AC"
      }
-     if(lstCharPos >= 4){
-     if(this->Msgbuf[lstCharPos - 4] == '5' && this->Msgbuf[lstCharPos - 3] == 'O' && this->Msgbuf[lstCharPos-2] == 'N' && this->Msgbuf[lstCharPos - 1] == 'O' && this->Msgbuf[lstCharPos] == 'N')
+     if (lstCharPos >= 4)
      {
-        sprintf(Msgbuf, "5NN");
+         if (this->Msgbuf[lstCharPos - 4] == '5' && this->Msgbuf[lstCharPos - 3] == 'O' && this->Msgbuf[lstCharPos - 2] == 'N' && this->Msgbuf[lstCharPos - 1] == 'O' && this->Msgbuf[lstCharPos] == 'N')
+         {
+             sprintf(Msgbuf, "5NN");
+         }
      }
-     }    
-    //  if (this->Msgbuf[lstCharPos - 1] == 'P' && this->Msgbuf[lstCharPos] == 'D')
-    //  {   
-    //     // test for "PD"
-    //      sprintf(Msgbuf, " (%c%s", this->Msgbuf[lstCharPos - 2], "AND)"); //"true"; Insert preceeding character plus correction "AND"
-    //  }
+     //  if (this->Msgbuf[lstCharPos - 1] == 'P' && this->Msgbuf[lstCharPos] == 'D')
+     //  {
+     //     // test for "PD"
+     //      sprintf(Msgbuf, " (%c%s", this->Msgbuf[lstCharPos - 2], "AND)"); //"true"; Insert preceeding character plus correction "AND"
+     //  }
 
      if (this->Msgbuf[lstCharPos - 1] == '6' && this->Msgbuf[lstCharPos] == 'E')
      {                                                                    // test for "6E"
@@ -3014,21 +2853,85 @@ void AdvParser::Dcode4Dahs(int n)
      {                                                                    // test for "6A"
          sprintf(Msgbuf, " (%c%s", this->Msgbuf[lstCharPos - 2], "THA)"); //"true"; Insert preceeding character plus correction "THA"
      }
-    //  if (this->Msgbuf[lstCharPos - 1] == '9' && this->Msgbuf[lstCharPos] == 'E')
-    //  {                              // test for "9E"
-    //      sprintf(Msgbuf, " (ONE)"); //"true"; Insert correction "ONE"
-    //  }
-    //  if (this->Msgbuf[lstCharPos - 2] == 'P' && this->Msgbuf[lstCharPos - 1] == 'L' && this->Msgbuf[lstCharPos] == 'L')
-    //  {                               // test for "PLL"
-    //      sprintf(Msgbuf, " (WELL)"); //"true"; Insert correction "WELL"
-    //  }
-    /*20240228 took this out; otherwise it gets corrected twice*/
-    //  if ((this->Msgbuf[lstCharPos - 2] == 'N' || this->Msgbuf[lstCharPos - 2] == 'L') && this->Msgbuf[lstCharPos - 1] == 'M' && this->Msgbuf[lstCharPos] == 'Y')
-    //  {                                                                   // test for "NMY/LMY"
-    //      sprintf(Msgbuf, " (%c%s", this->Msgbuf[lstCharPos - 2], "OW)"); //"true"; Insert correction "NOW"/"LOW"
-    //  }
+     //  if (this->Msgbuf[lstCharPos - 1] == '9' && this->Msgbuf[lstCharPos] == 'E')
+     //  {                              // test for "9E"
+     //      sprintf(Msgbuf, " (ONE)"); //"true"; Insert correction "ONE"
+     //  }
+     //  if (this->Msgbuf[lstCharPos - 2] == 'P' && this->Msgbuf[lstCharPos - 1] == 'L' && this->Msgbuf[lstCharPos] == 'L')
+     //  {                               // test for "PLL"
+     //      sprintf(Msgbuf, " (WELL)"); //"true"; Insert correction "WELL"
+     //  }
+     /*20240228 took this out; otherwise it gets corrected twice*/
+     //  if ((this->Msgbuf[lstCharPos - 2] == 'N' || this->Msgbuf[lstCharPos - 2] == 'L') && this->Msgbuf[lstCharPos - 1] == 'M' && this->Msgbuf[lstCharPos] == 'Y')
+     //  {                                                                   // test for "NMY/LMY"
+     //      sprintf(Msgbuf, " (%c%s", this->Msgbuf[lstCharPos - 2], "OW)"); //"true"; Insert correction "NOW"/"LOW"
+     //  }
      if (this->Msgbuf[lstCharPos - 2] == 'T' && this->Msgbuf[lstCharPos - 1] == 'T' && this->Msgbuf[lstCharPos] == 'O')
      {                             // test for "TTO"
          sprintf(Msgbuf, "  (0)"); //"true"; Insert correction "TTO" = "0"
      }
  };
+
+ /*A text search & replace routine. That examines the current contents of the Msgbuf 
+  starting at the MsgBufIndx pointer, and tests for a match to the srchTerm 
+  & if found, replaces the srchTerm sequence with sequence contained in NuTerm */
+int AdvParser::SrchEsReplace(int MsgBufIndx, char srchTerm[10], char NuTerm[10])
+{
+    bool match = true;
+    int i = 0;
+    int RplcLtrCnt =0;
+    //printf("%s\n", srchTerm);
+    while (srchTerm[i] != 0)
+    {
+        if (srchTerm[i] != this->Msgbuf[MsgBufIndx + i])
+        {
+            match = false;
+            break;
+        }
+        i++;
+    }
+    if (!match)
+        return MsgBufIndx; // No match found
+
+    /*if here, we have a match & now need to replace with NuTerm letter sequence*/
+    /*But 1st, copy everything past the search term, in the Msgbuf, to a 2nd temp buffer */
+    int j;
+    //i++;
+    for (j = 0; j < sizeof(this->TmpBufA) - 1; j++)
+    {
+        this->TmpBufA[j] = this->Msgbuf[MsgBufIndx + i + j];
+        this->TmpBufA[j + 1] = 0;//just doing this to be extra cautious
+        if (this->Msgbuf[MsgBufIndx + j + i] == 0)
+            break;
+    }
+    //printf("TmpBufA: %s \n", TmpBufA);
+    /*now starting at MsgBufIndx pointer append the new character sequence to the Msgbuf;*/
+    while(NuTerm[RplcLtrCnt] != 0)
+    {
+            this->Msgbuf[MsgBufIndx+ RplcLtrCnt] = NuTerm[RplcLtrCnt];
+            RplcLtrCnt++;
+    }
+    /*finish off by adding back/appending the contents fo the temp buffer (TmpBufA) */
+    j = 0;
+    while (this->TmpBufA[j] != 0)
+    {
+        this->Msgbuf[MsgBufIndx + RplcLtrCnt + j] = this->TmpBufA[j];
+        j++;
+        if ((MsgBufIndx + RplcLtrCnt + j) == MsgbufSize)
+        {
+            this->Msgbuf[MsgBufIndx + RplcLtrCnt + j - 1] = 0;
+            break;// abort, Msgbuf length exceeded
+        }
+    }
+    /*make sure the character sequence is NULL terminated
+     and update LstLtrPrntd */
+    if ((MsgBufIndx + RplcLtrCnt + j) < MsgbufSize)
+    {
+        this->Msgbuf[MsgBufIndx + RplcLtrCnt + j] = 0;
+        this->LstLtrPrntd = MsgBufIndx + RplcLtrCnt + j;
+    }
+
+    if (j>0)
+        MsgBufIndx += RplcLtrCnt;
+    return MsgBufIndx;    
+};

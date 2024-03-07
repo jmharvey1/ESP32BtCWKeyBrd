@@ -80,6 +80,7 @@
 /*20240227 reworked AdvParserTask() & setup to run on core 1; reworked AdvParser.cpp - GetMsgLen(void), FixClassicErrors(void), & SloppyBgRules(int& n)*/
 /*20240301 AdParser.cpp -Changed BG2 dah run to detect letterbreak on UnitIntvrlx2r5; chages to SetSpltPt()*/
 /*20240304 Reworked deployment of mutex to reduce code crashes linked to keyboard entries*/
+/* 20240307 AdParser.cpp Added SrchEsReplace() function & and simplified the code in FixClassicErrors()*/
 
 #include "sdkconfig.h" //added for timer support
 #include "globals.h"
@@ -137,7 +138,7 @@ DF_t DFault;
 int DeBug = 0; // Debug factory default setting; 0 => Debug "OFF"; 1 => Debug "ON"
 char StrdTxt[20] = {'\0'};
 /*Factory Default Settings*/
-char RevDate[9] = "20240304";
+char RevDate[9] = "20240307";
 char MyCall[10] = "KW4KD";
 char MemF2[80] = "VVV VVV TEST DE KW4KD";
 char MemF3[80] = "CQ CQ CQ DE KW4KD KW4KD";
