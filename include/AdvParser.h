@@ -9,6 +9,7 @@
  * 20240117 added Dcode4Dahs() to class; 
  * 20240205 added WrdBrkVal
  * 20240206 added StrchdDah property
+ * 20240313 added SrchRplc_stuct & SrchRplcDict[]
  * */
 #ifndef INC_ADVPARSER_H_
 #define INC_ADVPARSER_H_
@@ -22,10 +23,87 @@ struct Buckt_t
 	uint8_t Cnt;
 };
 
+struct SrchRplc_stuct
+{
+  char srchTerm[10];
+  char NuTerm[10];
+};
 class AdvParser
 {
 private:
     /* Properties */
+    SrchRplc_stuct SrchRplcDict[70] ={
+        {"PD", "AND"}, //0
+        {"PY", "ANY"}, //1
+        {"PT", "ANT"}, //2
+        {"CP", "CAN"}, //3
+        {"QY", "MAY"}, //4
+        {"S2", "SUM"}, //5
+        {"WHW", "WHAT"}, //6
+        {"UAN", "UP"}, //7
+        {"WJS", "WATTS"}, //8
+        {"KNS", "YES"}, //9
+        {"PEK", "WEEK"}, //10
+        {"NAG", "NAME"}, //11
+        {"SAG", "SAME"}, //12
+        {"TIG", "TIME"}, //13
+        {"QLK", "TALK"}, //14
+        {"TB3", "73"}, //15
+        {"SO9", "SOON"}, //16
+        {"MPY", "MANY"}, //17
+        {"SI6", "SIDE"}, //18
+        {"QDE", "MADE"}, //19
+        {"LWE", "LATE"}, //20
+        {"THW", "THAT"}, //21
+        {"THP", "THAN"}, //22
+        {"TMN", "ON"}, //23
+        {"PLL", "WELL"}, //24
+        {"SJE", "SAME"}, //25
+        {"CPT", "CANT"}, //26
+        {"0VE", "MOVE"}, //27
+        {"RLN", "RAIN"}, //28
+        {"D9T", "DONT"}, //28
+        {"TNN", "GN"}, //30
+        {"TNO", "GO"}, //31
+        {"SOG", "SOME"}, //32
+        {"D9T", "DONT"}, //33
+        {"CHW", "CHAT"}, //34
+        {"WPT", "WANT"}, //35
+        {"W5N", "WHEN"}, //36
+        {"PNT", "WENT"}, //37
+        {"6IS", "THIS"}, //38
+        {"PEK", "WEEK"}, //39
+        {"THJ", "THAT"}, //40
+        {"9LY", "ONLY"}, //41
+        {"WXST", "JUST"}, //42
+        {"TNET", "GET"}, //43
+        {"EAEA", "REA"}, //44
+        {"DAKT", "DAY"}, //45
+        {"TDNG", "TTING"}, //46
+        {"CETN", "CAN"}, //47
+        {"QSMT", "QSO"}, //48
+        {"INTN", "ING"}, //49
+        {"SINT", "SUN"}, //50
+        {"MMMK", "OOK"}, //51
+        {"GMTT", "GOT"}, //52
+        {"TTTN", "ON"}, //53
+        {"WEUT", "PUT"}, //54
+        {"TBVT", "73"}, //55
+        {"INME", "ING"}, //56
+        {"EZNG", "ETTING"}, //57
+        {"DTYL", "XYL"}, //58
+        {"GAEE", "GRE"}, //59
+        {"NKEE", "NCE"}, //60
+        {"ARKT", "ARY"}, //61
+        {"SNOAT", "SNOW"}, //62
+        {"TELAI", "TELL"}, //63
+        {"TTTAN", "OP"}, //64
+        {"TTEAE", "GRE"}, //65
+        {"KTES", "YES"}, //66
+        {"C9DX", "CONDX"}, //67
+        {"MKT", "MY"}, //68
+        {"EXCA", "EXTRA"}, //69
+    };
     bool AllDah;
     bool NewSpltVal;
     bool StrchdDah; //used mainly to steer which rules to apply within the Bug1 rule set (when long dahs are detected certain simple rules are bypassed)

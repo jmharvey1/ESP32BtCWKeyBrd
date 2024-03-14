@@ -83,6 +83,7 @@
 /*20240307 AdParser.cpp Added SrchEsReplace() function & and simplified the code in FixClassicErrors()*/
 /*20240309 AdParser.cpp - Moved straight key test ahead of sloppy test*/
 /*20240309 AdParser.cpp - Mostly tweaks in FixClassicErrors() code */
+/*20240313 AdParser.cpp - rewrote FixClassicErrors() to sequence through SrchRplcDict[] array to test for mangled character strings */
 
 #include "sdkconfig.h" //added for timer support
 #include "globals.h"
@@ -140,7 +141,7 @@ DF_t DFault;
 int DeBug = 0; // Debug factory default setting; 0 => Debug "OFF"; 1 => Debug "ON"
 char StrdTxt[20] = {'\0'};
 /*Factory Default Settings*/
-char RevDate[9] = "20240310";
+char RevDate[9] = "20240313";
 char MyCall[10] = "KW4KD";
 char MemF2[80] = "VVV VVV TEST DE KW4KD";
 char MemF3[80] = "CQ CQ CQ DE KW4KD KW4KD";
