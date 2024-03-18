@@ -17,6 +17,7 @@
 #include <stdio.h>
 #define IntrvlBufSize 200
 #define MsgbufSize 50
+#define SrchDictSize 100
 struct Buckt_t
 {
 	uint16_t Intrvl;
@@ -25,86 +26,119 @@ struct Buckt_t
 
 struct SrchRplc_stuct
 {
-  char srchTerm[10];
-  char NuTerm[10];
+  const char srchTerm[10];
+  const char NuTerm[10];
+  int ChrCnt;
+  int Rule;
 };
 class AdvParser
 {
 private:
     /* Properties */
-    SrchRplc_stuct SrchRplcDict[70] ={
-        {"PD", "AND"}, //0
-        {"PY", "ANY"}, //1
-        {"PT", "ANT"}, //2
-        {"CP", "CAN"}, //3
-        {"QY", "MAY"}, //4
-        {"S2", "SUM"}, //5
-        {"WHW", "WHAT"}, //6
-        {"UAN", "UP"}, //7
-        {"WJS", "WATTS"}, //8
-        {"KNS", "YES"}, //9
-        {"PEK", "WEEK"}, //10
-        {"NAG", "NAME"}, //11
-        {"SAG", "SAME"}, //12
-        {"TIG", "TIME"}, //13
-        {"QLK", "TALK"}, //14
-        {"TB3", "73"}, //15
-        {"SO9", "SOON"}, //16
-        {"MPY", "MANY"}, //17
-        {"SI6", "SIDE"}, //18
-        {"QDE", "MADE"}, //19
-        {"LWE", "LATE"}, //20
-        {"THW", "THAT"}, //21
-        {"THP", "THAN"}, //22
-        {"TMN", "ON"}, //23
-        {"PLL", "WELL"}, //24
-        {"SJE", "SAME"}, //25
-        {"CPT", "CANT"}, //26
-        {"0VE", "MOVE"}, //27
-        {"RLN", "RAIN"}, //28
-        {"D9T", "DONT"}, //28
-        {"TNN", "GN"}, //30
-        {"TNO", "GO"}, //31
-        {"SOG", "SOME"}, //32
-        {"D9T", "DONT"}, //33
-        {"CHW", "CHAT"}, //34
-        {"WPT", "WANT"}, //35
-        {"W5N", "WHEN"}, //36
-        {"PNT", "WENT"}, //37
-        {"6IS", "THIS"}, //38
-        {"PEK", "WEEK"}, //39
-        {"THJ", "THAT"}, //40
-        {"9LY", "ONLY"}, //41
-        {"WXST", "JUST"}, //42
-        {"TNET", "GET"}, //43
-        {"EAEA", "REA"}, //44
-        {"DAKT", "DAY"}, //45
-        {"TDNG", "TTING"}, //46
-        {"CETN", "CAN"}, //47
-        {"QSMT", "QSO"}, //48
-        {"INTN", "ING"}, //49
-        {"SINT", "SUN"}, //50
-        {"MMMK", "OOK"}, //51
-        {"GMTT", "GOT"}, //52
-        {"TTTN", "ON"}, //53
-        {"WEUT", "PUT"}, //54
-        {"TBVT", "73"}, //55
-        {"INME", "ING"}, //56
-        {"EZNG", "ETTING"}, //57
-        {"DTYL", "XYL"}, //58
-        {"GAEE", "GRE"}, //59
-        {"NKEE", "NCE"}, //60
-        {"ARKT", "ARY"}, //61
-        {"SNOAT", "SNOW"}, //62
-        {"TELAI", "TELL"}, //63
-        {"TTTAN", "OP"}, //64
-        {"TTEAE", "GRE"}, //65
-        {"KTES", "YES"}, //66
-        {"C9DX", "CONDX"}, //67
-        {"MKT", "MY"}, //68
-        {"EXCA", "EXTRA"}, //69
+    const SrchRplc_stuct SrchRplcDict[SrchDictSize] ={
+        {"PD", "AND", 2, 1}, //0
+        {"PY", "ANY", 2, 1}, //1 if(this->LstLtrPrntd + 1 == this->SrchRplcDict[STptr].ChrCnt){ /*search term & msgbuf size are the same*/
+        {"PT", "ANT", 2, 1}, //2 if(this->LstLtrPrntd + 1 == this->SrchRplcDict[STptr].ChrCnt){ /*search term & msgbuf size are the same*/
+        {"CP", "CAN", 2, 3}, //3 if (this->LstLtrPrntd == 1)
+        {"QY", "MAY", 2, 2}, //4 if (NdxPtr == 0 || (NdxPtr > 0 && this->Msgbuf[NdxPtr - 1] != 'C'))
+        {"S2", "SUM", 2, 0}, //5
+        {"WHW", "WHAT", 3, 0}, //6
+        {"UAN", "UP", 3, 0}, //7
+        {"WJS", "WATTS", 3, 0}, //8
+        {"KNS", "YES", 3, 0}, //9
+        {"PEK", "WEEK", 3, 0}, //10
+        {"NAG", "NAME", 3, 1}, //11 if(this->LstLtrPrntd + 1 == this->SrchRplcDict[STptr].ChrCnt){ /*search term & msgbuf size are the same*/
+        {"SAG", "SAME", 3, 0}, //12
+        {"TIG", "TIME", 3, 0}, //13
+        {"QLK", "TALK", 3, 0}, //14
+        {"TB3", "73", 3, 0}, //15
+        {"SO9", "SOON", 3, 0}, //16
+        {"MPY", "MANY", 3, 0}, //17
+        {"SI6", "SIDE", 3, 0}, //18
+        {"QDE", "MADE", 3, 2}, //19 if (NdxPtr == 0 || (NdxPtr > 0 && this->Msgbuf[NdxPtr - 1] != 'C'))
+        {"LWE", "LATE", 3, 0}, //20
+        {"THW", "THAT", 3, 0}, //21
+        {"THP", "THAN", 3, 0}, //22
+        {"TMN", "ON", 3, 0}, //23
+        {"PLL", "WELL", 3, 0}, //24
+        {"SJE", "SAME", 3, 0}, //25
+        {"CPT", "CANT", 3, 0}, //26
+        {"0VE", "MOVE", 3, 0}, //27
+        {"RLN", "RAIN", 3, 0}, //28
+        {"D9T", "DONT", 3, 0}, //28
+        {"TNN", "GN", 3, 0}, //30
+        {"TNO", "GO", 3, 0}, //31
+        {"SOG", "SOME", 3, 1}, //32 /*search term & msgbuf size are the same*/
+        {"D9T", "DONT", 3, 0}, //33
+        {"CHW", "CHAT", 3, 0}, //34
+        {"WPT", "WANT", 3, 0}, //35
+        {"W5N", "WHEN", 3, 0}, //36
+        {"PNT", "WENT", 3, 0}, //37
+        {"6IS", "THIS", 3, 0}, //38
+        {"PEK", "WEEK", 3, 0}, //39"
+        {"THJ", "THAT", 3, 0}, //40
+        {"9LY", "ONLY", 3, 0}, //41
+        {"WXST", "JUST", 4, 0}, //42
+        {"TNET", "GET", 4, 0}, //43
+        {"EAEA", "REA", 4, 0}, //44
+        {"DAKT", "DAY", 4, 0}, //45
+        {"TDNG", "TTING", 4, 0}, //46
+        {"CETN", "CAN", 4, 0}, //47
+        {"QSMT", "QSO", 4, 0}, //48
+        {"INTN", "ING", 4, 0}, //49
+        {"SINT", "SUN", 4, 0}, //50
+        {"MMMK", "OOK", 4, 0}, //51
+        {"GMTT", "GOT", 4, 0}, //52
+        {"TTTN", "ON", 4, 0}, //53
+        {"WEUT", "PUT", 4, 0}, //54
+        {"TBVT", "73", 4, 0}, //55
+        {"INME", "ING", 4, 0}, //56", "PUM", 4,0}, //91      
+        {"EZNG", "ETTING", 4, 0}, //57
+        {"DTYL", "XYL", 4, 0}, //58
+        {"GAEE", "GRE", 4, 0}, //59
+        {"NKEE", "NCE", 4, 0}, //60
+        {"ARKT", "ARY", 4, 0}, //61
+        {"SNOAT", "SNOW", 5, 0}, //62
+        {"TELAI", "TELL", 5, 0}, //63
+        {"TTTAN", "OP", 5, 0}, //64
+        {"TTEAE", "GRE", 5, 0}, //65
+        {"KTES", "YES", 4, 0}, //66
+        {"C9DX", "CONDX", 4, 0}, //67
+        {"MKT", "MY", 3, 1}, //68 if(this->LstLtrPrntd + 1 == this->SrchRplcDict[STptr].ChrCnt){ /*search term & msgbuf size are the same*/
+        {"EXCA", "EXTRA", 4, 0}, //69
+        {"AP", "AGE", 2, 1}, //70 if(this->LstLtrPrntd + 1 == this->SrchRplcDict[STptr].ChrCnt){ /*search term & msgbuf size are the same*/
+        {"C9S" , "CONS", 3, 0}, //71
+        {"DNG", "TING", 3, 0}, //72
+        {"LEP", "LEAN", 3, 0}, //73
+        {"MEOT", "GOT", 4, 0}, //74
+        {"6E", "THE", 2, 0}, //75
+        {"6A", "THA", 2, 0}, //76
+        {"VFG", "VING", 3, 0}, //77
+        {"HEWH", "HEATH", 4, 0}, //78
+        {"GEMIN", "GETTIN", 5,0}, //79
+        {"QKING", "MAKING", 5,0}, //80
+        {"HJ", "HAM", 2, 1}, //81 /*search term & msgbuf size are the same*/
+        {"M<AR>", "QR", 5,0}, //82
+        {"NTX", "WX", 3, 1}, //83 /*search term & msgbuf size are the same*/
+        {"SMAU", "SQR", 4,0}, //84
+        {"PST", "WEST", 3, 1}, //85 /*search term & msgbuf size are the same*/
+        {"S0E", "SOME", 3, 0}, //86
+        {"TWAE", "TAKE", 4,0}, //87
+        {"LFUX", "LINUX", 4,0}, //88
+        {"ANE2", "ABO", 4,0}, //89
+        {"WERO", "PRO", 4,0}, //90
+        {"WEUM", "PUM", 4,0}, //91
+        {"STOAN", "STOP", 5, 0}, //92
+        {"T0", "TOM", 2, 1}, //93 /*search term & msgbuf size are the same*/
+        {"9E", "ONE", 2, 1}, //94 /*search term & msgbuf size are the same*/
+        {"TTAK", "MAK", 4,0}, //95
+        {"WWER", "WATER", 4,0}, //96
+        {"TKT", "TY", 3, 0}, //97
+        {"AQG", "AMAG", 3, 0}, //98
+        {"GRWS", "GRATS", 4, 0}, //98
     };
     bool AllDah;
+    bool AllDit;
     bool NewSpltVal;
     bool StrchdDah; //used mainly to steer which rules to apply within the Bug1 rule set (when long dahs are detected certain simple rules are bypassed)
     int BugKey;//controls wich parsing rules are used 0 = paddle; 1 = bug; 2 = cootie
@@ -152,7 +186,7 @@ private:
     int DitDahBugTst(void); //returns 2 for unknown; 0 for paddle; 1 for bug
     void Dcode4Dahs(int n);
     void FixClassicErrors(void);
-    int SrchEsReplace(int MsgBufIndx, char srchTerm[10], char NuTerm[10]);
+    int SrchEsReplace(int MsgBufIndx, const char srchTerm[10], const char NuTerm[10]);
     char TmpBufA[MsgbufSize - 5];
 
 public:

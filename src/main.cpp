@@ -84,6 +84,8 @@
 /*20240309 AdParser.cpp - Moved straight key test ahead of sloppy test*/
 /*20240309 AdParser.cpp - Mostly tweaks in FixClassicErrors() code */
 /*20240313 AdParser.cpp - rewrote FixClassicErrors() to sequence through SrchRplcDict[] array to test for mangled character strings */
+/*20240315 AdParser.cpp - rewrote FixClassicErrors() to use a 'for' loop to sequence through the SrchRplcDict[]*/
+/*20240317 changed task management mainly through priority level assignments; reworked AdParser.SetSpltPt() method to better handle cootie type keying*/
 
 #include "sdkconfig.h" //added for timer support
 #include "globals.h"
@@ -141,7 +143,7 @@ DF_t DFault;
 int DeBug = 0; // Debug factory default setting; 0 => Debug "OFF"; 1 => Debug "ON"
 char StrdTxt[20] = {'\0'};
 /*Factory Default Settings*/
-char RevDate[9] = "20240313";
+char RevDate[9] = "20240317";
 char MyCall[10] = "KW4KD";
 char MemF2[80] = "VVV VVV TEST DE KW4KD";
 char MemF3[80] = "CQ CQ CQ DE KW4KD KW4KD";
@@ -566,6 +568,8 @@ void CWDecodeTask(void *param)
     {
       //printf("CWDecodeTask CoreID: %d\n", xPortGetCoreID());
       Dcodeloop();
+      vTaskDelay(1 / portTICK_PERIOD_MS); //this task under normal conditions runs all the time So insert a breather to allow Watchdog to reset
+      //printf("CWDecodeTask complete\n");
       /* uncomment for diagnostic testing; graph ADC samples; Note: companion code in addSmpl(int k, int i, int *pCntrA) needs to be uncommented too */
       /* Pull accumulated "ADC sample" values from buffer & print to serial port*/
       // if(!UrTurn){
@@ -620,7 +624,7 @@ void AdvParserTask(void *param)
   while (1)
   {
     /* Sleep until instructed to resume from DcodeCW.cpp */
-    // printf("AdvParserTask\n");
+    //printf("AdvParserTask\n");
     
     advparser.EvalTimeData();
 
@@ -636,7 +640,7 @@ void AdvParserTask(void *param)
     int LtrPtr = advparser.LtrPtr;
     // printf("NuMsgLen = %d; LtrPtr %d\n", NuMsgLen, LtrPtr);
     if (NuMsgLen > LtrPtr)
-    { // if the advparser verson is longer, then delete the last word printed
+    { // if the advparser test string is longer, then delete the last word printed
       same = false;
       i = LtrPtr;
     }
@@ -765,9 +769,10 @@ void app_main()
   digitalWrite(KEY, Key_Up); // key 'UP' state
   state_que = xQueueCreate(state_que_len, sizeof(uint8_t));
   /*create DisplayUpDate Task*/
-  xTaskCreatePinnedToCore(DisplayUpDt, "DisplayUpDate Task", 8192, NULL, 2, &DsplUpDtTaskHandle, 0);
+  xTaskCreatePinnedToCore(DisplayUpDt, "DisplayUpDate Task", 8192, NULL, 3, &DsplUpDtTaskHandle, 0);
+  vTaskSuspend( DsplUpDtTaskHandle);
   /*Selected 2092 based on results found by using uxTaskGetStackHighWaterMark( NULL ) in AdvParserTask*/
-  xTaskCreate(AdvParserTask, "AdvParserTask Task", 2092, NULL, 2, &AdvParserTaskHandle); //8192
+  //xTaskCreate(AdvParserTask, "AdvParserTask Task", 2092, NULL, 1, &AdvParserTaskHandle); //8192
   xTaskCreatePinnedToCore(
       AdvParserTask, /* Function to implement the task */
       "AdvParserTask Task", /* Name of the task */
@@ -777,13 +782,12 @@ void app_main()
       &AdvParserTaskHandle,  /* Task handle. */
       1); /* Core where the task should run */
   vTaskSuspend( AdvParserTaskHandle );
-  //xTaskCreate(CWDecodeTask, "CW Decode Task", 8192, NULL, 0, &CWDecodeTaskHandle);
   xTaskCreatePinnedToCore(
       CWDecodeTask, /* Function to implement the task */
       "CW Decode Task", /* Name of the task */
       8192,  /* Stack size in words */
       NULL,  /* Task input parameter */
-      0,  /* Priority of the task */
+      4,  /* Priority of the task */
       &CWDecodeTaskHandle,  /* Task handle. */
       0); /*Core 0 or 1 */
   static const char *TAG = "TimrIntr";
@@ -842,8 +846,8 @@ void app_main()
   /* Start the timer dotclock (timer)*/
   ESP_ERROR_CHECK(esp_timer_start_periodic(DotClk_hndl, 60000)); // 20WPM or 60ms
 
-  /* Start the Display timer */
-  xTimerStart(DisplayTmr, portMAX_DELAY);
+  // /* Start the Display timer */
+  // xTimerStart(DisplayTmr, portMAX_DELAY);
 
   // To test the Pairing code entry, uncomment the following line as pairing info is
   // kept in the nvs. Pairing will then be required on every boot.
@@ -914,6 +918,9 @@ void app_main()
     TARGET_FREQUENCYC = (float)DFault.TRGT_FREQ;
     Grtzl_Gain = DFault.Grtzl_Gain;
   }
+  /* Start the Display timer */
+  xTimerStart(DisplayTmr, portMAX_DELAY);
+  vTaskResume( DsplUpDtTaskHandle);
   CWsndengn.RfrshSpd = true;
   CWsndengn.ShwWPM(DFault.WPM); // calling this method does NOT recalc/set the dotclock & show the WPM
   CWsndengn.SetWPM(DFault.WPM); // 20230507 Added this seperate method call after changing how the dot clocktiming gets updated

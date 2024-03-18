@@ -1500,76 +1500,16 @@ bool chkChrCmplt(void)
 					advparser.LtrHoldr[i] = LtrHoldr[i];
 				}
 				
-				//advparser.EvalTimeData(KeyUpIntrvls, KeyDwnIntrvls, KeyUpPtr, KeyDwnPtr, wpm);
 				/*now we can start/resart the post parsing process */
 				vTaskResume( AdvParserTaskHandle );
-				// /*Now compare Advparser decoded text to original text; If not the same,
-				// replace displayed with Advparser version*/
-				// bool same = true;
-				// bool Tst4Match = true;
-				// int i;
-				// int FmtchPtr;
 				
-				// /*Scan/compare last word displayed w/ advpaser's version*/
-				// if (advparser.GetMsgLen() > LtrPtr)
-				// { // if the advparser verson is longer, then delete the last word printed
-				// 	same = false;
-				// 	i = LtrPtr;
-				// }
-				// else
-				// {
-				// 	for (i = 0; i < LtrPtr; i++)
-				// 	{
-				// 		if (advparser.Msgbuf[i] == 0)
-				// 			Tst4Match = false;
-				// 		if ((LtrHoldr[i] != advparser.Msgbuf[i]) && Tst4Match)
-				// 		{
-				// 			FmtchPtr = i;
-				// 			same = false;
-				// 		}
-				// 		if (LtrHoldr[i] == 0)
-				// 			break;
-				// 	}
-				// }
-				// /*If they don't match, replace displayed text with AdvParser's version*/
-				// if (!same)
-				// {
-				// 	bool oldDltState = dletechar;
-				// 	dletechar = true;
-				// 	MsgChrCnt[1] = i; // Load delete buffer w/ the number of characters to be deleted from the display
-				// 	// printf("Pointer ERROR\n");/ printf("No Match @ %d; %d; %d\n", FmtchPtr, LtrHoldr[FmtchPtr], advparser.Msgbuf[FmtchPtr]);
-				// 	CptrTxt = false;
-				// 	dispMsg(advparser.Msgbuf);
-				// 	CptrTxt = true;
-				// 	dletechar = oldDltState;
-				// } // else printf("Match\n");
 			} 
-			// else
-			// {
-			// 	advparser.KeyType = 7; // round about way to update display status line to indicate no post processing
-			// 						   // erase contents of LtrHoldr & reset its index pointer (LtrPtr)
-			// 	for (int i = 0; i < LtrPtr; i++)
-			// 		LtrHoldr[i] = 0;
-			// 	LtrPtr = 0;
-			// }
+			
 		}
-		// else
-		// {
-		// 	for (int i = 0; i < LtrPtr; i++)
-		// 		LtrHoldr[i] = 0;
-		// 	LtrPtr = 0;
-		// }
-		// if (advparser.Dbug)
-		// 	printf("%s\n", LtrHoldr);
- 		//erase contents of LtrHoldr & reset its index pointer (LtrPtr)
+		
 		for (int i = 0; i < LtrPtr; i++)
 			LtrHoldr[i] = 0;
 		LtrPtr = 0;
-		// if (advparser.Dbug)
-		// 	printf("--------\n\n");
-
-
-
 		KeyDwnPtr = KeyUpPtr = 0; // resetbuffer pntrs
 
 		Pstate = 2; // have word
