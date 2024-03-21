@@ -134,7 +134,7 @@ const char DicTbl1[ARSIZE][2]=
     "."
     };
 //Multi character decode values/table(s)
-#define ARSIZE2 129
+#define ARSIZE2 130
  static unsigned int CodeVal2[ARSIZE2]={
   19,
   21,
@@ -263,6 +263,7 @@ const char DicTbl1[ARSIZE][2]=
   6580,
   6738,
   14752,
+  423,
   99990
 };
 
@@ -394,6 +395,7 @@ const char DicTbl2[ARSIZE2][6]={
   "XYL",
   "CARR",
   "MUCH",
+  "K2",
   "[er]"
 };
  

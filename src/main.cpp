@@ -757,7 +757,7 @@ void app_main()
 {
 
   ModeCnt = 0;
-  
+  static const char *TAG = "TASK Config";
   // Configure pin
   gpio_config_t io_conf;
   io_conf.intr_type = GPIO_INTR_DISABLE;
@@ -771,17 +771,21 @@ void app_main()
   /*create DisplayUpDate Task*/
   xTaskCreatePinnedToCore(DisplayUpDt, "DisplayUpDate Task", 8192, NULL, 3, &DsplUpDtTaskHandle, 0);
   vTaskSuspend( DsplUpDtTaskHandle);
+
   /*Selected 2092 based on results found by using uxTaskGetStackHighWaterMark( NULL ) in AdvParserTask*/
-  //xTaskCreate(AdvParserTask, "AdvParserTask Task", 2092, NULL, 1, &AdvParserTaskHandle); //8192
   xTaskCreatePinnedToCore(
       AdvParserTask, /* Function to implement the task */
-      "AdvParserTask Task", /* Name of the task */
+      "AdvParser Task", /* Name of the task */
       2092,  /* Stack size in words */
       NULL,  /* Task input parameter */
       2,  /* Priority of the task */
       &AdvParserTaskHandle,  /* Task handle. */
       1); /* Core where the task should run */
+  if (AdvParserTaskHandle == NULL)
+    ESP_LOGI(TAG, "AdvParser Task handle FAILED");
+
   vTaskSuspend( AdvParserTaskHandle );
+  
   xTaskCreatePinnedToCore(
       CWDecodeTask, /* Function to implement the task */
       "CW Decode Task", /* Name of the task */
@@ -790,9 +794,14 @@ void app_main()
       4,  /* Priority of the task */
       &CWDecodeTaskHandle,  /* Task handle. */
       0); /*Core 0 or 1 */
-  static const char *TAG = "TimrIntr";
+  
   if (CWDecodeTaskHandle == NULL)
     ESP_LOGI(TAG, "CW Decoder Task handle FAILED");
+
+  xTaskCreate(GoertzelHandler, "Goertzel Task", 8192, NULL, 5, &GoertzelTaskHandle); // priority used to be 3
+  if (GoertzelTaskHandle == NULL)
+    ESP_LOGI(TAG, "Goertzel Task Task handle FAILED");
+
   /*Setup Software Display Refresh/Update timer*/
   DisplayTmr = xTimerCreate(
       "Display-Refresh-Timer",
@@ -814,41 +823,21 @@ void app_main()
 
   ESP_ERROR_CHECK(esp_timer_create(&DotClk_args, &DotClk_hndl));
 
-  //xTaskCreate(CWDecodeTask, "CW Decode Task", 8192, NULL, 0, &CWDecodeTaskHandle);
-  // xTaskCreatePinnedToCore(
-  //     CWDecodeTask, /* Function to implement the task */
-  //     "CW Decode Task", /* Name of the task */
-  //     8192,  /* Stack size in words */
-  //     NULL,  /* Task input parameter */
-  //     0,  /* Priority of the task */
-  //     &CWDecodeTaskHandle,  /* Task handle. */
-  //     0); /*Core 0 or 1 */
-
-  // static const char *TAG = "TimrIntr";
-  // if (CWDecodeTaskHandle == NULL)
-  //   ESP_LOGI(TAG, "CW Decoder Task handle FAILED");
+  
   /* The timer has been created but is not running yet */
-  // ESP_ERROR_CHECK(esp_timer_create(&DsplTmr_args, &DsplTmr_hndl));
+intr_matrix_set(xPortGetCoreID(), ETS_TG0_T1_LEVEL_INTR_SOURCE, 26); // display
 
-  /* The timer has been created but is not running yet */
-
-  // intr_matrix_set(xPortGetCoreID(), ETS_TG0_T0_LEVEL_INTR_SOURCE, 27);//dotclck
-  intr_matrix_set(xPortGetCoreID(), ETS_TG0_T1_LEVEL_INTR_SOURCE, 26); // display
-
-  ESP_LOGI(TAG, "Start DotClk interrupt Config");
-  ESP_ERROR_CHECK(esp_intr_alloc(ETS_TG0_T1_LEVEL_INTR_SOURCE, ESP_INTR_FLAG_LEVEL3, DotClk_ISR, DotClk_args.arg, NULL));
-  ESP_LOGI(TAG, "End DotClk interrupt Config");
+  // ESP_LOGI(TAG, "Start DotClk interrupt Config");
+  // ESP_ERROR_CHECK(esp_intr_alloc(ETS_TG0_T1_LEVEL_INTR_SOURCE, ESP_INTR_FLAG_LEVEL3, DotClk_ISR, DotClk_args.arg, NULL));
+  // ESP_LOGI(TAG, "End DotClk interrupt Config");
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////
-  // ESP_INTR_ENABLE(27);//dotclock
-  ESP_INTR_ENABLE(26); // display
+ ESP_INTR_ENABLE(26); // display
 
-  /* Start the timer dotclock (timer)*/
-  ESP_ERROR_CHECK(esp_timer_start_periodic(DotClk_hndl, 60000)); // 20WPM or 60ms
+  // /* Start the timer dotclock (timer)*/
+  // ESP_ERROR_CHECK(esp_timer_start_periodic(DotClk_hndl, 60000)); // 20WPM or 60ms
 
-  // /* Start the Display timer */
-  // xTimerStart(DisplayTmr, portMAX_DELAY);
-
+  
   // To test the Pairing code entry, uncomment the following line as pairing info is
   // kept in the nvs. Pairing will then be required on every boot.
   // ret = nvs_flash_init();
@@ -921,9 +910,9 @@ void app_main()
   /* Start the Display timer */
   xTimerStart(DisplayTmr, portMAX_DELAY);
   vTaskResume( DsplUpDtTaskHandle);
-  CWsndengn.RfrshSpd = true;
-  CWsndengn.ShwWPM(DFault.WPM); // calling this method does NOT recalc/set the dotclock & show the WPM
-  CWsndengn.SetWPM(DFault.WPM); // 20230507 Added this seperate method call after changing how the dot clocktiming gets updated
+  // CWsndengn.RfrshSpd = true;
+  // CWsndengn.ShwWPM(DFault.WPM); // calling this method does NOT recalc/set the dotclock & show the WPM
+  // CWsndengn.SetWPM(DFault.WPM); // 20230507 Added this seperate method call after changing how the dot clocktiming gets updated
 
   InitGoertzel();
   vTaskDelay(100 / portTICK_PERIOD_MS);
@@ -948,7 +937,7 @@ void app_main()
   }
   /*initialize & start continuous DMA ADC conversion process*/
   continuous_adc_init(channel, sizeof(channel) / sizeof(adc_channel_t), &adc_handle);
-  xTaskCreate(GoertzelHandler, "Goertzel Task", 8192, NULL, 5, &GoertzelTaskHandle); // priority used to be 3
+  //xTaskCreate(GoertzelHandler, "Goertzel Task", 8192, NULL, 5, &GoertzelTaskHandle); // priority used to be 3
 
   adc_continuous_evt_cbs_t cbs = {
       .on_conv_done = s_conv_done_cb,
@@ -958,10 +947,17 @@ void app_main()
   adcON = true;
   xTaskNotifyGive(CWDecodeTaskHandle);
   vTaskDelay(200 / portTICK_PERIOD_MS);
-  // uint32_t freq = 48*1000;
-  // uint32_t interval = APB_CLK_FREQ / (ADC_LL_CLKM_DIV_NUM_DEFAULT + ADC_LL_CLKM_DIV_A_DEFAULT / ADC_LL_CLKM_DIV_B_DEFAULT + 1) / 2 / freq;
-  // char buf[35];
-  // sprintf(buf, "interval: %d\n", (int)interval);
+  
+  ESP_LOGI(TAG, "Start DotClk interrupt Config");
+  ESP_ERROR_CHECK(esp_intr_alloc(ETS_TG0_T1_LEVEL_INTR_SOURCE, ESP_INTR_FLAG_LEVEL3, DotClk_ISR, DotClk_args.arg, NULL));
+  ESP_LOGI(TAG, "End DotClk interrupt Config"); 
+ /* Start the timer dotclock (timer)*/
+  ESP_ERROR_CHECK(esp_timer_start_periodic(DotClk_hndl, 60000)); // 20WPM or 60ms
+  CWsndengn.RfrshSpd = true;
+  CWsndengn.ShwWPM(DFault.WPM); // calling this method does NOT recalc/set the dotclock & show the WPM
+  CWsndengn.SetWPM(DFault.WPM); // 20230507 Added this seperate method call after changing how the dot clocktiming gets updated
+
+  
 
   /* main CW keyboard loop*/
   

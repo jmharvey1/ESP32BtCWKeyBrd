@@ -17,7 +17,7 @@
 #include <stdio.h>
 #define IntrvlBufSize 200
 #define MsgbufSize 50
-#define SrchDictSize 100
+#define SrchDictSize 160
 struct Buckt_t
 {
 	uint16_t Intrvl;
@@ -37,9 +37,9 @@ private:
     /* Properties */
     const SrchRplc_stuct SrchRplcDict[SrchDictSize] ={
         {"PD", "AND", 2, 1}, //0
-        {"PY", "ANY", 2, 1}, //1 if(this->LstLtrPrntd + 1 == this->SrchRplcDict[STptr].ChrCnt){ /*search term & msgbuf size are the same*/
-        {"PT", "ANT", 2, 1}, //2 if(this->LstLtrPrntd + 1 == this->SrchRplcDict[STptr].ChrCnt){ /*search term & msgbuf size are the same*/
-        {"CP", "CAN", 2, 3}, //3 if (this->LstLtrPrntd == 1)
+        {"PY", "ANY", 2, 1}, //1 if(this->StrLength + 1 == this->SrchRplcDict[STptr].ChrCnt){ /*search term & msgbuf size are the same*/
+        {"PT", "ANT", 2, 1}, //2 if(this->StrLength + 1 == this->SrchRplcDict[STptr].ChrCnt){ /*search term & msgbuf size are the same*/
+        {"CP", "CAN", 2, 3}, //3 if (this->StrLength == 1)
         {"QY", "MAY", 2, 2}, //4 if (NdxPtr == 0 || (NdxPtr > 0 && this->Msgbuf[NdxPtr - 1] != 'C'))
         {"S2", "SUM", 2, 0}, //5
         {"WHW", "WHAT", 3, 0}, //6
@@ -47,8 +47,8 @@ private:
         {"WJS", "WATTS", 3, 0}, //8
         {"KNS", "YES", 3, 0}, //9
         {"PEK", "WEEK", 3, 0}, //10
-        {"NAG", "NAME", 3, 1}, //11 if(this->LstLtrPrntd + 1 == this->SrchRplcDict[STptr].ChrCnt){ /*search term & msgbuf size are the same*/
-        {"SAG", "SAME", 3, 0}, //12
+        {"NAG", "NAME", 3, 1}, //11 /*search term & msgbuf size are the same*/
+        {"SAG", "SAME", 3, 5}, //12
         {"TIG", "TIME", 3, 0}, //13
         {"QLK", "TALK", 3, 0}, //14
         {"TB3", "73", 3, 0}, //15
@@ -67,7 +67,7 @@ private:
         {"RLN", "RAIN", 3, 0}, //28
         {"D9T", "DONT", 3, 0}, //28
         {"TNN", "GN", 3, 0}, //30
-        {"TNO", "GO", 3, 0}, //31
+        {"TNO", "GO", 3, 7}, //31
         {"SOG", "SOME", 3, 1}, //32 /*search term & msgbuf size are the same*/
         {"D9T", "DONT", 3, 0}, //33
         {"CHW", "CHAT", 3, 0}, //34
@@ -104,15 +104,15 @@ private:
         {"TTEAE", "GRE", 5, 0}, //65
         {"KTES", "YES", 4, 0}, //66
         {"C9DX", "CONDX", 4, 0}, //67
-        {"MKT", "MY", 3, 1}, //68 if(this->LstLtrPrntd + 1 == this->SrchRplcDict[STptr].ChrCnt){ /*search term & msgbuf size are the same*/
+        {"MKT", "MY", 3, 1}, //68 if(this->StrLength + 1 == this->SrchRplcDict[STptr].ChrCnt){ /*search term & msgbuf size are the same*/
         {"EXCA", "EXTRA", 4, 0}, //69
-        {"AP", "AGE", 2, 1}, //70 if(this->LstLtrPrntd + 1 == this->SrchRplcDict[STptr].ChrCnt){ /*search term & msgbuf size are the same*/
+        {"AP", "AGE", 2, 1}, //70 if(this->StrLength + 1 == this->SrchRplcDict[STptr].ChrCnt){ /*search term & msgbuf size are the same*/
         {"C9S" , "CONS", 3, 0}, //71
         {"DNG", "TING", 3, 0}, //72
         {"LEP", "LEAN", 3, 0}, //73
         {"MEOT", "GOT", 4, 0}, //74
         {"6E", "THE", 2, 0}, //75
-        {"6A", "THA", 2, 0}, //76
+        {"6A", "THA", 2, 0}, //765
         {"VFG", "VING", 3, 0}, //77
         {"HEWH", "HEATH", 4, 0}, //78
         {"GEMIN", "GETTIN", 5,0}, //79
@@ -122,7 +122,7 @@ private:
         {"NTX", "WX", 3, 1}, //83 /*search term & msgbuf size are the same*/
         {"SMAU", "SQR", 4,0}, //84
         {"PST", "WEST", 3, 1}, //85 /*search term & msgbuf size are the same*/
-        {"S0E", "SOME", 3, 0}, //86
+        {"S0E", "SOME", 3, 0}, //861
         {"TWAE", "TAKE", 4,0}, //87
         {"LFUX", "LINUX", 4,0}, //88
         {"ANE2", "ABO", 4,0}, //89
@@ -133,9 +133,68 @@ private:
         {"9E", "ONE", 2, 1}, //94 /*search term & msgbuf size are the same*/
         {"TTAK", "MAK", 4,0}, //95
         {"WWER", "WATER", 4,0}, //96
-        {"TKT", "TY", 3, 0}, //97
+        {"TKT", "QT", 3, 0}, //97
         {"AQG", "AMAG", 3, 0}, //98
-        {"GRWS", "GRATS", 4, 0}, //98
+        {"GRWS", "GRATS", 4, 0}, //99
+        {"POTH", "ANOTH", 4, 6}, //100
+        {"TKSO", "QSO", 4, 0}, //101
+        {"W9D", "WOND", 4, 0}, //102
+        {"I<KN>", "ING", 5, 0}, //103
+        {"TNL", "GL", 3, 0}, //104
+        {"ATENT", "WENT", 5, 0}, //105
+        {"NTT", "Y", 3, 0}, //106
+        {"AIO", "LO", 3, 0}, //107
+        {"HPG", "HANG", 3, 0}, //108
+        {"TKS", "QS", 3, 8}, //109
+        {"FTS", "FB", 3, 0}, //110
+        {"CP", "CAN", 2, 4}, //111
+        {"BTET", "BK", 4, 0}, //112
+        {"CEP", "KEEP", 3, 0}, //113
+        {"PDT", "ANDT", 3, 0}, //114
+        {"PDT", "ANDT", 3, 0}, //115
+        {"DOAG", "DOWN", 4, 0}, //116
+        {"TOUH", "TO USE", 4, 0}, //117
+        {"ANAD", "TO PAD", 4, 9}, //118
+        {"NNK", "CK", 3, 0}, //119
+        {"ATPE", "ANGE", 4, 0}, //120
+        {"TEKE", "NC", 4, 0}, //121
+        {"ZKE", "MIKE", 3, 0}, //122
+        {"DFG", "DING", 3, 0}, //123
+        {"NTTE", "NG", 4, 0}, //124
+        {"AAES", "ARS", 4, 0}, //125
+        {"AAI", "AL", 3, 0}, //126
+        {"TDKE", "MIKE", 4, 0}, //127
+        {"KTE", "YE", 3, 0}, //128
+        {"RTMB", "ROB", 4, 0}, //129
+        {"DAEI", "DRI", 4, 0}, //130
+        {"HADMI", "HW?", 5, 0}, //131
+        {"7MS", "73", 3, 0}, //132
+        {"TSUT", "BUT", 4, 0}, //133
+        {"IBS", "ITS", 3, 0}, //134
+        {"ADLL", "WILL", 4, 0}, //135
+        {"TTTAID", "OLD", 6, 0}, //136
+        {"SKRT", "START", 4, 0}, //137
+        {"COG", "COME", 3, 1}, //138
+        {"Q6", "QTH", 2, 0}, //139
+        {"ORI9", "ORION", 4, 0}, //140
+        {"HPD", "HAND", 3, 0}, //141
+        {"G?", "GUD", 2, 0}, //142
+        {"L9G", "LONG", 3, 0}, //143
+        {"<KN>AR", "YEAR", 6, 0}, //144
+        {"BPD", "BAND", 3, 0}, //145
+        {"SQLL", "SMALL", 4, 0}, //146
+        {"AKS", "WAS", 3, 1}, //147
+        {"ERLEA", "PLEA", 5, 0}, //148
+        {"AGMT", "AGO", 4, 0}, //148
+        {"6ST", "BEST", 3, 0}, //149
+        {"HETVE", "HAVE", 5, 0}, //150
+        {"I9", "ION", 5, 0}, //150
+        {"NTEQ", "CQ", 4, 0}, //151
+        {"NNQ", "CQ", 3, 0}, //152
+        {"TYH", "QTH", 3, 0}, //153
+        {"LTURN", "RETURN", 5, 0}, //154
+        {"WAMS", "WATTS", 4, 0}, //155
+
     };
     bool AllDah;
     bool AllDit;
@@ -152,7 +211,7 @@ private:
     int KeyUpBucktPtr = 0;
     int KeyDwnBucktPtr = 0;
     int TmpUpIntrvlsPtr = 0;
-    int LstLtrPrntd = 0; //MsgBuf indx pointer to character printed as Debug output
+    int StrLength = 0; //MsgBuf indx pointer to character printed as Debug output
     //int wpm =0; //upated from DcodeCW.cpp through this class method EvalTimeData()
     float DahVarPrcnt;
     uint16_t TmpUpIntrvls[IntrvlBufSize];
@@ -186,7 +245,7 @@ private:
     int DitDahBugTst(void); //returns 2 for unknown; 0 for paddle; 1 for bug
     void Dcode4Dahs(int n);
     void FixClassicErrors(void);
-    int SrchEsReplace(int MsgBufIndx, const char srchTerm[10], const char NuTerm[10]);
+    int SrchEsReplace(int MsgBufIndx, int STptr, const char srchTerm[10], const char NuTerm[10]);
     char TmpBufA[MsgbufSize - 5];
 
 public:

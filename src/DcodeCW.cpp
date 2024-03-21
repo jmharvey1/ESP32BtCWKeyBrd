@@ -1467,7 +1467,7 @@ bool chkChrCmplt(void)
 	}
 	float noKeySig = (float)(Now - noSigStrt);
 	/*20240226 added or clause to prevent long run on text strings which often end up scrambled by the post parser*/
-	if (((noKeySig >= 0.75 * ((float)wordBrk)) && noSigStrt != 0 && !wordBrkFlg && (DeCodeVal == 0))||(LtrPtr > 11))
+	if (((noKeySig >= 0.75 * ((float)wordBrk)) && noSigStrt != 0 && !wordBrkFlg && (DeCodeVal == 0))||(LtrPtr > 15))
 	{
 		if (KeyUpPtr < IntrvlBufSize && KeyDwnPtr >= 1)
 		{ // we have both a usable time & place to store it; and at least 1 keydwn interval has been captured

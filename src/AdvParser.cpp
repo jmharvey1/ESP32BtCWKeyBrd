@@ -136,7 +136,7 @@ void AdvParser::EvalTimeData(void)
     bool prntOvrRide = false;
     bool oldDbugState = false;
     NewSpltVal = false;
-    LstLtrPrntd = 0;
+    StrLength = 0;
     this->AllDit = false;
     if (KeyDwnPtr != KeyUpPtr) // this now should never happen
     {
@@ -2367,7 +2367,7 @@ bool AdvParser::SKRules(int &n)
 int AdvParser::AdvSrch4Match(int n, unsigned int decodeval, bool DpScan)
 {
     /*1st test, & confirm, there's sufficient space to add search results to the 'Msgbuf'*/
-    if (LstLtrPrntd >= (MsgbufSize - 5))
+    if (StrLength >= (MsgbufSize - 5))
         return 0;
 
     /*make a copy of the current message buffer */
@@ -2564,7 +2564,7 @@ void AdvParser::SyncTmpBufA(void)
 /*This function finds the Msgbuf current length regardless of Dbug's state */
 void AdvParser::PrintThisChr(void)
 {
-    int curEnd = LstLtrPrntd;
+    int curEnd = StrLength;
     while (Msgbuf[curEnd] != 0)
     {
         if (Dbug)
@@ -2573,19 +2573,19 @@ void AdvParser::PrintThisChr(void)
     }
     if (Dbug)
         printf("\n");
-    LstLtrPrntd = curEnd;
+    StrLength = curEnd;
 };
 ///////////////////////////////////////////////////////////////////////
 /*Return the current string length of the AdvParser MsgBuf*/
 int AdvParser::GetMsgLen(void)
 {
-    this->LstLtrPrntd = 0;
-    while (Msgbuf[this->LstLtrPrntd] != 0)
+    this->StrLength = 0;
+    while (Msgbuf[this->StrLength] != 0)
     {
-        this->LstLtrPrntd++;
+        this->StrLength++;
     }
-    // this->LstLtrPrntd--;
-    return this->LstLtrPrntd;
+    // this->StrLength--;
+    return this->StrLength;
 };
 //////////////////////////////////////////////////////////////////////////////
 /* Key or 'Fist' style test
@@ -2885,14 +2885,14 @@ void AdvParser::Dcode4Dahs(int n)
 /* A final check to look for, & correct classic parsing errors*/
 void AdvParser::FixClassicErrors(void)
 {                                             // No longer need to worry about if we have enough decoded characters evaluate the following sloppy strings this->Msgbuf now has enough data, to test for special character combos often found with sloppy sending
-    int lstCharPos = (this->LstLtrPrntd) - 1; // sizeof(this->Msgbuf) - 2;
+    int lstCharPos = (this->StrLength) - 1; // sizeof(this->Msgbuf) - 2;
     //char SrchTerm[10];
     //char RplaceTerm[10];
     // printf("MemAddr %#08X; this->Msgbuf: %s \n", (int)&this->Msgbuf, this->Msgbuf);
     int NdxPtr = 0;
-    //printf("LstLtrPrntd: %d; Msgbuf: %s \n", this->LstLtrPrntd, this->Msgbuf);
-    //for (NdxPtr = 0; NdxPtr < this->LstLtrPrntd - 1; NdxPtr++)
-    while(NdxPtr < this->LstLtrPrntd - 1)
+    //printf("StrLength: %d; Msgbuf: %s \n", this->StrLength, this->Msgbuf);
+    //for (NdxPtr = 0; NdxPtr < this->StrLength - 1; NdxPtr++)
+    while(NdxPtr < this->StrLength - 1)
     {
         int oldPtrVal = NdxPtr;
         int STptr =0;
@@ -2901,556 +2901,81 @@ void AdvParser::FixClassicErrors(void)
                 /*the 1st char in the this search pattern matches the cur character in the MsgBuf
                 So we need more tests*/
                 bool Test = false;
-                if(NdxPtr + this->SrchRplcDict[STptr].ChrCnt <= this->LstLtrPrntd)/*check that search term is smaller than whats left to check in the MsgBuf*/
+                if(NdxPtr + this->SrchRplcDict[STptr].ChrCnt <= this->StrLength)/*check that search term is smaller than whats left to check in the MsgBuf*/
                 {
                     switch(this->SrchRplcDict[STptr].Rule)
                     {
-                    case 0:
+                    case 0: 
                         Test = true;
                         break;
                     case 1:
-                        //printf("NdxPtr: %d; MsgBuf %s; LstLtrPrntd: %d; SrchRplcDict[%d].ChrCnt: %d\n", NdxPtr, this->Msgbuf, LstLtrPrntd, STptr, SrchRplcDict[STptr].ChrCnt);
-                        if(this->LstLtrPrntd == this->SrchRplcDict[STptr].ChrCnt){ /*search term & msgbuf size are the same*/
+                        // printf("NdxPtr: %d; MsgBuf %s; StrLength: %d; SrchRplcDict[%d].ChrCnt: %d\n", NdxPtr, this->Msgbuf, StrLength, STptr, SrchRplcDict[STptr].ChrCnt);
+                        if (this->StrLength == this->SrchRplcDict[STptr].ChrCnt)
+                        { /*search term & msgbuf size are the same*/
                             Test = true;
                         }
                         break;
                     case 2:
-                        if (NdxPtr == 0 || (NdxPtr > 0 && this->Msgbuf[NdxPtr - 1] != 'C')){ /*msgbuf Doesn't appear to be part of a 'CQ'*/
+                        if (NdxPtr == 0 || (NdxPtr > 0 && this->Msgbuf[NdxPtr - 1] != 'C'))
+                        { /*msgbuf Doesn't appear to be part of a 'CQ'*/
                             Test = true;
                         }
                         break;
                     case 3:
-                        //printf("NdxPtr: %d; MsgBuf %s; LstLtrPrntd: %d; SrchRplcDict[%d].ChrCnt: %d\n", NdxPtr, this->Msgbuf, LstLtrPrntd, STptr, SrchRplcDict[STptr].ChrCnt);
-                        if (this->LstLtrPrntd == 2){ /*search term & msgbuf size are the same*/
+                        // printf("NdxPtr: %d; MsgBuf %s; StrLength: %d; SrchRplcDict[%d].ChrCnt: %d\n", NdxPtr, this->Msgbuf, StrLength, STptr, SrchRplcDict[STptr].ChrCnt);
+                        if (this->StrLength == 2)
+                        { /*search term & msgbuf size are the same*/
                             Test = true;
                         }
-                        break;            
+                        break;
+                    case 4: //"CP" to "CAN" conversion rule
+                        // printf("NdxPtr: %d; MsgBuf %s; StrLength: %d; SrchRplcDict[%d].ChrCnt: %d\n", NdxPtr, this->Msgbuf, StrLength, STptr, SrchRplcDict[STptr].ChrCnt);
+                        if ((this->StrLength > (NdxPtr + 2)) && this->Msgbuf[NdxPtr + 2] != 'Y')
+                        { /*search term & msgbuf size are the same*/
+                            Test = true;
+                        }
+                        break;
+                    case 5: /* RULE(SAG/SAME) - 1st character following the search term is NOT 'O', 'N' */
+                        if (this->Msgbuf[NdxPtr + this->SrchRplcDict[STptr].ChrCnt] != 'O'
+                            && this->Msgbuf[NdxPtr + this->SrchRplcDict[STptr].ChrCnt] != 'N')
+                        { 
+                            Test = true;
+                        }
+                        break;
+                    case 6: /* RULE(POTH/ANOTH) - 1st character following the search term is NOT 'O'*/
+                        if (this->Msgbuf[NdxPtr -1] != 'S')
+                        { 
+                            Test = true;
+                        }
+                        break;
+                    case 7: /* RULE(SAG/SAME) - 1st character following the search term is NOT 'O', 'N' */
+                        if (!(this->Msgbuf[NdxPtr + this->SrchRplcDict[STptr].ChrCnt] == 'N'
+                            && this->Msgbuf[NdxPtr + this->SrchRplcDict[STptr].ChrCnt+1] == 'E'))
+                        { 
+                            Test = true;
+                        }
+                        break;
+                    case 8: /* RULE(TKS/QS) - there is at least one more character in this word group, i.e QSB, QSL, QSO */
+                        if (this->StrLength > NdxPtr + this->SrchRplcDict[STptr].ChrCnt)
+                        {
+                            Test = true;
+                        }
+                        break;
+                    case 9: /* RULE(ANAD"/"TO PAD) - there is at least one more character in this word group, i.e QSB, QSL, QSO */
+                        if (NdxPtr> 0 && this->Msgbuf[NdxPtr - 1] != 'C')
+                        {
+                            Test = true;
+                        } else  if (NdxPtr == 0 )
+                        {
+                            Test = true; 
+                        }
+                        break;                
                     }
-                    if(Test) NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
+                    if(Test) NdxPtr = this->SrchEsReplace(NdxPtr, STptr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
                 }
             }
         } 
-        // if (NdxPtr + 1 < this->LstLtrPrntd)
-        // { // i.e. this search term group has a maxium 2 characters
-        //     /*Look for embedded character sequence 'PD', if found replace with 'AND' */
-        //     // sprintf(SrchTerm, "PD");
-        //     // sprintf(RplaceTerm, "AND");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);//SrchRplcDict[50]
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-        //     /*if this reparsed character set only has 2 characters make the following checks*/
-        //     if (this->LstLtrPrntd == 1)
-        //     {
-        //         /*Look for character sequence 'PY', if found replace with 'ANY' */
-        //         // sprintf(SrchTerm, "PY");
-        //         // sprintf(RplaceTerm, "ANY");
-        //         // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //         STptr = 1;
-        //         NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //         /*Look for character sequence 'PT', if found replace with 'ANT' */
-        //         // sprintf(SrchTerm, "PT");
-        //         // sprintf(RplaceTerm, "ANT");
-        //         // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //         STptr = 2;
-        //         NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //         /*Look for character sequence 'CP', if found replace with 'CAN' */
-        //         // sprintf(SrchTerm, "CP");
-        //         // sprintf(RplaceTerm, "CAN");
-        //         // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //         STptr = 3;
-        //         NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //         /* STptr 70 Look for character sequence 'AP', if found replace with 'AGE' */
-        //         STptr = 70;
-        //         NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-        //     }
-            
-        //     /*Look for embedded character sequence 'QY', if found replace with 'MAY'*/
-        //     if (NdxPtr == 0 || (NdxPtr > 0 && this->Msgbuf[NdxPtr - 1] != 'C'))
-        //     {
-        //         // sprintf(SrchTerm, "QY");
-        //         // sprintf(RplaceTerm, "MAY");
-        //         // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //         STptr = 4;
-        //         NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-        //     }
-        //     /*Look for embedded character sequence 'S2', if found replace with 'SUM'*/
-        //     // sprintf(SrchTerm, "S2");
-        //     // sprintf(RplaceTerm, "SUM");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 5;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-        // }
-        // if (NdxPtr + 2 < this->LstLtrPrntd) // i.e. search term has 3 characters
-        // {
-        //     /*Look for embedded character sequence 'WHW', if found replace with 'WHAT'*/
-        //     // sprintf(SrchTerm, "WHW");
-        //     // sprintf(RplaceTerm, "WHAT");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 6;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //      /*Look for embedded character sequence 'UAN', if found replace with 'UP'*/
-        //     // sprintf(SrchTerm, "UAN");
-        //     // sprintf(RplaceTerm, "UP");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 7;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-
-        //     /*Look for embedded character sequence 'WJS', if found replace with 'WATTS'*/
-        //     // sprintf(SrchTerm, "WJS");
-        //     // sprintf(RplaceTerm, "WATTS");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 8;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*Look for embedded character sequence 'KNS', if found replace with 'YES'*/
-        //     // sprintf(SrchTerm, "KNS");
-        //     // sprintf(RplaceTerm, "YES");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 9;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*Look for embedded character sequence 'PEK', if found replace with 'WEEK'*/
-        //     // sprintf(SrchTerm, "PEK");
-        //     // sprintf(RplaceTerm, "WEEK");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 10;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*Look for embedded character sequence 'NAG', if found replace with 'NAME'*/
-        //     // sprintf(SrchTerm, "NAG");
-        //     // sprintf(RplaceTerm, "NAME");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 11;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*Look for embedded character sequence 'SAG', if found replace with 'SAME'*/
-        //     // sprintf(SrchTerm, "SAG");
-        //     // sprintf(RplaceTerm, "SAME");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 12;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*Look for embedded character sequence 'TIG', if found replace with 'TIME'*/
-        //     // sprintf(SrchTerm, "TIG");
-        //     // sprintf(RplaceTerm, "TIME");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 13;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-            
-        //     /*Look for embedded character sequence 'QLK', if found replace with 'TALK'*/
-        //     // sprintf(SrchTerm, "QLK");
-        //     // sprintf(RplaceTerm, "TALK");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 14;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-
-        //     // sprintf(SrchTerm, "TB3");
-        //     // sprintf(RplaceTerm, "73");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 15;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*Look for embedded character sequence 'SO9', if found replace with 'SOON'*/
-        //     // sprintf(SrchTerm, "SO9");
-        //     // sprintf(RplaceTerm, "SOON");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 16;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*Look for embedded character sequence 'MPY', if found replace with 'MANY'*/
-        //     // sprintf(SrchTerm, "MPY");
-        //     // sprintf(RplaceTerm, "MANY");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 17;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*Look for embedded character sequence 'SI6', if found replace with 'SIDE'*/
-        //     // sprintf(SrchTerm, "SI6");
-        //     // sprintf(RplaceTerm, "SIDE");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 18;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*if this is not part of a "CQ",
-        //     look for embedded character sequence 'QDE', if found replace with 'MADE'*/
-        //     if (NdxPtr == 0 || (NdxPtr > 0 && this->Msgbuf[NdxPtr - 1] != 'C'))
-        //     {
-        //         // sprintf(SrchTerm, "QDE");
-        //         // sprintf(RplaceTerm, "MADE");
-        //         // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //         STptr = 19;
-        //         NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-        //     }
-        //     if(this->LstLtrPrntd == 2)
-        //     {
-        //         /*Look for embedded character sequence 'MKT', if found replace with 'MY'*/
-        //         STptr = 68;
-        //         NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-        //     }
-        //     /*Look for embedded character sequence 'LWE', if found replace with 'LATE'*/
-        //     // sprintf(SrchTerm, "LWE");
-        //     // sprintf(RplaceTerm, "LATE");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 20;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*Look for embedded character sequence 'THW', if found replace with 'THAT'*/
-        //     // sprintf(SrchTerm, "THW");
-        //     // sprintf(RplaceTerm, "THAT");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 21;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*Look for embedded character sequence 'THP', if found replace with 'THAN'*/
-        //     // sprintf(SrchTerm, "THP");
-        //     // sprintf(RplaceTerm, "THAN");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 22;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*Look for embedded character sequence 'TMN', if found replace with 'ON'*/
-        //     // sprintf(SrchTerm, "TMN");
-        //     // sprintf(RplaceTerm, "ON");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 23;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*Look for embedded character sequence 'PLL', if found replace with 'WELL'*/
-        //     // sprintf(SrchTerm, "PLL");
-        //     // sprintf(RplaceTerm, "WELL");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 24;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*Look for embedded character sequence 'SJE', if found replace with 'SAME'*/
-        //     // sprintf(SrchTerm, "SJE");
-        //     // sprintf(RplaceTerm, "SAME");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 25;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*Look for embedded character sequence 'CPT', if found replace with 'CANT'*/
-        //     // sprintf(SrchTerm, "CPT");
-        //     // sprintf(RplaceTerm, "CANT");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 26;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*Look for embedded character sequence '0VE', if found replace with 'MOVE'*/
-        //     // sprintf(SrchTerm, "0VE");
-        //     // sprintf(RplaceTerm, "MOVE");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 27;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*Look for embedded character sequence 'RLN', if found replace with 'RAIN'*/
-        //     // sprintf(SrchTerm, "RLN");
-        //     // sprintf(RplaceTerm, "RAIN");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 28;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*Look for embedded character sequence 'D9T', if found replace with 'DONT'*/
-        //     // sprintf(SrchTerm, "D9T");
-        //     // sprintf(RplaceTerm, "DONT");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 29;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*Look for embedded character sequence 'TNN', if found replace with 'GN'*/
-        //     // sprintf(SrchTerm, "TNN");
-        //     // sprintf(RplaceTerm, "GN");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 30;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*Look for embedded character sequence 'TNO', if found replace with 'GO'*/
-        //     // sprintf(SrchTerm, "TNO");
-        //     // sprintf(RplaceTerm, "GO");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 31;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*Look for embedded character sequence 'SOG', if found replace with 'SOME'*/
-        //     // sprintf(SrchTerm, "SOG");
-        //     // sprintf(RplaceTerm, "SOME");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 32;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*Look for embedded character sequence 'D9T', if found replace with 'DONT'*/
-        //     // sprintf(SrchTerm, "D9T");
-        //     // sprintf(RplaceTerm, "DONT");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 33;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*Look for embedded character sequence 'CHW', if found replace with 'CHAT'*/
-        //     // sprintf(SrchTerm, "CHW");
-        //     // sprintf(RplaceTerm, "CHAT");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 34;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*Look for embedded character sequence 'WPT', if found replace with 'WANT'*/
-        //     // sprintf(SrchTerm, "WPT");
-        //     // sprintf(RplaceTerm, "WANT");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 35;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*Look for embedded character sequence 'W5N', if found replace with 'WHEN'*/
-        //     // sprintf(SrchTerm, "W5N");
-        //     // sprintf(RplaceTerm, "WHEN");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 36;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*Look for embedded character sequence 'PNT', if found replace with 'WENT'*/
-        //     // sprintf(SrchTerm, "PNT");
-        //     // sprintf(RplaceTerm, "WENT");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 37;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*Look for embedded character sequence '6IS', if found replace with 'THIS'*/
-        //     // sprintf(SrchTerm, "6IS");
-        //     // sprintf(RplaceTerm, "THIS");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 38;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*Look for embedded character sequence 'PEK', if found replace with 'WEEK'*/
-        //     // sprintf(SrchTerm, "PEK");
-        //     // sprintf(RplaceTerm, "WEEK");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 39;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*Look for embedded character sequence 'THJ', if found replace with 'THAT'*/
-        //     // sprintf(SrchTerm, "THJ");
-        //     // sprintf(RplaceTerm, "THAT");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 40;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*Look for embedded character sequence '(9LY)', if found replace with 'ONLY'*/
-        //     // sprintf(SrchTerm, "9LY");
-        //     // sprintf(RplaceTerm, "ONLY");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 41;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /* STptr 71 Look for character sequence 'C9S', if found replace with 'CONS' */
-        //     STptr = 71;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /* STptr 72 Look for character sequence 'DNG', if found replace with 'TING' */
-        //     STptr = 72;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /* STptr 73 Look for character sequence 'LEP', if found replace with 'LEAN' */
-        //     STptr = 73;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-        // }
-        // if (NdxPtr + 3 < this->LstLtrPrntd)
-        // { // this search term group has a maxium of 4 characters
-        //     /*Look for embedded character sequence 'WXST', if found replace with 'JUST'*/
-        //     // sprintf(SrchTerm, "WXST");
-        //     // sprintf(RplaceTerm, "JUST");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 42;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*Look for embedded character sequence 'TNET', if found replace with 'GET'*/
-        //     // sprintf(SrchTerm, "TNET");
-        //     // sprintf(RplaceTerm, "GET");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 43;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*Look for embedded character sequence 'EAEA', if found replace with 'REA'*/
-        //     // sprintf(SrchTerm, "EAEA");
-        //     // sprintf(RplaceTerm, "REA");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 44;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*Look for embedded character sequence 'DAKT', if found replace with 'DAY'*/
-        //     // sprintf(SrchTerm, "DAKT");
-        //     // sprintf(RplaceTerm, "DAY");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 45;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*Look for embedded character sequence 'TDNG', if found replace with 'TTING'*/
-        //     // sprintf(SrchTerm, "TDNG");
-        //     // sprintf(RplaceTerm, "TTING");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 46;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*Look for embedded character sequence 'CETN', if found replace with 'CAN'*/
-        //     // sprintf(SrchTerm, "CETN");
-        //     // sprintf(RplaceTerm, "CAN");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 47;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*Look for embedded character sequence 'QSMT', if found replace with 'QSO'*/
-        //     // sprintf(SrchTerm, "QSMT");
-        //     // sprintf(RplaceTerm, "QSO");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 48;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*Look for embedded character sequence 'INTN', if found replace with 'ING'*/
-        //     // sprintf(SrchTerm, "INTN");
-        //     // sprintf(RplaceTerm, "ING");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 49;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*Look for embedded character sequence 'SINT', if found replace with 'SUN'*/
-        //     // sprintf(SrchTerm, "SINT");
-        //     // sprintf(RplaceTerm, "SUN");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 50;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*Look for embedded character sequence 'MMMK', if found replace with 'OOK'*/
-        //     // sprintf(SrchTerm, "MMMK");
-        //     // sprintf(RplaceTerm, "OOK");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 51;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*Look for embedded character sequence 'GMTT', if found replace with 'GOT'*/
-        //     // sprintf(SrchTerm, "GMTT");
-        //     // sprintf(RplaceTerm, "GOT");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 52;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*Look for embedded character sequence 'TTTN', if found replace with 'ON'*/
-        //     // sprintf(SrchTerm, "TTTN");
-        //     // sprintf(RplaceTerm, "ON");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 53;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*Look for embedded character sequence 'WEUT', if found replace with 'PUT'*/
-        //     // sprintf(SrchTerm, "WEUT");
-        //     // sprintf(RplaceTerm, "PUT");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 54;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*Look for embedded character sequence 'TBVT', if found replace with '73'*/
-        //     // sprintf(SrchTerm, "TBVT");
-        //     // sprintf(RplaceTerm, "73");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 55;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*Look for embedded character sequence 'INME', if found replace with 'ING'*/
-        //     // sprintf(SrchTerm, "INME");
-        //     // sprintf(RplaceTerm, "ING");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 56;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*Look for embedded character sequence 'EZNG', if found replace with 'ETTING'*/
-        //     // sprintf(SrchTerm, "EZNG");
-        //     // sprintf(RplaceTerm, "ETTING");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 57;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*Look for embedded character sequence 'DTYL', if found replace with 'XYL'*/
-        //     // sprintf(SrchTerm, "DTYL");
-        //     // sprintf(RplaceTerm, "XYL");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 58;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*Look for embedded character sequence 'GAEE" found replace with 'GRE*/
-        //     // sprintf(SrchTerm, "GAEE");
-        //     // sprintf(RplaceTerm, "GRE");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 59;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*Look for embedded character sequence 'NKEE" found replace with 'NCE*/
-        //     // sprintf(SrchTerm, "NKEE");
-        //     // sprintf(RplaceTerm, "NCE");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 60;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*Look for embedded character sequence 'ARKT" found replace with 'ARY*/
-        //     // sprintf(SrchTerm, "ARKT");
-        //     // sprintf(RplaceTerm, "ARY");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 61;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*Look for embedded character sequence 'KTES" found replace with 'YES*/
-        //     STptr = 66;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*Look for embedded character sequence "C9DX" found replace with 'CONDX'*/
-        //     STptr = 67;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-                        
-        //     /*Look for embedded character sequence "EXCA" found replace with 'EXTRA'*/
-        //     STptr = 69;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /* STptr 74; Look for character sequence 'MEOT', if found replace with 'GOT' */
-        //     STptr = 74;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        // }
-        // if (NdxPtr + 4 < this->LstLtrPrntd)
-        // { // this search term group has a maxium of 5 characters
-        //     /*Look for embedded character sequence 'SNOAT', if found replace with 'SNOW'*/
-        //     // sprintf(SrchTerm, "SNOAT");
-        //     // sprintf(RplaceTerm, "SNOW");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 62;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*Look for embedded character sequence 'TELAI' if found replace with 'TELL*/
-        //     // sprintf(SrchTerm, "TELAI");
-        //     // sprintf(RplaceTerm, "TELL");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 63;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*Look for embedded character sequence 'TTTANf found replace with 'OP*/
-        //     // sprintf(SrchTerm, "TTTAN");
-        //     // sprintf(RplaceTerm, "OP");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 64;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-        //     /*Look for embedded character sequence 'TTEAE" found replace with 'GRE*/
-        //     // sprintf(SrchTerm, "TTEAE");
-        //     // sprintf(RplaceTerm, "GRE");
-        //     // NdxPtr = this->SrchEsReplace(NdxPtr, SrchTerm, RplaceTerm);
-        //     STptr = 65;
-        //     NdxPtr = this->SrchEsReplace(NdxPtr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
-
-            
-        // }
-        //printf("NdxPtr: %d Msgbuf: %s \n", NdxPtr, this->Msgbuf);
-
+ 
         if( NdxPtr == oldPtrVal) NdxPtr++;//went completely though this set checks W/o a fix. so move to the next character in the current sequence
     }
     // Msgbufaddress = this->Msgbuf;
@@ -3467,49 +2992,18 @@ void AdvParser::FixClassicErrors(void)
             sprintf(Msgbuf, "5NN");
         }
     }
-    //  if (this->Msgbuf[lstCharPos - 1] == 'P' && this->Msgbuf[lstCharPos] == 'D')
-    //  {
-    //     // test for "PD"
-    //      sprintf(Msgbuf, " (%c%s", this->Msgbuf[lstCharPos - 2], "AND)"); //"true"; Insert preceeding character plus correction "AND"
-    //  }
 
-    // if (this->Msgbuf[lstCharPos - 1] == '6' && this->Msgbuf[lstCharPos] == 'E')
-    // {                                                                    // test for "6E"
-    //     sprintf(Msgbuf, " (%c%s", this->Msgbuf[lstCharPos - 2], "THE)"); //"true"; Insert preceeding character plus correction "THE"
-    // }
-    // if (this->Msgbuf[lstCharPos - 1] == '6' && this->Msgbuf[lstCharPos] == 'A')
-    // {                                                                    // test for "6A"
-    //     sprintf(Msgbuf, " (%c%s", this->Msgbuf[lstCharPos - 2], "THA)"); //"true"; Insert preceeding character plus correction "THA"
-    // }
-    //  if (this->Msgbuf[lstCharPos - 1] == '9' && this->Msgbuf[lstCharPos] == 'E')
-    //  {                              // test for "9E"
-    //      sprintf(Msgbuf, " (ONE)"); //"true"; Insert correction "ONE"
-    //  }
-    //  if (this->Msgbuf[lstCharPos - 2] == 'P' && this->Msgbuf[lstCharPos - 1] == 'L' && this->Msgbuf[lstCharPos] == 'L')
-    //  {                               // test for "PLL"
-    //      sprintf(Msgbuf, " (WELL)"); //"true"; Insert correction "WELL"
-    //  }
-    /*20240228 took this out; otherwise it gets corrected twice*/
-    //  if ((this->Msgbuf[lstCharPos - 2] == 'N' || this->Msgbuf[lstCharPos - 2] == 'L') && this->Msgbuf[lstCharPos - 1] == 'M' && this->Msgbuf[lstCharPos] == 'Y')
-    //  {                                                                   // test for "NMY/LMY"
-    //      sprintf(Msgbuf, " (%c%s", this->Msgbuf[lstCharPos - 2], "OW)"); //"true"; Insert correction "NOW"/"LOW"
-    //  }
-    //  if (this->Msgbuf[lstCharPos - 2] == 'T' && this->Msgbuf[lstCharPos - 1] == 'T' && this->Msgbuf[lstCharPos] == 'O')
-    //  {                             // test for "TTO"
-    //      sprintf(Msgbuf, "  (0)"); //"true"; Insert correction "TTO" = "0"
-    //  }
 };
 
 /*A text search & replace routine. That examines the current contents of the Msgbuf
  starting at the MsgBufIndx pointer, and tests for a match to the srchTerm
  & if found, replaces the srchTerm sequence with sequence contained in NuTerm */
-int AdvParser::SrchEsReplace(int MsgBufIndx, const char srchTerm[10], const char NuTerm[10])
+int AdvParser::SrchEsReplace(int MsgBufIndx, int STptr, const char srchTerm[10], const char NuTerm[10])
 {
     bool match = true;
     int i = 0;
     int RplcLtrCnt = 0;
     
-
     /*1st if possible look back last 3 characters & screen for call sign suffix & skip if it is*/
     int lookBkPtr = 1;
     while (MsgBufIndx - lookBkPtr>= 0 && lookBkPtr <= 3)
@@ -3577,15 +3071,16 @@ int AdvParser::SrchEsReplace(int MsgBufIndx, const char srchTerm[10], const char
         }
     }
     /*make sure the character sequence is NULL terminated
-     and update LstLtrPrntd */
+     and update StrLength */
+    uint16_t oldStrLength = this->StrLength; 
     if ((MsgBufIndx + RplcLtrCnt + j) < MsgbufSize)
     {
         this->Msgbuf[MsgBufIndx + RplcLtrCnt + j] = 0;
-        this->LstLtrPrntd = MsgBufIndx + RplcLtrCnt + j;
+        this->StrLength = MsgBufIndx + RplcLtrCnt + j;
     }
 
     if (j > 0)
         MsgBufIndx += RplcLtrCnt;
-    printf("Old: %s;  SrchTerm: %s; New: %s\n", oldtxt,  srchTerm, this->Msgbuf);    
+    printf("Old: %s;  SrchTerm: %s; New: %s; oldStrLength %d; STptr: %d\n", oldtxt,  srchTerm, this->Msgbuf, oldStrLength, STptr);    
     return MsgBufIndx;
 };
