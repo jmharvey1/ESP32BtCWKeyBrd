@@ -1467,7 +1467,9 @@ bool chkChrCmplt(void)
 	}
 	float noKeySig = (float)(Now - noSigStrt);
 	/*20240226 added or clause to prevent long run on text strings which often end up scrambled by the post parser*/
-	if (((noKeySig >= 0.75 * ((float)wordBrk)) && noSigStrt != 0 && !wordBrkFlg && (DeCodeVal == 0))||(LtrPtr > 15))
+	/*20240322 Also in long runs, look for embedded 'DE' signifing call sign declaration & if found, force a word break */
+	//if(LtrPtr>3) printf("LtrHoldr[%d]:'%c'; LtrHoldr[%d]:'%c'\n", LtrPtr-2 ,LtrHoldr[LtrPtr-2],  LtrPtr-1, LtrHoldr[LtrPtr-1]);
+	if (((noKeySig >= 0.75 * ((float)wordBrk)) && noSigStrt != 0 && !wordBrkFlg && (DeCodeVal == 0))||(LtrPtr > 15 ||((LtrPtr >= 8) && (LtrHoldr[LtrPtr-2] == 'D') && (LtrHoldr[LtrPtr-1] == 'E'))))
 	{
 		if (KeyUpPtr < IntrvlBufSize && KeyDwnPtr >= 1)
 		{ // we have both a usable time & place to store it; and at least 1 keydwn interval has been captured

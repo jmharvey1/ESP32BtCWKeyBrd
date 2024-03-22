@@ -17,7 +17,7 @@
 #include <stdio.h>
 #define IntrvlBufSize 200
 #define MsgbufSize 50
-#define SrchDictSize 160
+#define SrchDictSize 200
 struct Buckt_t
 {
 	uint16_t Intrvl;
@@ -41,7 +41,7 @@ private:
         {"PT", "ANT", 2, 1}, //2 if(this->StrLength + 1 == this->SrchRplcDict[STptr].ChrCnt){ /*search term & msgbuf size are the same*/
         {"CP", "CAN", 2, 3}, //3 if (this->StrLength == 1)
         {"QY", "MAY", 2, 2}, //4 if (NdxPtr == 0 || (NdxPtr > 0 && this->Msgbuf[NdxPtr - 1] != 'C'))
-        {"S2", "SUM", 2, 0}, //5
+        {"S2", "SUM", 2, 10}, //5
         {"WHW", "WHAT", 3, 0}, //6
         {"UAN", "UP", 3, 0}, //7
         {"WJS", "WATTS", 3, 0}, //8
@@ -149,7 +149,7 @@ private:
         {"FTS", "FB", 3, 0}, //110
         {"CP", "CAN", 2, 4}, //111
         {"BTET", "BK", 4, 0}, //112
-        {"CEP", "KEEP", 3, 0}, //113
+        {"CEP", "KEEP", 3, 11}, //113
         {"PDT", "ANDT", 3, 0}, //114
         {"PDT", "ANDT", 3, 0}, //115
         {"DOAG", "DOWN", 4, 0}, //116
@@ -185,15 +185,53 @@ private:
         {"SQLL", "SMALL", 4, 0}, //146
         {"AKS", "WAS", 3, 1}, //147
         {"ERLEA", "PLEA", 5, 0}, //148
-        {"AGMT", "AGO", 4, 0}, //148
-        {"6ST", "BEST", 3, 0}, //149
-        {"HETVE", "HAVE", 5, 0}, //150
-        {"I9", "ION", 5, 0}, //150
-        {"NTEQ", "CQ", 4, 0}, //151
-        {"NNQ", "CQ", 3, 0}, //152
-        {"TYH", "QTH", 3, 0}, //153
-        {"LTURN", "RETURN", 5, 0}, //154
-        {"WAMS", "WATTS", 4, 0}, //155
+        {"AGMT", "AGO", 4, 0}, //149
+        {"6ST", "BEST", 3, 0}, //150
+        {"HETVE", "HAVE", 5, 0}, //151
+        {"I9", "ION", 5, 0}, //152
+        {"NTEQ", "CQ", 4, 0}, //153
+        {"NNQ", "CQ", 3, 0}, //154
+        {"TYH", "QTH", 3, 0}, //155
+        {"LTURN", "RETURN", 5, 0}, //156
+        {"WAMS", "WATTS", 4, 0}, //157
+        {"NITRE", "NICE", 5, 0}, //158
+        {"CHROG", "CHROME", 5, 0}, //159
+        {"LOONT", "LOOK", 5, 0}, //160
+        {"ANLUS", "PLUS", 5, 0}, //161
+        {"ON0", "90", 3, 0}, //162
+        {"EQNT", "WANT", 4, 0}, //163
+        {"NFG", "NING", 3, 0}, //164
+        {"DMGT", "DONT", 4, 0}, //165
+        {"GITD", "GUD", 4, 0}, //166
+        {"SUAEE", "SURE", 5, 0}, //167
+        {"TBSM", "73", 4, 0}, //168
+        {"TTT", "O", 3, 1}, //169
+        {"BETND", "BAND", 5, 0}, //170
+        {"NOMG", "NOON", 4, 0}, //171
+        {"OI0W", "80W", 4, 0}, //172
+        {"ATORK", "WORK", 5, 0}, //173
+        {"ATRK", "WRK", 4, 1}, //174
+        {"DAUME", "DAUG", 5, 0}, //175
+        {"DAUME", "DAUG", 5, 0}, //176
+        {"VERKT", "VERY", 5, 0}, //177
+        {"LAAG", "LAWN", 4, 0}, //178
+        {"WAED", "WAL", 4, 0}, //179
+        {"OEDD", "OLD", 4, 0}, //180
+        /*FINISHED;  SrchTerm: INISH; New: FFISHED; oldStrLength 8; STptr: 181*/
+        {"INISH", "FISH", 5, 12}, //181
+        {"<KN>S", "FISH", 5, 0}, //182
+        {"STY", "VY", 3, 1}, //183
+        {"FMTR", "FOR", 4, 0}, //184
+        {"ATITH", "WITH", 5, 0}, //185
+        {"TTTT", "TO", 4, 1}, //186
+        {"MARU", "QRU", 4, 0}, //187
+        {"DEMN", "DWN", 4, 0}, //188
+        {"LMN", "LY", 3, 0}, //189
+        {"TATKE", "TAKE", 5, 0}, //190
+        {"THETNKS", "THANKS", 7, 0}, //191
+        {"MTVE", "OVE", 4, 0}, //192
+        {"QN", "MAN", 2, 13}, //192
+
 
     };
     bool AllDah;

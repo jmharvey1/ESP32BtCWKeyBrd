@@ -2969,7 +2969,43 @@ void AdvParser::FixClassicErrors(void)
                         {
                             Test = true; 
                         }
-                        break;                
+                        break;
+                    case 10: /* S2/SUM - this is the 1st in the string or there is at least one character ahead & its NOT an 'E' */
+                        if (NdxPtr> 0 && this->Msgbuf[NdxPtr - 1] != 'E')
+                        {
+                            Test = true;
+                        } else  if (NdxPtr == 0 )
+                        {
+                            Test = true; 
+                        }
+                        break;
+                    case 11: /* CEP/KEEP - this is the 1st in the string or there is at least one character ahead & its NOT an 'E' */
+                        if (NdxPtr> 0 && this->Msgbuf[NdxPtr - 1] != 'X')
+                        {
+                            Test = true;
+                        } else  if (NdxPtr == 0 )
+                        {
+                            Test = true; 
+                        }
+                        break;
+                    case 12: /* INISH/FISH - this is the 1st in the string or there is at least one character ahead & its NOT an 'E' */
+                        if (NdxPtr> 0 && this->Msgbuf[NdxPtr - 1] != 'F')
+                        {
+                            Test = true;
+                        } else  if (NdxPtr == 0 )
+                        {
+                            Test = true; 
+                        }
+                        break;
+                    case 13: /* QN/MAN - this is the 1st in the string or there is at least one character ahead & its NOT an 'E' */
+                        if (this->StrLength > 2 && this->Msgbuf[NdxPtr + 2] != 'I')
+                        {
+                            Test = true;
+                        }else if (this->StrLength == 2)
+                        {
+                            Test = true;
+                        } 
+                        break;                                  
                     }
                     if(Test) NdxPtr = this->SrchEsReplace(NdxPtr, STptr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
                 }
