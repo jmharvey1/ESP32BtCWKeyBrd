@@ -359,7 +359,7 @@
                 "SOC_MMU_PAGE_SIZE=CONFIG_MMU_PAGE_SIZE",
                 "IDF_VER=\"5.0.2\"",
                 "ESP_PLATFORM",
-                "PLATFORMIO=60113",
+                "PLATFORMIO=60114",
                 "ARDUINO_uPesy_WROOM",
                 "CORE_DEBUG_LEVEL=ESP_LOG_VERBOSE",
                 ""
