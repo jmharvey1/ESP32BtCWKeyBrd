@@ -240,7 +240,6 @@ void StartDecoder(TFTMsgBox *pttftmsgbx)
 	{
 		PrdStack[i] = 1200 / 15;
 	}
-	wordBrk = ((5 * wordBrk) + (4 * avgDeadSpace)) / 6;
 	AvgSmblDedSpc =  avgDeadSpace;
 	
 } /* END SetUp Code */
@@ -436,31 +435,21 @@ void KeyEvntSR(uint8_t Kstate, unsigned long EvntTime)
 				
 				wordBrkFlg = false;
 				thisWordBrk = STart - wordStrt;
-				// printf("ReCal thisWordBrk: %d; avgDeadSpace: %d; wordBrk: %d\n", (int)thisWordBrk, (int)avgDeadSpace, (int)wordBrk);
-				// wordBrk = (5 * wordBrk + (6*avgDeadSpace)) / 6;//20240127 new approach to setting word break wait interval
 				MaxDeadTime = 0;
 				charCnt = 0;
-				// if (thisWordBrk < 8 * avgDeadSpace) //20240126 changed to reduce string length of a word
-				// {
-				// 	if (GudSig){
-				// 		wordBrk = (5 * wordBrk + thisWordBrk) / 6;
-				// 		printf("GudSig - wordBrk: %d\n", (int)wordBrk);
-				// 	}
-				// 	MaxDeadTime = 0;
-				// 	charCnt = 0;
-				// }
+				
 			}
-			else if (charCnt > 12) //we've gone 12 characters w/o a word break; force a reset based on the longest keyup interval since last word break
-			{
-				if (MaxDeadTime < wordBrk)
-				{
-					//printf("  FIX wordBrk: %d; MaxDeadTime: %d\n", (int)wordBrk, (int)MaxDeadTime);
-					wordBrk = MaxDeadTime;
+			// else if (charCnt > 12) //we've gone 12 characters w/o a word break; force a reset based on the longest keyup interval since last word break
+			// {
+			// 	if (MaxDeadTime < wordBrk)
+			// 	{
+			// 		//printf("  FIX wordBrk: %d; MaxDeadTime: %d\n", (int)wordBrk, (int)MaxDeadTime);
+			// 		wordBrk = MaxDeadTime;
 					
-				}
-				MaxDeadTime = 0;
-				charCnt = 0;
-			}
+			// 	}
+			// 	MaxDeadTime = 0;
+			// 	charCnt = 0;
+			// }
 			noSigStrt = EvntTime; // jmh20190717added to prevent an absurd value
 
 			if (DeCodeVal == 0)
@@ -1246,7 +1235,13 @@ void ChkDeadSpace(void)
 	/* 20240324 new approach to setting word break wait interval*/
 	if(advparser.KeyType == 2) wordBrk = (5 * wordBrk + (8*avgDeadSpace)) / 6; //cootie with short keyup intervals
 	/*20240328 added separate calc for paddle trying to stop unneeded word breaks*/
-	else if(advparser.KeyType == 0) wordBrk = (6 * wordBrk + (7*avgDeadSpace)) / 7; //paddle
+	else if(advparser.KeyType == 0){
+		uint16_t NuWrdBkA = (uint16_t)(4.2*(float)avgDeadSpace);
+		//uint16_t NuWrdBkB = (uint16_t)(2.3 * (float)advparser.UnitIntvrlx2r5);
+		wordBrk = (unsigned long)((6.0 * (float)wordBrk + ((float)NuWrdBkA)) / 7.0); //paddle
+		//printf("wordBrk: %d; NuWrdBkA: %d; NuWrdBkB: %d\n", (uint16_t)wordBrk, NuWrdBkA, NuWrdBkB);
+	}
+	//else if(advparser.KeyType == 0) wordBrk = (unsigned long)((5.0 * (float)wordBrk + (2.3 * (float)advparser.UnitIntvrlx2r5)) / 6.0); //paddle 
 	else wordBrk = (5 * wordBrk + (6*avgDeadSpace)) / 6;//all other key type
 	//printf("ReCal WordBrk - avgDeadSpace: %d; wordBrk: %d\n", (int)avgDeadSpace, (int)wordBrk);
 	//    printf("\n\r");
@@ -1471,8 +1466,9 @@ bool chkChrCmplt(void)
 	float noKeySig = (float)(Now - noSigStrt);
 	/*20240226 added or clause to prevent long run on text strings which often end up scrambled by the post parser*/
 	/*20240322 Also in long runs, look for embedded 'DE' signifing call sign declaration & if found, force a word break */
-	//if(LtrPtr>3) printf("LtrHoldr[%d]:'%c'; LtrHoldr[%d]:'%c'\n", LtrPtr-2 ,LtrHoldr[LtrPtr-2],  LtrPtr-1, LtrHoldr[LtrPtr-1]);
-	if (((noKeySig >= 0.75 * ((float)wordBrk)) && noSigStrt != 0 && !wordBrkFlg && (DeCodeVal == 0))||(LtrPtr > 15 ||((LtrPtr >= 6) && (LtrHoldr[LtrPtr-2] == 'D') && (LtrHoldr[LtrPtr-1] == 'E'))))
+	//if (((noKeySig >= 0.75 * ((float)wordBrk)) && noSigStrt != 0 && !wordBrkFlg && (DeCodeVal == 0))||(LtrPtr > 18 ||((LtrPtr >= 6) && (LtrHoldr[LtrPtr-2] == 'D') && (LtrHoldr[LtrPtr-1] == 'E'))))
+	if (((noKeySig >= ((float)wordBrk)) && noSigStrt != 0 && !wordBrkFlg && (DeCodeVal == 0))||(LtrPtr > 18) ||((LtrPtr >= 6) && (LtrHoldr[LtrPtr-2] == 'D') && (LtrHoldr[LtrPtr-1] == 'E')))
+	
 	{
 		if (KeyUpPtr < IntrvlBufSize && KeyDwnPtr >= 1)
 		{ // we have both a usable time & place to store it; and at least 1 keydwn interval has been captured

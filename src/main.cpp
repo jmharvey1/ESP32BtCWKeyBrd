@@ -89,6 +89,9 @@
 /*20240322 expanded SrchRplcDict[] to 192 entries */
 /*20240323 expanded SrchRplcDict[] to 212 entries*/
 /*20240330 expanded SrchRplcDict[] to 289 entries*/
+/*20240405 expanded SrchRplcDict[] to 329 entries*/
+/*20240408 expanded SrchRplcDict[] to 346 entries*/
+/*20240411 expanded SrchRplcDict[] to 400 entries*/
 
 #include "sdkconfig.h" //added for timer support
 #include "globals.h"
@@ -146,7 +149,7 @@ DF_t DFault;
 int DeBug = 0; // Debug factory default setting; 0 => Debug "OFF"; 1 => Debug "ON"
 char StrdTxt[20] = {'\0'};
 /*Factory Default Settings*/
-char RevDate[9] = "20240330";
+char RevDate[9] = "20240411";
 char MyCall[10] = "KW4KD";
 char MemF2[80] = "VVV VVV TEST DE KW4KD";
 char MemF3[80] = "CQ CQ CQ DE KW4KD KW4KD";
@@ -779,7 +782,7 @@ void app_main()
   xTaskCreatePinnedToCore(
       AdvParserTask, /* Function to implement the task */
       "AdvParser Task", /* Name of the task */
-      2092,  /* Stack size in words */
+      4096,  /* Stack size in words */
       NULL,  /* Task input parameter */
       2,  /* Priority of the task */
       &AdvParserTaskHandle,  /* Task handle. */

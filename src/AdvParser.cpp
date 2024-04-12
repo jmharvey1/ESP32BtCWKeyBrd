@@ -283,7 +283,12 @@ void AdvParser::EvalTimeData(void)
             BugKey = 2;
             bgPdlCd = 50;
         }
-        else if (3 * KeyDwnBuckts[0].Intrvl < AvgSmblDedSpc)
+        else if (3 * KeyDwnBuckts[0].Intrvl < AvgSmblDedSpc && KeyDwnBuckts[0].Cnt>1)//if cnt = 1, it might be glitch
+        { // Cootie Type 2
+            BugKey = 3;
+            bgPdlCd = 60;
+        }
+        else if (3 * KeyDwnBuckts[1].Intrvl < AvgSmblDedSpc && KeyDwnBuckts[1].Cnt>1)
         { // Cootie Type 2
             BugKey = 3;
             bgPdlCd = 60;
@@ -362,6 +367,12 @@ void AdvParser::EvalTimeData(void)
                 bgPdlCd = 40;
                 this->WrdBrkVal = (uint16_t)3.0 * this->UnitIntvrlx2r5;
                 break;
+            case 11: //use only for testing
+                // Cootie Type 2
+                BugKey = 3;
+                bgPdlCd = 60;
+                this->WrdBrkVal = (uint16_t)3.0 * this->UnitIntvrlx2r5;
+                break;    
             default:
                 /*if we are here, start by assuming BugKey value equals 1; i.e., "bug1"*/
                 BugKey = 1; //
@@ -569,28 +580,69 @@ void AdvParser::EvalTimeData(void)
                 printf("Up: ???\t");
         }
         SymbSet = SymbSet << 1; // append a new bit to the symbolset & default it to a 'Dit'
-        /*TODO - need to change the following 'if' to 'Switch' based which ruleset/keytype will be used later
-        to aviod keydown interval from bieng mis-classified as a dah, where later it might be recognized a dit */
-        if (BugKey == 6)
-        {                                           // Sloppy Bug
+        /*20240403 NEW Way - to assign "Dah" entry to symbol set based which ruleset/keytype selected above;
+        to avoid keydown interval from bieng mis-classified as a dah, where later it might be recognized a dit */
+       
+        switch (BugKey)
+        {
+        case 0/* constant-expression */:
+            /* code */
+                                                    // Paddle/KeyBoard
+            if (TmpDwnIntrvls[n] >= DitDahSplitVal) // AKA 'SplitPoint'; if true, its a 'dah'
+                SymbSet += 1;                       // Set the new bit to a 'Dah'
+            break;
+        case 2/* constant-expression */:
+            /* code */
+                                                    // Cootie
+            if (TmpDwnIntrvls[n] >= DitDahSplitVal) // AKA 'SplitPoint'; if true, its a 'dah'
+                SymbSet += 1;                       // Set the new bit to a 'Dah'
+            break;
+        // case 0/* constant-expression */:
+        //     /* code */
+            
+        //     break;
+        // case 0/* constant-expression */:
+        //     /* code */
+            
+        //     break;
+        case 5/* constant-expression */:
+            /* code */
+                                                    // Str8Key
+            if (TmpDwnIntrvls[n] >= DitDahSplitVal) // AKA 'SplitPoint'; if true, its a 'dah'
+                SymbSet += 1;                       // Set the new bit to a 'Dah'                                        
+            break;                    
+        case 6/* constant-expression */:
+            /* code */
+                                                    // Sloppy Bug
             if (TmpDwnIntrvls[n] >= DitDahSplitVal) // if true, its a 'dah'
                 SymbSet += 1;                       // Set the new bit to a 'Dah'
-        }
-        else if (BugKey == 0)
-        {                                           // Paddle/KeyBoard
-            if (TmpDwnIntrvls[n] >= DitDahSplitVal) // AKA 'SplitPoint'; if true, its a 'dah'
-                SymbSet += 1;                       // Set the new bit to a 'Dah'
-        }
-        else if (BugKey == 2)
-        {                                           // Cootie
-            if (TmpDwnIntrvls[n] >= DitDahSplitVal) // AKA 'SplitPoint'; if true, its a 'dah'
-                SymbSet += 1;                       // Set the new bit to a 'Dah'
-        }
-        else
-        {
+            break;
+        default:
             if (TmpDwnIntrvls[n] >= Bg1SplitPt) // if true, its a 'dah'
                 SymbSet += 1;                   // Set the new bit to a 'Dah'
+            break;
         }
+        /*20240403 OLD Way*/
+        // if (BugKey == 6)
+        // {                                           // Sloppy Bug
+        //     if (TmpDwnIntrvls[n] >= DitDahSplitVal) // if true, its a 'dah'
+        //         SymbSet += 1;                       // Set the new bit to a 'Dah'
+        // }
+        // else if (BugKey == 0)
+        // {                                           // Paddle/KeyBoard
+        //     if (TmpDwnIntrvls[n] >= DitDahSplitVal) // AKA 'SplitPoint'; if true, its a 'dah'
+        //         SymbSet += 1;                       // Set the new bit to a 'Dah'
+        // }
+        // else if (BugKey == 2)
+        // {                                           // Cootie
+        //     if (TmpDwnIntrvls[n] >= DitDahSplitVal) // AKA 'SplitPoint'; if true, its a 'dah'
+        //         SymbSet += 1;                       // Set the new bit to a 'Dah'
+        // }
+        // else
+        // {
+        //     if (TmpDwnIntrvls[n] >= Bg1SplitPt) // if true, its a 'dah'
+        //         SymbSet += 1;                   // Set the new bit to a 'Dah'
+        // }
         int curN = n + 1;
         /* now test if the follow on keyup time represents a letter break */
         if (Tst4LtrBrk(n))
@@ -2609,6 +2661,7 @@ int AdvParser::DitDahBugTst(void)
     uint16_t ditInterval = dahInterval = dahDwnInterval = ditDwnInterval = ditDwncnt = MaxdahInterval = 0;
     MindahInterval = 1000;
     int stop = TmpUpIntrvlsPtr - 1;
+    int WrdBkCnt = 0;
     bool same;
     this->DahVarPrcnt = 0.0;
     this->StrchdDah = false;
@@ -2644,7 +2697,7 @@ int AdvParser::DitDahBugTst(void)
             dahcnt++;
             // printf("%d\n", n);
         }
-        /*test adjcent dits KeyUp timing. But only include if there's not a letter break between them */
+        /*test adjacent dits KeyUp timing. But only include if there's not a letter break between them */
         else if ((TmpDwnIntrvls[n] < this->DitDahSplitVal) &&
                  (TmpDwnIntrvls[n + 1] < this->DitDahSplitVal) &&
                  (TmpUpIntrvls[n] < this->DitDahSplitVal))
@@ -2653,6 +2706,7 @@ int AdvParser::DitDahBugTst(void)
             ditcnt++;
             // printf("\t%d\n", n);
         }
+        if((float)TmpUpIntrvls[n] > (float)1.3* this->UnitIntvrlx2r5) WrdBkCnt++;
     }
     if (dahDwncnt > 1)
     {
@@ -2667,9 +2721,10 @@ int AdvParser::DitDahBugTst(void)
     if (Dbug)
     {
         if (this->StrchdDah)
-            printf("StrchdDah = true\n");
+            printf("StrchdDah = true");
         else
-            printf("StrchdDah = false\n");
+            printf("StrchdDah = false");
+        printf("\tWrdBkCnt:%d\n",WrdBkCnt);    
     }
 
     if (ditDwncnt == 0 || dahDwncnt == 0) // we have all dits or all dahs -
@@ -2678,7 +2733,7 @@ int AdvParser::DitDahBugTst(void)
             printf("code 99; ditDwncnt: %d; dahDwncnt: %d\n", ditDwncnt, dahDwncnt);
         return 6; // unknown (99) - Stick with whatever bug type was in play w/ last symbol set
     }
-    /*20240309 Moved straight key test ahead of sloppy test; used to be after it & found long stright key runs
+    /*20240309 Moved straight key test ahead of sloppy test; used to be after it & found long straight key runs
     were getting 'typed' as sloppy bugs & the wrong rule set would be applied */
     /*Test/check for Straight key, by dits with varying intervals*/
     if (ditDwncnt >= 4)
@@ -2721,7 +2776,8 @@ int AdvParser::DitDahBugTst(void)
             char DbgTxt[16] = {"NOT Sloppy"};
             // if (Dbug) sprintf(DbgTxt, "NOT Sloppy");
             int RetrnCD = 0;
-            if ((this->KeyDwnBucktPtr >= 4 && this->KeyUpBucktPtr >= 3 && this->StrchdDah)) // 20240222 added this->StrchdDah qualifier
+            if ((this->KeyDwnBucktPtr >= 4 && this->KeyUpBucktPtr >= 3 && this->StrchdDah))
+               // 20240222 added this->StrchdDah qualifier
             {
                 // its a Sloppy Bug
                 if (Dbug)
@@ -2745,36 +2801,14 @@ int AdvParser::DitDahBugTst(void)
         {
             // its a paddle or keyboard
             return 0; // paddle/krybrd (70)
+        }else if(WrdBkCnt > 1) //20240407 added WrdBkCnt qualifier(Has streched KeyUps)
+        {
+            if (Dbug)
+                printf("\nSLOPPY EXIT C\n");
+            return 10; // Sloppy Bug (40)  
         }
 
-        // /*Test/check for Straight key, by dits with varying intervals*/
-        // if (ditDwncnt >= 4)
-        // {
-        //     /* average/normalize dit interval */
-        //     ditDwnInterval /= ditDwncnt;
-        //     int Delta = (int)((0.15 * (float)ditDwnInterval)); // 0.1*
-        //     int NegDelta = -1 * Delta;
-        //     // same = true;
-        //     ditDwncnt = 0;
-        //     int GudDitCnt = 0;                               // could use this as part of a ratio test
-        //     for (int n = 1; n <= this->TmpUpIntrvlsPtr; n++) // skip the 1st key down event because testing showed the timing of the 1st event is often shorter than the rest in the group
-        //     {
-        //         if (TmpDwnIntrvls[n] < DitDahSplitVal)
-        //         {
-        //             ditDwncnt++;
-        //             int error = TmpDwnIntrvls[n] - ditDwnInterval; // at this point, 'ditDwnInterval' is the average dit interval for this word group
-        //             if ((error < Delta) && (error > NegDelta))
-        //                 GudDitCnt++;
-        //             // else
-        //             //     same = false;
-        //         }
-        //     }
-        //     float Score = (float)GudDitCnt / (float)ditDwncnt;
-        //     printf("ditDwncnt: %d; \tGudDitCnt: %d; ditDwnInterval: %d; Delta: %d Score: %0.1f\n", ditDwncnt, GudDitCnt, ditDwnInterval, Delta, Score);
-        //     if (Score <= 0.70)
-        //     {
-        //         return 7; // straight key; (50)
-        //     }
+        
     }
     /*Test/check for electronic keys by constant dah intervals*/
     if (dahDwncnt > 1)
@@ -2932,10 +2966,12 @@ void AdvParser::FixClassicErrors(void)
                         break;
                     case 4: //"CP" to "CAN" conversion rule
                         // printf("NdxPtr: %d; MsgBuf %s; StrLength: %d; SrchRplcDict[%d].ChrCnt: %d\n", NdxPtr, this->Msgbuf, StrLength, STptr, SrchRplcDict[STptr].ChrCnt);
-                        if ((this->StrLength > (NdxPtr + 2)) && this->Msgbuf[NdxPtr + 2] != 'Y'  &&  this->Msgbuf[NdxPtr + 2] != 'I')
+                        if ((this->StrLength > (NdxPtr + 2)) && this->Msgbuf[NdxPtr + 2] != 'Y'  &&  this->Msgbuf[NdxPtr + 2] != 'I'
+                            && (this->Msgbuf[NdxPtr + SrchLen] != 'A' && this->Msgbuf[NdxPtr + SrchLen+ 1] != 'P')
+                            && (this->Msgbuf[NdxPtr + SrchLen] != 'E' && this->Msgbuf[NdxPtr + SrchLen+ 1] != 'R'))
                         { /*search term & msgbuf size are the same*/
                             Test = true;
-                        }
+                        } else if(NdxPtr == 0 && (this->Msgbuf[NdxPtr + SrchLen] != 'Y')) Test = true;
                         break;
                     case 5: /* RULE(SAG/SAME) - 1st character following the search term is NOT 'O', 'U', & 'N' */
                         if (this->Msgbuf[NdxPtr + SrchLen] != 'O'
@@ -2951,9 +2987,10 @@ void AdvParser::FixClassicErrors(void)
                             Test = true;
                         }
                         break;
-                    case 7: /* RULE(SAG/SAME) - 1st character following the search term is NOT 'O', 'N' */
+                    case 7: /* RULE(TNO/GO) - 1st character following the search term is NOT 'O', 'N' */
                         if (!(this->Msgbuf[NdxPtr + SrchLen] == 'N'
-                            && this->Msgbuf[NdxPtr + SrchLen+1] == 'E'))
+                            && this->Msgbuf[NdxPtr + SrchLen+1] == 'E')
+                            && this->Msgbuf[NdxPtr + SrchLen] != 'W') // "NO" +"W" looks like "NOW", So leave it be   
                         { 
                             if(NdxPtr == 0) Test = true;
                             else if (NdxPtr > 0 && this->Msgbuf[NdxPtr - 1] != 'U') Test = true;
@@ -2989,16 +3026,21 @@ void AdvParser::FixClassicErrors(void)
                         }
                         break;
                     case 11: /* CEP/KEEP - this is the 1st in the string or there is at least one character ahead & its NOT an 'E' */
-                        if (NdxPtr> 0 && this->Msgbuf[NdxPtr - 1] != 'X')
+                        if (this->Msgbuf[NdxPtr + SrchLen] != 'T')
                         {
-                            Test = true;
-                        } else  if (NdxPtr == 0 )
-                        {
-                            Test = true; 
+                            if (NdxPtr > 0 && this->Msgbuf[NdxPtr - 1] != 'X')
+                            {
+                                Test = true;
+                            }
+                            else if (NdxPtr == 0)
+                            {
+                                Test = true;
+                            }
                         }
                         break;
                     case 12: /* INISH/FISH - this is the 1st in the string or there is at least one character ahead & its NOT an 'E' */
-                        if (NdxPtr> 0 && this->Msgbuf[NdxPtr - 1] != 'F')
+                        if (NdxPtr> 0 && this->Msgbuf[NdxPtr - 1] != 'F'
+                           && this->Msgbuf[NdxPtr - 1] != 'M')
                         {
                             Test = true;
                         } else  if (NdxPtr == 0 )
@@ -3015,11 +3057,18 @@ void AdvParser::FixClassicErrors(void)
                             Test = true;
                         } 
                         break;
-                    case 14: /* G?/GUD - this is the 1st in the string or there is at least one character ahead & its NOT an 'E' */
-                        if (NdxPtr> 0 && this->Msgbuf[NdxPtr - 1] != 'I')
+                    case 14: /* G?/GUD; TYH/QTH - this is the 1st in the string or there is at least one character ahead & its NOT an 'E' */
+                        if (NdxPtr> 0 && (this->Msgbuf[NdxPtr - 1] == 'I'
+                           || this->Msgbuf[NdxPtr - 1] == 'U'))
                         {
-                            Test = true;
-                        } else  if (NdxPtr == 0 )
+                            Test = false;
+                        }
+                        if (NdxPtr> 1 && this->Msgbuf[NdxPtr - 1] == 'N'
+                           && this->Msgbuf[NdxPtr - 2] == 'I')
+                        {
+                            Test = false;
+                        } 
+                        else
                         {
                             Test = true; 
                         }
@@ -3027,7 +3076,10 @@ void AdvParser::FixClassicErrors(void)
                     case 15: /* RULE(M<AR>/QR) - 1st character following the search term is NOT 'A' */
                         if (this->Msgbuf[NdxPtr + SrchLen] != 'A')
                         { 
-                            Test = true;
+                            if (NdxPtr> 0 && this->Msgbuf[NdxPtr - 1] != 'G')
+                            {
+                                Test = true;
+                            } else if(NdxPtr == 0) Test = true;
                         }
                         break;
                     case 16: /* RULE(UAN/UP) - 1st character following the search term is NOT 'D' */
@@ -3043,9 +3095,10 @@ void AdvParser::FixClassicErrors(void)
                             Test = true;
                         }
                         break;
-                    case 18:/* RULE(SOG/SOME) -  1st character following the search term is NOT 'U'  */
+                    case 18:/* RULE(SOG/SOME) -  1st character following the search term is NOT 'U' or 'O' */
                         //printf("NdxPtr: %d; MsgBuf %s; StrLength: %d; SrchRplcDict[%d].ChrCnt: %d\n", NdxPtr, this->Msgbuf, StrLength, STptr, SrchRplcDict[STptr].ChrCnt);
-                        if (this->Msgbuf[NdxPtr + SrchLen] != 'U')
+                        if (this->Msgbuf[NdxPtr + SrchLen] != 'U'
+                            && this->Msgbuf[NdxPtr + SrchLen] != 'O')
                         { 
                             Test = true;
                         }
@@ -3076,27 +3129,57 @@ void AdvParser::FixClassicErrors(void)
                         break;
                     case 22: /* RULE(THW/THAT) - this is the 1st in the string or there is at least one character ahead & its NOT an 'E' */
                         if (this->StrLength > SrchLen 
-                            && this->Msgbuf[NdxPtr + SrchLen] != 'E'
-                            && this->Msgbuf[NdxPtr + SrchLen + 1] != 'S')
+                            && (this->Msgbuf[NdxPtr + SrchLen] == 'I'
+                            && this->Msgbuf[NdxPtr + SrchLen + 1] == 'N'))  //i.e. WIND
+                        {
+                            Test = false;
+                        }
+                        else if (this->StrLength > SrchLen 
+                            && (this->Msgbuf[NdxPtr + SrchLen] == 'E'
+                            && this->Msgbuf[NdxPtr + SrchLen + 1] == 'S'))  //i.e. WEST
+                        {
+                            Test = false;
+                        }
+                        else if (this->StrLength > SrchLen 
+                            && (this->Msgbuf[NdxPtr + SrchLen] == 'A'
+                            && this->Msgbuf[NdxPtr + SrchLen + 1] == 'Y'))  //i.e. WEST
+                        {
+                            Test = false;
+                        }  
+                        else if (NdxPtr> 0 && this->Msgbuf[NdxPtr - 1] != 'Q')
                         {
                             Test = true;
-                        }else if (this->StrLength == SrchLen)
+                        } 
+                        else if(NdxPtr == 0){
+                            Test = true;  
+                        }
+                        else if (this->StrLength == SrchLen)
                         {
                             Test = true;
                         } 
                         break;
                     case 23: /* RULE(NTT/Y) - this is the 1st in the string or there is at least one character following & its NOT an 'O' */
-                        if (this->StrLength > SrchLen 
-                            && this->Msgbuf[NdxPtr + SrchLen] != 'O')
+                        if (this->StrLength > SrchLen && this->Msgbuf[NdxPtr + SrchLen] == 'O')
                         {
-                            Test = true;
-                        }else if (this->StrLength == SrchLen)
+                            Test = false;
+                        }
+                        else if (this->StrLength > SrchLen&& this->Msgbuf[NdxPtr + SrchLen] == 'H')
+                        {
+                            Test = false;
+                        }
+                        else if (this->StrLength > SrchLen && this->Msgbuf[NdxPtr + SrchLen] == 'E' 
+                                 && this->Msgbuf[NdxPtr + SrchLen +1] == 'N')
+                        {
+                            Test = false;
+                        }
+                        else if (this->StrLength == SrchLen)
                         {
                             Test = true;
                         } 
                         break;
-                    case 24: /* RULE(AYER/WATER) - this is the 1st in the string or there is at least one character following & its NOT an 'O' */
-                        if (NdxPtr> 0 && this->Msgbuf[NdxPtr - 1] != 'R')
+                    case 24: /* RULE(AYER/WATER) - this is the 1st in the string or there is at least one character ahead & its NOT an 'R' or 'L'*/
+                        if (NdxPtr> 0 && this->Msgbuf[NdxPtr - 1] != 'R'
+                            && this->Msgbuf[NdxPtr - 1] != 'L')
                         {
                             Test = true;
                         } else  if (NdxPtr == 0 )
@@ -3104,12 +3187,64 @@ void AdvParser::FixClassicErrors(void)
                             Test = true; 
                         }
                         break;
-                    case 25: /* RULE(LEP/LEAN) - 1st character following the search term is NOT 'O', 'U', & 'N' */
-                        if (this->Msgbuf[NdxPtr + SrchLen] != 'T')
+                    case 25: /* RULE(LEP/LEAN; GOTI/GOD; WPT/WANT) - 1st character following the search term is NOT 'T', & 'N' */
+                        if (this->Msgbuf[NdxPtr + SrchLen] != 'T'
+                            && this->Msgbuf[NdxPtr + SrchLen] != 'N')
                         { 
                             Test = true;
                         }
-                        break;                                                                                   
+                        break;
+                    case 26: /* RULE(SUNN/SIGN) - 1st character following the search term is NOT 'Y' */
+                        if (this->Msgbuf[NdxPtr + SrchLen] != 'Y')
+                        { 
+                            Test = true;
+                        }
+                        break;
+                    case 27: /* RULE(DETN/DEG) - 1st character following the search term is NOT 'X' */
+                        if (this->Msgbuf[NdxPtr + SrchLen] != 'X')
+                        { 
+                            Test = true;
+                        }
+                        break;
+                    case 28: /* RULE(WW/WAT) - 1st character following the search term is NOT 'H' */
+                        if (this->Msgbuf[NdxPtr + SrchLen] != 'H')
+                        { 
+                            Test = true;
+                        }
+                        break;
+                    case 29: /* RULE(I9/ION) - this is the 1st in the string or there is at least one character following & its NOT an 'O' */
+                        if (NdxPtr> 0 && this->Msgbuf[NdxPtr - 1] != 'N')
+                        {
+                            Test = true;
+                        } else  if (NdxPtr == 0 )
+                        {
+                            Test = true; 
+                        }
+                        break;
+                     case 30: /* RULE(UAN/UP) - 1st character following the search term is NOT 'D' */
+                        if (this->Msgbuf[NdxPtr + SrchLen] != 'E')
+                        { 
+                            Test = true;
+                        }
+                        break;
+                    case 31: /*Rule(KTU/QU) - this is the 1st in the string or there is at least one character ahead & its NOT an 'B' */
+                        if (NdxPtr> 0 && this->Msgbuf[NdxPtr - 1] != 'B')
+                        {
+                            Test = true;
+                        } else  if (NdxPtr == 0 )
+                        {
+                            Test = true; 
+                        }
+                        break;                                                                                                           
+                    case 32: /*RULE(ARKT/ARY) - this is the 1st in the string or there is at least one character ahead & its NOT an 'M' */
+                        if (NdxPtr> 0 && this->Msgbuf[NdxPtr - 1] != 'M')
+                        {
+                            Test = true;
+                        } else  if (NdxPtr == 0 )
+                        {
+                            Test = true; 
+                        }
+                        break;
                     }
                     if(Test) NdxPtr = this->SrchEsReplace(NdxPtr, STptr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
                 }
@@ -3221,6 +3356,7 @@ int AdvParser::SrchEsReplace(int MsgBufIndx, int STptr, const char srchTerm[10],
 
     if (j > 0)
         MsgBufIndx += RplcLtrCnt;
-    printf("Old: %s;  SrchTerm: %s; New: %s; oldStrLength %d; STptr: %d\n", oldtxt,  srchTerm, this->Msgbuf, oldStrLength, STptr);    
+    //printf("Old: %s;  SrchTerm: %s; New: %s; oldStrLength %d; STptr: %d\n", oldtxt,  srchTerm, this->Msgbuf, oldStrLength, STptr);
+    printf("Old: %s;  SrchTerm: %s; New: %s; STptr: %d\n", oldtxt,  srchTerm, this->Msgbuf, STptr);    
     return MsgBufIndx;
 };

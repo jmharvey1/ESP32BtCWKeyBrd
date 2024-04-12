@@ -18,7 +18,7 @@
 #include <stdio.h>
 #define IntrvlBufSize 200
 #define MsgbufSize 50
-#define SrchDictSize 290
+#define SrchDictSize 410
 struct Buckt_t
 {
 	uint16_t Intrvl;
@@ -48,7 +48,7 @@ private:
         {"WJS", "WATTS", 3, 0}, //8
         {"KNS", "YES", 3, 0}, //9
         {"PEK", "WEEK", 3, 0}, //10
-        {"NAG", "NAME", 3, 1}, //11 /*search term & msgbuf size are the same*/
+        {"NAG", "NAME", 3, 1}, //11 /*NdxPtr == 0*/
         {"SAG", "SAME", 3, 5}, //12
         {"TIG", "TIME", 3, 0}, //13
         {"QLK", "TALK", 3, 0}, //14
@@ -72,7 +72,7 @@ private:
         {"SOG", "SOME", 3, 18}, //32 /*search term & msgbuf size are the same*/
         {"D9T", "DONT", 3, 0}, //33
         {"CHW", "CHAT", 3, 0}, //34
-        {"WPT", "WANT", 3, 0}, //35
+        {"WPT", "WANT", 3, 25}, //35
         {"W5N", "WHEN", 3, 0}, //36
         {"PNT", "WENT", 3, 0}, //37
         {"6IS", "THIS", 3, 0}, //38
@@ -87,18 +87,18 @@ private:
         {"CETN", "CAN", 4, 0}, //47
         {"QSMT", "QSO", 4, 0}, //48
         {"INTN", "ING", 4, 0}, //49
-        {"SINT", "SUN", 4, 0}, //50
+        {"SETW", "SET AT", 4, 0}, //50
         {"MMMK", "OOK", 4, 0}, //51
         {"GMTT", "GOT", 4, 0}, //52
         {"TTTN", "ON", 4, 0}, //53
         {"WEUT", "PUT", 4, 0}, //54
         {"TBVT", "73", 4, 0}, //55
-        {"INME", "ING", 4, 0}, //56", "PUM", 4,0}, //91      
+        {"INME", "ING", 4, 0}, //56", "PUM", 4, 0}, //91      
         {"EZNG", "ETTING", 4, 0}, //57
         {"DTYL", "XYL", 4, 0}, //58
         {"GAEE", "GRE", 4, 0}, //59
         {"NKEE", "NCE", 4, 0}, //60
-        {"ARKT", "ARY", 4, 0}, //61
+        {"ARKT", "ARY", 4, 32}, //61
         {"SNOAT", "SNOW", 5, 0}, //62
         {"TELAI", "TELL", 5, 0}, //63
         {"TTTAN", "OP", 5, 0}, //64
@@ -116,24 +116,24 @@ private:
         {"6A", "THA", 2, 0}, //765
         {"VFG", "VING", 3, 0}, //77
         {"HEWH", "HEATH", 4, 0}, //78
-        {"GEMIN", "GETTIN", 5,0}, //79
-        {"QKING", "MAKING", 5,0}, //80
+        {"GEMIN", "GETTIN", 5, 0}, //79
+        {"QKING", "MAKING", 5, 0}, //80
         {"HJ", "HAM", 2, 1}, //81 /*search term & msgbuf size are the same*/
         {"M<AR>", "QR", 5, 15}, //82
         {"NTX", "WX", 3, 1}, //83 /*search term & msgbuf size are the same*/
-        {"SMAU", "SQR", 4,0}, //84
+        {"SMAU", "SQR", 4, 0}, //84
         {"PST", "WEST", 3, 1}, //85 /*search term & msgbuf size are the same*/
         {"S0E", "SOME", 3, 0}, //861
-        {"TWAE", "TAKE", 4,0}, //87
-        {"LFUX", "LINUX", 4,0}, //88
-        {"ANE2", "ABO", 4,0}, //89
-        {"WERO", "PRO", 4,0}, //90
-        {"WEUM", "PUM", 4,0}, //91
+        {"TWAE", "TAKE", 4, 0}, //87
+        {"LFUX", "LINUX", 4, 0}, //88
+        {"ANE2", "ABO", 4, 0}, //89
+        {"WERO", "PRO", 4, 0}, //90
+        {"WEUM", "PUM", 4, 0}, //91
         {"STOAN", "STOP", 5, 0}, //92
         {"T0", "TOM", 2, 1}, //93 /*search term & msgbuf size are the same*/
         {"9E", "ONE", 2, 1}, //94 /*search term & msgbuf size are the same*/
-        {"TTAK", "MAK", 4,0}, //95
-        {"WWER", "WATER", 4,0}, //96
+        {"TTAK", "MAK", 4, 0}, //95
+        {"PRETTKT", "PRETTY", 7, 0}, //96
         {"TTKT", "MY", 4, 0}, //97
         {"AQG", "AMAG", 3, 0}, //98
         {"GRWS", "GRATS", 4, 0}, //99
@@ -142,7 +142,7 @@ private:
         {"W9D", "WOND", 4, 0}, //102
         {"I<KN>", "ING", 5, 0}, //103
         {"TNL", "GL", 3, 0}, //104
-        {"ATENT", "WENT", 5, 0}, //105
+        {"NTTTT", "NOT", 5, 0}, //105
         {"NTT", "Y", 3, 23}, //106
         {"AIO", "LO", 3, 0}, //107
         {"HPG", "HANG", 3, 0}, //108
@@ -189,10 +189,10 @@ private:
         {"AGMT", "AGO", 4, 0}, //149
         {"6ST", "BEST", 3, 0}, //150
         {"HETVE", "HAVE", 5, 0}, //151
-        {"I9", "ION", 5, 0}, //152
+        {"I9", "ION", 5, 29}, //152
         {"NTEQ", "CQ", 4, 0}, //153
         {"NNQ", "CQ", 3, 0}, //154
-        {"TYH", "QTH", 3, 0}, //155
+        {"TYH", "QTH", 3, 14}, //155
         {"LTURN", "RETURN", 5, 0}, //156
         {"WAMS", "WATTS", 4, 0}, //157
         {"NITRE", "NICE", 5, 0}, //158
@@ -221,7 +221,7 @@ private:
         /*FINISHED;  SrchTerm: INISH; New: FFISHED; oldStrLength 8; STptr: 181*/
         {"INISH", "FISH", 5, 12}, //181
         {"<KN>S", "YES", 5, 0}, //182
-        {"STY", "VY", 3, 1}, //183
+        {"STY", "VY", 3, 17}, //183 rule 17, exact match rule
         {"FMTR", "FOR", 4, 0}, //184
         {"ATITH", "WITH", 5, 0}, //185
         {"TTTT", "TO", 4, 1}, //186
@@ -234,7 +234,7 @@ private:
         {"QN", "MAN", 2, 13}, //193
         {"H0E", "HOME", 3, 0}, //194
         {"BCE", "NICE", 3, 0}, //195
-        {"DETN", "DEG", 4, 0}, //196
+        {"DETN", "DEG", 4, 27}, //196
         {"LOOAN", "LOOP", 5, 0}, //197
         {"TTORN", "MORN", 5, 0}, //198
         {"TNUD", "GUD", 4, 0}, //199
@@ -286,7 +286,7 @@ private:
         {"MIERO", "ZERO", 5, 0}, //245
         {"TTTTTTT", "TOO", 7, 0}, //246
         {"CTTTVER", "COVER", 7, 0}, //247
-        {"ADTH", "WITH", 4, 0}, //248
+        {"ADTH", "WITH", 4, 30}, //248
         {"LMTCK", "LOCK", 5, 0}, //249
         {"TI9", "TION", 3, 0}, //250
         {"EDAST", "LAST", 5, 0}, //251 
@@ -308,7 +308,7 @@ private:
         {"QKE", "MAKE", 3, 0}, //267
         {"QSNT", "QSK", 4, 0}, //268
         {"EMID", "WID", 4, 0}, //269
-        {"SUNN", "SIGN", 4, 0}, //270
+        {"SUNN", "SIGN", 4, 26}, //270
         {"GOFG", "GOING", 4, 0}, //271
         {"0ST", "MOST", 4, 0}, //272
         {"KNOAT", "KNOW", 5, 0}, //273
@@ -319,7 +319,7 @@ private:
         {"C9T", "CONT", 3, 0}, //278
         {"GEZNG", "GETTING", 4, 0}, //279
         {"XOR", "XMTR", 3, 0}, //280
-        {"WW", "WAT", 2, 0}, //281
+        {"WW", "WAT", 2, 28}, //281
         {"FWHER", "FATHER", 5, 0}, //282
         {"SCREAB", "SCREWS", 6, 0}, //283
         {"ADSH", "WISH", 4, 0}, //284
@@ -327,8 +327,120 @@ private:
         {"BEJ", "BEAM", 3, 0}, //286
         {"LKT", "LY", 3, 0}, //287
         {"TKT", "QT", 3, 0}, //288
-         
+        {"CMA", "CQ", 3, 0}, //289
+        {"DANM", "DAY", 4, 0}, //290
+        {"NNPY", "CPY", 4, 0}, //291
+        {"MTN", "ON", 3, 17}, //292 rule 17, exact match rule
+        {"GOTI", "GOD", 4, 25}, //293
+        {"COZNG", "COMING", 5, 0}, //294
+        {"SUL", "SURE", 5, 17}, //295
+        {"EEDSE", "ELSE", 5, 0}, //296
+        {"PREMY", "PRETTY", 5, 0}, //297
+        {"FEEN", "FER", 4, 0}, //298
+        {"TEDL", "TELL", 4, 0}, //299
+        {"FEDY", "FLY", 4, 0}, //300
+        {"UEG", "UP", 3, 0}, //301
+        {"D9E", "DONE", 3, 0}, //302
+        {"0ST", "MOST", 3, 0}, //303
+        {"MAED", "MAL", 4, 0}, //304
+        {"ANIOUT", "ABOUT", 6, 0}, //305
+        {"IJ", "I AM", 2, 17}, //306 rule 17, exact match rule
+        {"TOTT", "TOM", 4, 17}, //307 rule 17, exact match rule
+        {"WMTRK", "WORK", 5, 0}, //308
+        {"ATENT", "WENT", 5, 0}, //309
+        {"TII", "TH", 3, 0}, //310
+        {"QIN", "MAINS", 3, 0}, //311
+        {"AEAD", "RAD", 4, 0}, //312 
+        {"AEIG", "RIG", 4, 0}, //313
+        {"MTQEN", "MORN", 5, 0}, //314
+        {"VERND", "VERTED", 5, 0}, //315
+        {"0NEY", "MONEY", 4, 0}, //316
+        {"MTNCE", "ONCE", 5, 0}, //317
+        {"BABKT", "BABY", 5, 0}, //318
+        {"MARMI", "QRZ", 5, 0}, //319
+        {"TFG", "TING", 3, 0}, //320
+        {"WFG", "WING", 3, 0}, //321
+        {"GECD", "GARD", 4, 0}, //322
+        {"BTIT", "BTU", 4, 0}, //323
+        {"TMTM", "TOM", 4, 0}, //324
+        {"WWER", "WATER", 4, 0}, //325
+        {"LICD", "LIKED", 4, 0}, //326
+        {"MAY6", "MAYBE", 4, 0}, //327
+        {"MEHT", "GHT", 4, 0}, //328
+        {"CLY", "KELY", 3, 0}, //329 example LIKELY
+        {"MS3", "73", 3, 0}, //330
+        {"0NDAY", "MONDAY", 5, 0}, //331
+        {"LOME", "LOG", 4, 0}, //332
+        {"D8NG", "DOING", 4, 0}, //333
+        {"MOSNDY", "MOSTLY", 6, 0}, //334
+        {"WARZNG", "WARMING", 6, 0}, //335
+        {"COONT", "COOK", 5, 0}, //336
+        {"SUENE", "SURE", 5, 0}, //337
+        {"EIEN", "ESN", 4, 0}, //338
+        {"GNT", "MENT", 3, 0}, //339
+        {"WHETT", "WHAT", 5, 0}, //340
+        {"TNREAT", "GREAT", 6, 0}, //341
+        {"LOMTK", "LOOK", 5, 0}, //342
+        {"COFEREE", "COFFE", 7, 0}, //343
+        {"NMP", "TEMP", 3, 0}, //344
+        {"WI6", "WITH", 3, 0}, //345
+        {"ESTEN", "EVEN", 5, 0}, //346
+        {"AUIT", "AFT", 4, 0}, //347
+        {"WST", "ABT", 3, 0}, //348
+        {"PEOWE", "PEOP", 5, 0}, //349
+        {"MEUD", "GUD", 4, 0}, //350
+        {"HASTE", "HAVE", 5, 0}, //351
+        {"HOAT", "HOW", 4, 0}, //352
+        {"DIWE", "DIP", 4, 0}, //353 for DIPOLE
+        {"MERAS", "GRAS", 5, 0}, //354
+        {"ATELL", "WELL", 5, 0}, //355
+        {"AMERE", "AGRE", 5, 0}, //356
+        {"SMT", "SO", 3, 0}, //357
+        {"SAKT", "SAY", 4, 0}, //358
+        {"HOANE", "HOPE", 5, 0}, //359
+        {"WEICK", "PICK", 5, 0}, //360
+        {"STERT", "VERT", 5, 0}, //361
+        {"AFNR", "AFTER", 4, 0}, //362
+        {"MASO", "QSO", 4, 0}, //363
+        {"TTID", "MID", 4, 0}, //364
+        {"KTU", "QU", 3, 31}, //365
+        {"FEDAT", "FLAT", 5, 0}, //366
+        {"NIKEE", "NICE", 5, 0}, //367
+        {"ISTE", "IVE", 4, 0}, //368
+        {"WPTT", "WPM", 4, 0}, //369
+        {"ZT", "GET", 2, 0}, //370
+        {"HJ", "HAM", 2, 0}, //371
+        {"VEVE", "STEVE", 4, 0}, //372
+        {"SX", "STU", 2, 0}, //373 i.e. SXFF = STUFF
+        {"BITG", "BUG", 4, 0}, //374
+        {"VEAET", "VERT", 5, 0}, //375
+        {"AIUC", "LUC", 4, 0}, //376
+        {"KKT", "KY", 3, 0}, //377
+        {"GOST", "GOV", 4, 0}, //378
+        {"PAIE", "PLE", 4, 0}, //379 i.e. people
+        {"PLR", "PAIR", 4, 0}, //380 i.e. repair
+        {"DCCT", "TICKET", 4, 0}, //381
+        {"EMHEN", "WHEN", 5, 0}, //382
+        {"LGM", "REMEM", 3, 0}, //383 i.e. remember
+        {"CTML", "COL", 4, 0}, //384
+        {"PLP", "PLAN", 3, 0}, //385
+        {"RMTG", "ROG", 4, 0}, //386
+        {"VTTTR", "VOR", 5, 0}, //387
+        {"SMMMN", "SOON", 5, 0}, //388
+        {"STTT", "SO", 4, 0}, //389
+        {"ATTUST", "JUST", 6, 0}, //390
+        {"TTTTT", "JUST", 5, 0}, //391
+        {"ANLE", "PLE", 4, 0}, //392
+        {"CCD", "CKED", 3, 0}, //393
+        {"ADD", "ADD(WID)", 3, 0}, //394
+        {"G9", "GON", 2, 0}, //395
+        {"UT0", "30", 3, 0}, //396
+        {"LANR", "LATERE", 4, 0}, //397
+        {"ESNAG", "ES NAME", 5, 0}, //398
+        {"MEZE", "MADE", 4, 0}, //399
+        {"0NI", "OMNI", 3, 0}, //400
     };
+    
     bool AllDah;
     bool AllDit;
     bool NewSpltVal;
@@ -355,7 +467,7 @@ private:
     uint16_t WrdBrkVal; // serves in post parser as the value to insert a space in the reconstructed character string
     unsigned int SymbSet;
     unsigned int LstLtrBrkCnt = 0;//track the number of keyevents since last letterbreak.
-    uint16_t UnitIntvrlx2r5; //basic universal symbol interval; i.e. a standard dit X 2.4; used in b1 rule set to find letter breaks
+    //uint16_t UnitIntvrlx2r5; //basic universal symbol interval; i.e. a standard dit X 2.4; used in b1 rule set to find letter breaks
     uint16_t Bg1SplitPt; //bug1 rule set dit/dah decision value; derived from UnitIntvrlx2r5
     char BrkFlg;
     /* Methods */
@@ -395,6 +507,7 @@ public:
     int GetMsgLen(void);
     uint16_t KeyUpIntrvls[IntrvlBufSize];
     uint16_t KeyDwnIntrvls[IntrvlBufSize];
+    uint16_t UnitIntvrlx2r5; //basic universal symbol interval; i.e. a standard dit X 2.4; used in b1 rule set to find letter breaks
     int KeyUpPtr = 0;
     int KeyDwnPtr = 0;
     int wpm =0; //upated from DcodeCW.cpp

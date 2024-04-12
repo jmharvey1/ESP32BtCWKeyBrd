@@ -346,13 +346,6 @@ void ComputeMags(unsigned long now){
 	if(NoiseFlr > NFlrBase){
 		NFlrRatio = (int)(1000.0*NoiseFlr/NFlrBase);
 		if(NFlrRatio > 30000) NFlrRatio = 30000;
-		/*20231103 removed this test as it appeared at timesover compensate & depress the squelch level to too low of a level*/
-		// if((NFlrRatio>8000) && (CurNoise > NoiseFlr/2)){
-		// 	 /*added 20231021*/
-		// 	 float oldNoise = CurNoise;
-		// 	 CurNoise = NoiseFlr/2;
-		// 	 if(0.8*oldNoise< CurNoise) noisLvl = CurNoise;
-		// }
 		NFlrBase = ((399*NFlrBase)+ NoiseFlr)/400;
 		 
 	} 
