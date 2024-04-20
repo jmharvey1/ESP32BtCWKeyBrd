@@ -10,7 +10,8 @@
  * 20240205 added WrdBrkVal
  * 20240206 added StrchdDah property
  * 20240313 added SrchRplc_stuct & SrchRplcDict[]
- * 20240323 expanded SrchRplcDict[] to 212 entries 
+ * 20240323 expanded SrchRplcDict[] to 212 entries
+ * 20240420 expanded SrchRplcDict[] to 472 entries; added auto word break timing 'wrdbrkFtcr'  
  * */
 #ifndef INC_ADVPARSER_H_
 #define INC_ADVPARSER_H_
@@ -18,7 +19,7 @@
 #include <stdio.h>
 #define IntrvlBufSize 200
 #define MsgbufSize 50
-#define SrchDictSize 410
+#define SrchDictSize 480
 struct Buckt_t
 {
 	uint16_t Intrvl;
@@ -50,10 +51,10 @@ private:
         {"PEK", "WEEK", 3, 0}, //10
         {"NAG", "NAME", 3, 1}, //11 /*NdxPtr == 0*/
         {"SAG", "SAME", 3, 5}, //12
-        {"TIG", "TIME", 3, 0}, //13
+        {"TIG", "TIME", 3, 37}, //13
         {"QLK", "TALK", 3, 0}, //14
         {"TB3", "73", 3, 0}, //15
-        {"SO9", "SOON", 3, 0}, //16
+        {"CTMPY", "COPY", 3, 0}, //16
         {"MPY", "MANY", 3, 0}, //17
         {"SI6", "SIDE", 3, 0}, //18
         {"QDE", "MADE", 3, 2}, //19 if (NdxPtr == 0 || (NdxPtr > 0 && this->Msgbuf[NdxPtr - 1] != 'C'))
@@ -73,7 +74,7 @@ private:
         {"D9T", "DONT", 3, 0}, //33
         {"CHW", "CHAT", 3, 0}, //34
         {"WPT", "WANT", 3, 25}, //35
-        {"W5N", "WHEN", 3, 0}, //36
+        {"W5N", "WHEN", 3, 38}, //36
         {"PNT", "WENT", 3, 0}, //37
         {"6IS", "THIS", 3, 0}, //38
         {"PEK", "WEEK", 3, 0}, //39"
@@ -108,7 +109,7 @@ private:
         {"MKT", "MY", 3, 1}, //68 if(this->StrLength + 1 == this->SrchRplcDict[STptr].ChrCnt){ /*search term & msgbuf size are the same*/
         {"EXCA", "EXTRA", 4, 0}, //69
         {"AP", "AGE", 2, 21}, //70 if(this->StrLength + 1 == this->SrchRplcDict[STptr].ChrCnt){ /*search term & msgbuf size are the same*/
-        {"C9S" , "CONS", 3, 0}, //71
+        {"NDNG", "KING", 4, 0}, //71
         {"DNG", "TING", 3, 0}, //72
         {"LEP", "LEAN", 3, 25}, //73
         {"MEOT", "GOT", 4, 0}, //74
@@ -140,7 +141,7 @@ private:
         {"POTH", "ANOTH", 4, 6}, //100
         {"TKSO", "QSO", 4, 0}, //101
         {"W9D", "WOND", 4, 0}, //102
-        {"I<KN>", "ING", 5, 0}, //103
+        {"MTNLY", "ONLY", 5, 0}, //103 this needs to precede 104, "TNL"
         {"TNL", "GL", 3, 0}, //104
         {"NTTTT", "NOT", 5, 0}, //105
         {"NTT", "Y", 3, 23}, //106
@@ -318,7 +319,7 @@ private:
         {"KTR", "YR", 3, 0}, //277
         {"C9T", "CONT", 3, 0}, //278
         {"GEZNG", "GETTING", 4, 0}, //279
-        {"XOR", "XMTR", 3, 0}, //280
+        {"XOR", "XMTR", 3, 10}, //280
         {"WW", "WAT", 2, 28}, //281
         {"FWHER", "FATHER", 5, 0}, //282
         {"SCREAB", "SCREWS", 6, 0}, //283
@@ -377,7 +378,7 @@ private:
         {"COONT", "COOK", 5, 0}, //336
         {"SUENE", "SURE", 5, 0}, //337
         {"EIEN", "ESN", 4, 0}, //338
-        {"GNT", "MENT", 3, 0}, //339
+        {"GNT", "MENT", 3, 34}, //339
         {"WHETT", "WHAT", 5, 0}, //340
         {"TNREAT", "GREAT", 6, 0}, //341
         {"LOMTK", "LOOK", 5, 0}, //342
@@ -406,12 +407,12 @@ private:
         {"KTU", "QU", 3, 31}, //365
         {"FEDAT", "FLAT", 5, 0}, //366
         {"NIKEE", "NICE", 5, 0}, //367
-        {"ISTE", "IVE", 4, 0}, //368
+        {"ISTE", "IVE", 4, 19}, //368
         {"WPTT", "WPM", 4, 0}, //369
         {"ZT", "GET", 2, 0}, //370
         {"HJ", "HAM", 2, 0}, //371
         {"VEVE", "STEVE", 4, 0}, //372
-        {"SX", "STU", 2, 0}, //373 i.e. SXFF = STUFF
+        {"SX", "STU", 2, 35}, //373 i.e. SXFF = STUFF
         {"BITG", "BUG", 4, 0}, //374
         {"VEAET", "VERT", 5, 0}, //375
         {"AIUC", "LUC", 4, 0}, //376
@@ -429,16 +430,88 @@ private:
         {"SMMMN", "SOON", 5, 0}, //388
         {"STTT", "SO", 4, 0}, //389
         {"ATTUST", "JUST", 6, 0}, //390
-        {"TTTTT", "JUST", 5, 0}, //391
+        {"TTTTT", "1", 5, 0}, //391
         {"ANLE", "PLE", 4, 0}, //392
         {"CCD", "CKED", 3, 0}, //393
-        {"ADD", "ADD(WID)", 3, 0}, //394
-        {"G9", "GON", 2, 0}, //395
+        {"ADD", "ADD(WID)", 3, 33}, //394
+        {"G9", "GON", 2, 36}, //395
         {"UT0", "30", 3, 0}, //396
         {"LANR", "LATERE", 4, 0}, //397
         {"ESNAG", "ES NAME", 5, 0}, //398
         {"MEZE", "MADE", 4, 0}, //399
         {"0NI", "OMNI", 3, 0}, //400
+        {"LMT", "LO", 3, 0}, //401 i.e LOOK
+        {"THFE", "THERE", 4, 0}, //402
+        {"C9S" , "CONS", 3, 0}, //403
+        {"LIC" , "LIKE", 3, 17}, //404 rule 17, exact match rule
+        {"ZD" , "MID", 2, 0}, //405
+        {"AMEAST" , "JUST", 6, 0}, //406
+        {"7VT" , "73", 3, 0}, //407
+        {"BMQT" , "BOY", 4, 0}, //408
+        {"ATX" , "WX", 3, 0}, //409
+        {"CRTTYES" , "CROPS", 7, 0}, //410
+        {"W9T" , "WONT", 3, 0}, //411
+        {"<AR>A" , "CA", 5, 0}, //412
+        {"BHT" , "BEST", 3, 0}, //413
+        {"LICL" , "LIKEL", 4, 0}, //414
+        {"MERO" , "GRO", 4, 0}, //415
+        {"TIONT" , "DONT", 5, 0}, //416
+        {"RISB" , "RISTS", 6, 0}, //417
+        {"RA6O" , "RADIO", 4, 0}, //418
+        {"OI0" , "80", 3, 0}, //419
+        {"NOVURE" , "NOVICE", 6, 0}, //420
+        {"CAVEL" , "TRAVEL", 5, 0}, //421
+        {"YFG" , "YING", 3, 0}, //422
+        {"16AO" , "161", 3, 0}, //423
+        {"COWEY" , "COPY", 5, 0}, //424
+        {"EUE" , "EF", 5, 0}, //425 i.e. BAREUEOOT = BAREFOOT
+        {"TSET" , "BET", 4, 0}, //426
+        {"CTMANY" , "COPY", 6, 0}, //427
+        {"EUOLK" , "FOLK", 5, 0}, //428
+        {"TMVER" , "OVER", 5, 0}, //429
+        {"DETVE" , "DAVE", 5, 0}, //430
+        {"SO9", "SOON", 3, 0}, //431
+        {"STERT", "VERT", 5, 0}, //432
+        {"MT0D", "MOOD", 4, 0}, //433
+        {"UEB", "FB", 3, 0}, //434
+        {"THMTN", "THON", 5, 0}, //435
+        {"WAKT", "WAY", 4, 0}, //436
+        {"ITRE", "ICE", 4, 0}, //437
+        {"ETST", "AST", 4, 0}, //438
+        {"0V", "MOV", 2, 0}, //439
+        {"6IN", "THIN", 2, 0}, //440
+        {"EDONG", "LONG", 5, 0}, //441
+        {"6IN", "THIN", 2, 0}, //442
+        {"EMITD", "WUD", 5, 0}, //443
+        {"HMTE", "HOME", 4, 0}, //444
+        {"JWAE", "JAKE", 4, 0}, //445
+        {"JP", "AMP", 2, 0}, //446
+        {"D9", "DON", 2, 0}, //447
+        {"MKNR", "OWER", 4, 0}, //448  i.e. SHMKNRS = SHOWERS
+        {"ARMXND", "AROUND", 6, 0}, //449
+        {"MTF", "OF", 3, 0}, //450
+        {"IIAVE", "HAVE", 4, 0}, //451
+        {"FB9", "FB ON", 3, 0}, //452
+        {"REARN", "LEARN", 5, 0}, //453
+        {"AEEARN", "LEARN", 6, 0}, //454
+        {"FAEOM", "FROM", 7, 0}, //455
+        {"1ON", "19", 3, 0}, //456
+        {"AEND", "PEND", 4, 0}, //457 i.e. AENDUL = PENDUL
+        {"NTEY", "KEY", 4, 0}, //458
+        {"0OTT", "00", 4, 0}, //459
+        {"OET", "OA", 4, 0}, //460 i.e. COETX = COAX
+        {"I<KN>", "ING", 5, 0}, //461
+        {"FLJE", "FLAME", 4, 0}, //462
+        {"6RU", "THRU", 3, 0}, //463
+        {"UAIL", "ULL", 4, 0}, //464
+        {"7SM", "73", 3, 0}, //465
+        {"CAG", "CAME", 3, 17}, //466 rule 17, exact match rule
+        {"MEHB", "GHB", 3, 0}, //467  i.e. neiMEHBor = NEIGHBOR
+        {"LMM", "LOT", 3, 0}, //468
+        {"QRED", "QRL", 4, 0}, //469
+        {"MEHT", "GHT", 4, 0}, //470
+        {"MENR", "METER", 4, 0}, //471
+        {"CEGY", "CPY", 4, 0}, //472
     };
     
     bool AllDah;
@@ -504,6 +577,7 @@ public:
     bool Dbug = false;
     int KeyType = 0;//used for the display's status indicator("S" or "E")
     float AvgSmblDedSpc;
+    float wrdbrkFtcr;
     int GetMsgLen(void);
     uint16_t KeyUpIntrvls[IntrvlBufSize];
     uint16_t KeyDwnIntrvls[IntrvlBufSize];

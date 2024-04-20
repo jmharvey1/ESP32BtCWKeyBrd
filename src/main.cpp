@@ -92,6 +92,8 @@
 /*20240405 expanded SrchRplcDict[] to 329 entries*/
 /*20240408 expanded SrchRplcDict[] to 346 entries*/
 /*20240411 expanded SrchRplcDict[] to 400 entries*/
+/*20240414 expanded SrchRplcDict[] to 413 entries*/
+/*20240420 expanded SrchRplcDict[] to 472 entries*/
 
 #include "sdkconfig.h" //added for timer support
 #include "globals.h"
@@ -149,7 +151,7 @@ DF_t DFault;
 int DeBug = 0; // Debug factory default setting; 0 => Debug "OFF"; 1 => Debug "ON"
 char StrdTxt[20] = {'\0'};
 /*Factory Default Settings*/
-char RevDate[9] = "20240411";
+char RevDate[9] = "20240420";
 char MyCall[10] = "KW4KD";
 char MemF2[80] = "VVV VVV TEST DE KW4KD";
 char MemF3[80] = "CQ CQ CQ DE KW4KD KW4KD";
@@ -428,6 +430,9 @@ void GoertzelHandler(void *param)
   int Smpl_CntrA = 0;
   bool FrstPass = true;
   InitGoertzel(); // make sure the Goertzel Params are setup & ready to go
+  /*The following is just for time/clock testing/veification */
+  // unsigned long GrtzlStart = pdTICKS_TO_MS(xTaskGetTickCount());
+  // unsigned long GrtzlDone = pdTICKS_TO_MS(xTaskGetTickCount());
   while (1)
   {
     /* Sleep until we are notified of a state change by an
@@ -488,6 +493,11 @@ void GoertzelHandler(void *param)
           oldclr = curclr;
           tftmsgbx.ShwTone(curclr);
         }
+        /*The following is just for time/clock testing/veification */
+        // GrtzlDone = pdTICKS_TO_MS(xTaskGetTickCount());
+        // uint16_t GrtzlIntrv = (uint16_t)(GrtzlDone-GrtzlStart);
+        // GrtzlStart = GrtzlDone;
+        // if(GrtzlIntrv > 5) printf("GrtzlIntrv: %d\n", GrtzlIntrv);
       }
       else if (ret == ESP_ERR_TIMEOUT)
       {
@@ -627,11 +637,12 @@ void AdvParserTask(void *param)
   // static uint32_t thread_notification;
   // uint8_t state;
   // UBaseType_t uxHighWaterMark;
+  //unsigned long AdvPStart = 0;
   while (1)
   {
     /* Sleep until instructed to resume from DcodeCW.cpp */
     //printf("AdvParserTask\n");
-    
+    //AdvPStart = pdTICKS_TO_MS(xTaskGetTickCount());
     advparser.EvalTimeData();
 
     /*Now compare Advparser decoded text to original text; If not the same,
@@ -723,6 +734,8 @@ void AdvParserTask(void *param)
       advparser.LtrHoldr[i] = 0;
     if (advparser.Dbug)
       printf("--------\n\n");
+    //uint16_t AdvPIntrv = (uint16_t)(pdTICKS_TO_MS(xTaskGetTickCount())-AdvPStart);
+    //printf("AdvPIntrv: %d\n", AdvPIntrv); 
     // uxHighWaterMark = uxTaskGetStackHighWaterMark( NULL );
     // printf("AdvParserTask stack: %d\n", (int)uxHighWaterMark);
     // printf("AdvParserTask CoreID: %d\n", xPortGetCoreID());

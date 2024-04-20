@@ -21,7 +21,8 @@
  * 20240114 Changed AdvPaser linking to handle post processed string overwrites that were longer than the origimal text
  * 20240116 Expanded time intervsl storage from 16 interval to 24 using MaxIntrvlCnt to support senders who think its ok to send more than five symbols W/o a letter break
  * 20240117 Added AdvParser detected keymode to dispaly status line
- * 20240124 added requirement that Key up & down arrays match in length before attempting to do a post reparse of the las word captured 
+ * 20240124 added requirement that Key up & down arrays match in length before attempting to do a post reparse of the las word captured
+ * 20240420 added auto word break timing 'wrdbrkFtcr' ; added auto word break timing 'wrdbrkFtcr' (AdvParser/DcodeCW)
  *   */
  
 
@@ -209,6 +210,8 @@ float curRatio = 3;
 float SNR = 5.0;
 float ShrtFctr = 0.48; // 0.52;// 0.45; //used in Bug3 mode to control what percentage of the current "UsrLtrBrk" interval to use to detect the continuation of the previous character
 uint8_t GudSig = 0;
+uint8_t oneLtrCntr = 0; //added to support auto-word break lenght
+float wrdbrkFtcr = 1.0; //added to support auto-word break lenght
 TFTMsgBox *ptrmsgbx;
 SemaphoreHandle_t DeCodeVal_mutex;
 bool blocked = false;
@@ -1237,12 +1240,15 @@ void ChkDeadSpace(void)
 	/*20240328 added separate calc for paddle trying to stop unneeded word breaks*/
 	else if(advparser.KeyType == 0){
 		uint16_t NuWrdBkA = (uint16_t)(4.2*(float)avgDeadSpace);
-		//uint16_t NuWrdBkB = (uint16_t)(2.3 * (float)advparser.UnitIntvrlx2r5);
-		wordBrk = (unsigned long)((6.0 * (float)wordBrk + ((float)NuWrdBkA)) / 7.0); //paddle
-		//printf("wordBrk: %d; NuWrdBkA: %d; NuWrdBkB: %d\n", (uint16_t)wordBrk, NuWrdBkA, NuWrdBkB);
+		uint16_t NuWrdBkB = (uint16_t)(2.3 * (float)advparser.UnitIntvrlx2r5);
+		wordBrk = (unsigned long)( wrdbrkFtcr *((6.0 * ((float)wordBrk/ wrdbrkFtcr) + ((float)NuWrdBkA)) / 7.0)); //paddle
+		//printf("wordBrkA: %d; wrdbrkFtcr %5.3f; NuWrdBkA: %d; NuWrdBkB: %d\n", (uint16_t)wordBrk, wrdbrkFtcr, NuWrdBkA, NuWrdBkB);
 	}
 	//else if(advparser.KeyType == 0) wordBrk = (unsigned long)((5.0 * (float)wordBrk + (2.3 * (float)advparser.UnitIntvrlx2r5)) / 6.0); //paddle 
-	else wordBrk = (5 * wordBrk + (6*avgDeadSpace)) / 6;//all other key type
+	else{
+	 wordBrk = (unsigned long)( wrdbrkFtcr *(5 * ((float)wordBrk/ wrdbrkFtcr) + (6*avgDeadSpace)) / 6);//all other key type
+	 //printf("wordBrkB: %d; wrdbrkFtcr %5.3f\n", (uint16_t)wordBrk, wrdbrkFtcr);
+	}
 	//printf("ReCal WordBrk - avgDeadSpace: %d; wordBrk: %d\n", (int)avgDeadSpace, (int)wordBrk);
 	//    printf("\n\r");
 	//    printf("; ");
@@ -1405,7 +1411,7 @@ void SetLtrBrk(void)
 
 	if (ltrBrk > wordBrk)
 	{
-		//printf("ltrBrk > wordBrk\n");
+		//printf("ltrBrk %d > wordBrk\n", (uint16_t)ltrBrk);
 		wordBrk = int(1.1 * float(ltrBrk));
 	}
 	/*Now work out what the average intersymbol space time is*/
@@ -1483,11 +1489,22 @@ bool chkChrCmplt(void)
 			//printf("\nWORD BREAK - KeyDwnPtr: %d; KeyUpPtr:%d\n", KeyDwnPtr, KeyUpPtr);
 			if ((LtrPtr >= 1 || KeyDwnPtr >= 9) && ((wpm > 13) ||(LtrPtr > 3)) && (wpm < 36) && (KeyDwnPtr == KeyUpPtr))// don't try to reparse if the key up & down pointers arent equal
 			{ // dont do "post parsing" with just one letter or WPMs <= 13
+				/*Auto-word break adjustment test*/
+				if (LtrPtr == 1) {
+					/*Only one letter in this word; */
+					oneLtrCntr++;
+					if(oneLtrCntr>=2){ // had 2 entries in a row that were just one character in lenght; shorten the wordbrk interval
+						wrdbrkFtcr += 0.2;
+						//printf("wordBrk+: %d; wrdbrkFtcr: %5.3f\n", (uint16_t)wordBrk, wrdbrkFtcr);
+					}
+				} else oneLtrCntr = 0;
 				/*1st refresh/sync 'advparser.Dbug' */
 				if (DeBug)
 					advparser.Dbug = true;
 				else
 					advparser.Dbug = false;
+				/*Sync advparser.wrdbrkFtcr to current wrdbrkFtcr*/
+				advparser.wrdbrkFtcr = wrdbrkFtcr;	
 				/*Perpare advparser, by 1st copying current decoder symbol sets into local advparser arrays*/	
 				for(int i= 0; i <= KeyDwnPtr; i++){
 					advparser.KeyUpIntrvls[i] = KeyUpIntrvls[i];
@@ -2410,6 +2427,11 @@ void dispMsg(char Msgbuf[50])
 				LtrHoldr[LtrPtr] = curChar;
 				LtrHoldr[LtrPtr + 1] = 0;
 				LtrPtr++;
+				/*Auto-word break adjustment test*/
+				if (LtrPtr > 6){/*this word is getting long. Shorten the wordBrk interval a bit*/
+					wrdbrkFtcr -= 0.025;
+					//printf("wordBrk-: %d; wrdbrkFtcr: %5.3f\n", (uint16_t)wordBrk, wrdbrkFtcr);
+				}
 				if (LtrPtr > 28)
 					LtrPtr = 28; // limit adding more than 30 characters to the "LtrHoldr" buffer
 			}

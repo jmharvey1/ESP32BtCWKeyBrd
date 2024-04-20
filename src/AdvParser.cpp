@@ -41,6 +41,7 @@
  * 20240313 rewrote FixClassicErrors() to sequence through SrchRplcDict[] array to test for mangled character strings
  * 20240315 rewrote FixClassicErrors() to use a 'for' loop to sequence through the SrchRplcDict[]
  * 20240317 reworked SetSpltPt() method to better handle cootie type keying, & converted the SrchRplcDict to "const"
+ * 20240420 added auto word break timing 'wrdbrkFtcr' 
  * */
 // #include "freertos/task.h"
 // #include "freertos/semphr.h"
@@ -675,7 +676,7 @@ void AdvParser::EvalTimeData(void)
                                                                // and save/append the results to 'Msgbuf[]'
                                                                // start a new symbolset
             /*We found a letter, but maybe its also a word; test by testing the keyup interval*/
-            if (TmpUpIntrvls[n] > this->WrdBrkVal && (n < this->TmpUpIntrvlsPtr - 1))
+            if ((TmpUpIntrvls[n] > (this->wrdbrkFtcr*this->WrdBrkVal)) && (n < this->TmpUpIntrvlsPtr - 1))
             { // yes, it looks like a word break
                 // add " " (space) to reparsed string
                 this->AdvSrch4Match(n, 255, false);
@@ -2966,7 +2967,11 @@ void AdvParser::FixClassicErrors(void)
                         break;
                     case 4: //"CP" to "CAN" conversion rule
                         // printf("NdxPtr: %d; MsgBuf %s; StrLength: %d; SrchRplcDict[%d].ChrCnt: %d\n", NdxPtr, this->Msgbuf, StrLength, STptr, SrchRplcDict[STptr].ChrCnt);
-                        if ((this->StrLength > (NdxPtr + 2)) && this->Msgbuf[NdxPtr + 2] != 'Y'  &&  this->Msgbuf[NdxPtr + 2] != 'I'
+                        if(this->Msgbuf[NdxPtr + SrchLen] == 'I')
+                        {
+                            Test = false; // looks like CPI, i.e. copy, Leave as is         
+                        }
+                        else if ((this->StrLength > (NdxPtr + 2)) && this->Msgbuf[NdxPtr + 2] != 'Y'  &&  this->Msgbuf[NdxPtr + 2] != 'I'
                             && (this->Msgbuf[NdxPtr + SrchLen] != 'A' && this->Msgbuf[NdxPtr + SrchLen+ 1] != 'P')
                             && (this->Msgbuf[NdxPtr + SrchLen] != 'E' && this->Msgbuf[NdxPtr + SrchLen+ 1] != 'R'))
                         { /*search term & msgbuf size are the same*/
@@ -2989,11 +2994,12 @@ void AdvParser::FixClassicErrors(void)
                         break;
                     case 7: /* RULE(TNO/GO) - 1st character following the search term is NOT 'O', 'N' */
                         if (!(this->Msgbuf[NdxPtr + SrchLen] == 'N'
-                            && this->Msgbuf[NdxPtr + SrchLen+1] == 'E')
+                            && this->Msgbuf[NdxPtr + SrchLen+1] == 'E') // "NO" +"NE" looks like 'NONE', So leave it be
                             && this->Msgbuf[NdxPtr + SrchLen] != 'W') // "NO" +"W" looks like "NOW", So leave it be   
                         { 
                             if(NdxPtr == 0) Test = true;
-                            else if (NdxPtr > 0 && this->Msgbuf[NdxPtr - 1] != 'U') Test = true;
+                            else if (NdxPtr > 0 && this->Msgbuf[NdxPtr - 1] == 'U') Test = false;
+                            else if (NdxPtr > 0 && this->Msgbuf[NdxPtr - 1] == 'S') Test = false;//'ST' as in 'WEST'
                         }
                         break;
                     case 8: /* RULE(TKS/QS) - there is at least one more character in this word group, i.e QSB, QSL, QSO, QSY */
@@ -3016,8 +3022,8 @@ void AdvParser::FixClassicErrors(void)
                             Test = true; 
                         }
                         break;
-                    case 10: /* S2/SUM - this is the 1st in the string or there is at least one character ahead & its NOT an 'E' */
-                        if (NdxPtr> 0 && this->Msgbuf[NdxPtr - 1] != 'E')
+                    case 10: /* S2/SUM or XOR/XMTR- this is the 1st in the string or there is at least one character ahead & its NOT an 'E' */
+                        if (NdxPtr> 0 && this->Msgbuf[NdxPtr - 1] != 'E')// vibroplEXORIGINAL
                         {
                             Test = true;
                         } else  if (NdxPtr == 0 )
@@ -3063,7 +3069,7 @@ void AdvParser::FixClassicErrors(void)
                         {
                             Test = false;
                         }
-                        if (NdxPtr> 1 && this->Msgbuf[NdxPtr - 1] == 'N'
+                        else if (NdxPtr> 1 && this->Msgbuf[NdxPtr - 1] == 'N'
                            && this->Msgbuf[NdxPtr - 2] == 'I')
                         {
                             Test = false;
@@ -3095,15 +3101,16 @@ void AdvParser::FixClassicErrors(void)
                             Test = true;
                         }
                         break;
-                    case 18:/* RULE(SOG/SOME) -  1st character following the search term is NOT 'U' or 'O' */
+                    case 18:/* RULE(SOG/SOME) -  1st character following the search term is NOT 'U', 'O', 'M' */
                         //printf("NdxPtr: %d; MsgBuf %s; StrLength: %d; SrchRplcDict[%d].ChrCnt: %d\n", NdxPtr, this->Msgbuf, StrLength, STptr, SrchRplcDict[STptr].ChrCnt);
                         if (this->Msgbuf[NdxPtr + SrchLen] != 'U'
-                            && this->Msgbuf[NdxPtr + SrchLen] != 'O')
+                            && this->Msgbuf[NdxPtr + SrchLen] != 'O'
+                            && this->Msgbuf[NdxPtr + SrchLen] != 'M')
                         { 
                             Test = true;
                         }
                         break;
-                    case 19: /*Rule(LWE/LATE) - this is the 1st in the string or there is at least one character ahead & its NOT an 'E' */
+                    case 19: /*Rule(LWE/LATE; ISTE/IVE) - this is the 1st in the string or there is at least one character ahead & its NOT an 'L' */
                         if (NdxPtr> 0 && this->Msgbuf[NdxPtr - 1] != 'L')
                         {
                             Test = true;
@@ -3207,7 +3214,12 @@ void AdvParser::FixClassicErrors(void)
                         }
                         break;
                     case 28: /* RULE(WW/WAT) - 1st character following the search term is NOT 'H' */
-                        if (this->Msgbuf[NdxPtr + SrchLen] != 'H')
+                        if (this->Msgbuf[NdxPtr + SrchLen] == 'A'
+                            && this->Msgbuf[NdxPtr + SrchLen + 1] == 'S')
+                        {
+                            Test = false;    
+                        }
+                        else if (this->Msgbuf[NdxPtr + SrchLen] != 'H')
                         { 
                             Test = true;
                         }
@@ -3221,8 +3233,11 @@ void AdvParser::FixClassicErrors(void)
                             Test = true; 
                         }
                         break;
-                     case 30: /* RULE(UAN/UP) - 1st character following the search term is NOT 'D' */
-                        if (this->Msgbuf[NdxPtr + SrchLen] != 'E')
+                     case 30: /* RULE(ADTH/WITH) - 1st character following the search term is NOT 'D' */
+                        if (NdxPtr> 0 && this->Msgbuf[NdxPtr - 1] == 'H')
+                        {
+                            Test = false;
+                        } else if (this->Msgbuf[NdxPtr + SrchLen] != 'E')
                         { 
                             Test = true;
                         }
@@ -3245,6 +3260,61 @@ void AdvParser::FixClassicErrors(void)
                             Test = true; 
                         }
                         break;
+                    case 33: /*Rule(ADD/ADD) - this is the 1st in the string or there is at least one character ahead & its NOT an 'P' */
+                        if (NdxPtr> 0 && this->Msgbuf[NdxPtr - 1] == 'P')
+                        {
+                            Test = false;
+                        }
+                        else if (this->Msgbuf[NdxPtr + SrchLen] == 'L'
+                            && this->Msgbuf[NdxPtr + SrchLen+1] == 'E')//paddLE
+                        { 
+                            Test = false;
+                        } 
+                        else if (NdxPtr == 0 )
+                        {
+                            Test = true; 
+                        }
+                        break;
+                    case 34: /*Rule(GNT/MENT) - this is the 1st in the string or there is at least one character ahead & its NOT an 'A' */
+                        if (NdxPtr == 0 || (NdxPtr > 0 && this->Msgbuf[NdxPtr - 1] != 'A'))
+                        { /*msgbuf Doesn't appear to be part of a 'AGN'*/
+                            Test = true;
+                        }
+                        break;
+                    case 35:/* RULE(SX/STU) -  1st & 2nd characters following the search term is NOT 'YL' */
+                        //printf("NdxPtr: %d; MsgBuf %s; StrLength: %d; SrchRplcDict[%d].ChrCnt: %d\n", NdxPtr, this->Msgbuf, StrLength, STptr, SrchRplcDict[STptr].ChrCnt);
+                        if (this->Msgbuf[NdxPtr + SrchLen] == 'Y'
+                            && this->Msgbuf[NdxPtr + SrchLen+1] == 'L')
+                        { 
+                            Test = false;
+                        }
+                        else Test = true;
+                        break;
+                    case 36:/* RULE(G9", "GON) -  1st & 2nd characters following the search term is NOT 'YL' */
+                        //printf("NdxPtr: %d; MsgBuf %s; StrLength: %d; SrchRplcDict[%d].ChrCnt: %d\n", NdxPtr, this->Msgbuf, StrLength, STptr, SrchRplcDict[STptr].ChrCnt);
+                        if (this->Msgbuf[NdxPtr + SrchLen] >= '0'
+                            && this->Msgbuf[NdxPtr + SrchLen] <= '9')
+                        { 
+                            Test = false;
+                        }
+                        else Test = true;
+                        break;
+                    case 37:/* RULE(TIG/TIME) -  1st & 2nd characters following the search term is NOT 'HT' */
+                        if (this->Msgbuf[NdxPtr + SrchLen] == 'H'
+                            && this->Msgbuf[NdxPtr + SrchLen+1] == 'T')
+                        { 
+                            Test = false;
+                        }
+                        else Test = true;
+                        break;
+                    case 38:/* RULE(W5N/WHEN) -  1st & 2nd characters following the search term is NOT 'YL' */
+                        //printf("NdxPtr: %d; MsgBuf %s; StrLength: %d; SrchRplcDict[%d].ChrCnt: %d\n", NdxPtr, this->Msgbuf, StrLength, STptr, SrchRplcDict[STptr].ChrCnt);
+                        if (this->Msgbuf[NdxPtr + SrchLen] == 'N') // looks like 'now5NN'
+                        { 
+                            Test = false;
+                        }
+                        else Test = true;
+                        break;                        
                     }
                     if(Test) NdxPtr = this->SrchEsReplace(NdxPtr, STptr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
                 }
