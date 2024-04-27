@@ -1521,6 +1521,16 @@ bool chkChrCmplt(void)
 				/*now we can start/resart the post parsing process */
 				vTaskResume( AdvParserTaskHandle );
 				
+			} else if (wpm >= 36)
+			{
+				if (LtrPtr == 1) {
+					/*Only one letter in this word; */
+					oneLtrCntr++;
+					if(oneLtrCntr>=2){ // had 2 entries in a row that were just one character in lenght; shorten the wordbrk interval
+						wrdbrkFtcr += 0.2;
+						//printf("wordBrk+: %d; wrdbrkFtcr: %5.3f\n", (uint16_t)wordBrk, wrdbrkFtcr);
+					}
+				} else oneLtrCntr = 0;	
 			} 
 			
 		}

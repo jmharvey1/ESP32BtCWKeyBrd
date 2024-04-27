@@ -3080,7 +3080,8 @@ void AdvParser::FixClassicErrors(void)
                         }
                         break;
                     case 15: /* RULE(M<AR>/QR) - 1st character following the search term is NOT 'A' */
-                        if (this->Msgbuf[NdxPtr + SrchLen] != 'A')
+                        if (this->Msgbuf[NdxPtr + SrchLen] != 'A'
+                            && this->Msgbuf[NdxPtr + SrchLen] != 'I')
                         { 
                             if (NdxPtr> 0 && this->Msgbuf[NdxPtr - 1] != 'G')
                             {
@@ -3103,15 +3104,40 @@ void AdvParser::FixClassicErrors(void)
                         break;
                     case 18:/* RULE(SOG/SOME) -  1st character following the search term is NOT 'U', 'O', 'M' */
                         //printf("NdxPtr: %d; MsgBuf %s; StrLength: %d; SrchRplcDict[%d].ChrCnt: %d\n", NdxPtr, this->Msgbuf, StrLength, STptr, SrchRplcDict[STptr].ChrCnt);
-                        if (this->Msgbuf[NdxPtr + SrchLen] != 'U'
-                            && this->Msgbuf[NdxPtr + SrchLen] != 'O'
-                            && this->Msgbuf[NdxPtr + SrchLen] != 'M')
+                        if (this->Msgbuf[NdxPtr + SrchLen] == 'U'
+                            || this->Msgbuf[NdxPtr + SrchLen] == 'O'
+                            || this->Msgbuf[NdxPtr + SrchLen] == 'M')
                         { 
+
+                            Test = false;
+                        }
+                        else if (this->Msgbuf[NdxPtr + SrchLen] == 'A'
+                            && this->Msgbuf[NdxPtr + SrchLen + 1] == 'R'
+                            && this->Msgbuf[NdxPtr + SrchLen + 2] == 'Y') 
+                        { 
+
+                            Test = false;
+                        }
+                        else
+                        {
                             Test = true;
                         }
                         break;
                     case 19: /*Rule(LWE/LATE; ISTE/IVE) - this is the 1st in the string or there is at least one character ahead & its NOT an 'L' */
-                        if (NdxPtr> 0 && this->Msgbuf[NdxPtr - 1] != 'L')
+                        if (this->StrLength > SrchLen && STptr == 487
+                            && (this->Msgbuf[NdxPtr + SrchLen] == 'R'
+                            && this->Msgbuf[NdxPtr + SrchLen + 1] == 'R'))  //i.e. ISTE = isTERRy
+                        {
+                            Test = false;
+                        }
+                        else if (STptr == 487
+                            && NdxPtr> 1 
+                            && this->Msgbuf[NdxPtr - 2] != 'T'
+                            && this->Msgbuf[NdxPtr - 1] != 'W')  //i.e. ISTE = TWisteD
+                        {
+                            Test = false;
+                        }
+                        else if (NdxPtr> 0 && this->Msgbuf[NdxPtr - 1] != 'L')
                         {
                             Test = true;
                         } else  if (NdxPtr == 0 )
@@ -3215,11 +3241,20 @@ void AdvParser::FixClassicErrors(void)
                         break;
                     case 28: /* RULE(WW/WAT) - 1st character following the search term is NOT 'H' */
                         if (this->Msgbuf[NdxPtr + SrchLen] == 'A'
-                            && this->Msgbuf[NdxPtr + SrchLen + 1] == 'S')
+                            && this->Msgbuf[NdxPtr + SrchLen + 1] == 'S') //wWAS
                         {
                             Test = false;    
                         }
-                        else if (this->Msgbuf[NdxPtr + SrchLen] != 'H')
+                        else if (this->Msgbuf[NdxPtr + SrchLen] == 'I'
+                            && this->Msgbuf[NdxPtr + SrchLen + 1] == 'T') // wWITh
+                        {
+                            Test = false;    
+                        }
+                        else if (this->Msgbuf[NdxPtr + SrchLen] == 'H')
+                        { 
+                            Test = false;
+                        }
+                        else 
                         { 
                             Test = true;
                         }
@@ -3288,6 +3323,11 @@ void AdvParser::FixClassicErrors(void)
                         { 
                             Test = false;
                         }
+                        else if (this->Msgbuf[NdxPtr + SrchLen] == 'I'
+                            && this->Msgbuf[NdxPtr + SrchLen+1] == 'E') // SXIEGU
+                        { 
+                            Test = false;
+                        }
                         else Test = true;
                         break;
                     case 36:/* RULE(G9", "GON) -  1st & 2nd characters following the search term is NOT 'YL' */
@@ -3314,7 +3354,101 @@ void AdvParser::FixClassicErrors(void)
                             Test = false;
                         }
                         else Test = true;
-                        break;                        
+                        break;
+                    case 39: /* RULE(UTI/?) - 1st character ahead of the search term is NOT 'I', 'U' */
+                        if (NdxPtr> 0 && (this->Msgbuf[NdxPtr - 1] == 'I' //IT
+                           || this->Msgbuf[NdxPtr - 1] == 'U' 
+                           || this->Msgbuf[NdxPtr - 1] == 'B')) //BUT
+                        {
+                            Test = false;
+                        }
+                        else if (this->Msgbuf[NdxPtr + SrchLen] == 'F') //IF
+                        { 
+                            Test = false;
+                        }
+                        else
+                        {
+                            Test = true; 
+                        }
+                        break;
+                    case 40: /*RULE(KTE/YE) - this is the 1st in the string or there is at least one character ahead & its NOT an 'O' */
+                        if (NdxPtr> 0 && this->Msgbuf[NdxPtr - 1] != 'O')
+                        {
+                            Test = true;
+                        } else  if (NdxPtr == 0 )
+                        {
+                            Test = true; 
+                        }
+                        break;
+                    case 41: /* RULE(ANDT/WAIT) - this is the 1st in the string or there is at least one character ahead & its NOT an 'E' */
+                        if (this->StrLength > SrchLen 
+                            && (this->Msgbuf[NdxPtr + SrchLen] == 'N'
+                            && this->Msgbuf[NdxPtr + SrchLen + 1] == 'X'))  //i.e. andTNX
+                        {
+                            Test = false;
+                        }
+                        else
+                        {
+                            Test = true;
+                        }
+                    case 42: /* RULE(D9/DON) - this is the 1st in the string or there is at least one character following & its NOT an 'O' */
+                        if (NdxPtr> 0 
+                            && this->Msgbuf[NdxPtr - 1] == 'W')
+                        {
+                            Test = false;
+                        } else
+                        {
+                            Test = true; 
+                        }
+                        break;
+                    case 43:/* RULE(TTAN/MAN) -  1st & 2nd characters following the search term is NOT 'OO' */
+                        if (this->Msgbuf[NdxPtr + SrchLen] == 'O'
+                            && this->Msgbuf[NdxPtr + SrchLen+1] == 'O')// could be chaTTANOOga
+                        { 
+                            Test = false;
+                        }
+                        else Test = true;
+                        break;
+                    case 44: /* RULE(NTN/NG) - this is the 1st in the string or there is at least one character ahead & its NOT an 'X' */
+                        if (this->StrLength > SrchLen 
+                            && this->Msgbuf[NdxPtr + SrchLen + 1] == 'X')  //i.e. andTNX
+                        {
+                            Test = false;
+                        }
+                        else
+                        {
+                            Test = true;
+                        }
+                    case 45: /* RULE(TWA/TAK) - this is the 1st in the string or there is at least one character ahead & its NOT an 'X' */
+                        if (this->StrLength > SrchLen 
+                            && this->Msgbuf[NdxPtr + SrchLen + 1] == 'S')  //i.e. tWAS
+                        {
+                            Test = false;
+                        }
+                        else
+                        {
+                            Test = true;
+                        }
+                    case 46: /* RULE(OITS/8TS) - this is the 1st in the string or there is at least one character ahead & its NOT an 'S' */
+                        if (NdxPtr> 0 
+                            && this->Msgbuf[NdxPtr - 1] == 'S') //So its
+                        { 
+                            Test = false;
+                        } else
+                        {
+                            Test = true; 
+                        }
+                        break;
+                    case 47: /* RULE(C9T/CONT) - this is the 1st in the string or there is at least one character ahead & its NOT an 'S' */
+                        if (NdxPtr> 0 
+                            && this->Msgbuf[NdxPtr - 1] == 'K') 
+                        { 
+                            Test = false;
+                        } else
+                        {
+                            Test = true; 
+                        }
+                        break;                                                               
                     }
                     if(Test) NdxPtr = this->SrchEsReplace(NdxPtr, STptr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
                 }

@@ -19,7 +19,7 @@
 #include <stdio.h>
 #define IntrvlBufSize 200
 #define MsgbufSize 50
-#define SrchDictSize 480
+#define SrchDictSize 530
 struct Buckt_t
 {
 	uint16_t Intrvl;
@@ -119,10 +119,10 @@ private:
         {"HEWH", "HEATH", 4, 0}, //78
         {"GEMIN", "GETTIN", 5, 0}, //79
         {"QKING", "MAKING", 5, 0}, //80
-        {"HJ", "HAM", 2, 1}, //81 /*search term & msgbuf size are the same*/
+        {"M<AR>MI", "QRZ", 7, 0}, //81 /*search term & msgbuf size are the same*/
         {"M<AR>", "QR", 5, 15}, //82
         {"NTX", "WX", 3, 1}, //83 /*search term & msgbuf size are the same*/
-        {"SMAU", "SQR", 4, 0}, //84
+        {"SMAU", "SQU", 4, 0}, //84
         {"PST", "WEST", 3, 1}, //85 /*search term & msgbuf size are the same*/
         {"S0E", "SOME", 3, 0}, //861
         {"TWAE", "TAKE", 4, 0}, //87
@@ -166,7 +166,7 @@ private:
         {"AAES", "ARS", 4, 0}, //125
         {"AAI", "AL", 3, 0}, //126
         {"TDKE", "MIKE", 4, 0}, //127
-        {"KTE", "YE", 3, 0}, //128
+        {"KTE", "YE", 3, 40}, //128
         {"RTMB", "ROB", 4, 0}, //129
         {"DAEI", "DRI", 4, 0}, //130
         {"HADMI", "HW?", 5, 0}, //131
@@ -317,7 +317,7 @@ private:
         {"FTTTR", "FOR", 5, 0}, //275
         {"MOENN", "MORN", 5, 0}, //276
         {"KTR", "YR", 3, 0}, //277
-        {"C9T", "CONT", 3, 0}, //278
+        {"C9T", "CONT", 3, 47}, //278
         {"GEZNG", "GETTING", 4, 0}, //279
         {"XOR", "XMTR", 3, 10}, //280
         {"WW", "WAT", 2, 28}, //281
@@ -407,7 +407,7 @@ private:
         {"KTU", "QU", 3, 31}, //365
         {"FEDAT", "FLAT", 5, 0}, //366
         {"NIKEE", "NICE", 5, 0}, //367
-        {"ISTE", "IVE", 4, 19}, //368
+        {"TEQE", "TAKE", 4, 0}, //368
         {"WPTT", "WPM", 4, 0}, //369
         {"ZT", "GET", 2, 0}, //370
         {"HJ", "HAM", 2, 0}, //371
@@ -486,7 +486,7 @@ private:
         {"HMTE", "HOME", 4, 0}, //444
         {"JWAE", "JAKE", 4, 0}, //445
         {"JP", "AMP", 2, 0}, //446
-        {"D9", "DON", 2, 0}, //447
+        {"D9", "DON", 2, 42}, //447
         {"MKNR", "OWER", 4, 0}, //448  i.e. SHMKNRS = SHOWERS
         {"ARMXND", "AROUND", 6, 0}, //449
         {"MTF", "OF", 3, 0}, //450
@@ -512,6 +512,60 @@ private:
         {"MEHT", "GHT", 4, 0}, //470
         {"MENR", "METER", 4, 0}, //471
         {"CEGY", "CPY", 4, 0}, //472
+        {"PATR", "PWR", 4, 0}, //473
+        {"9L", "ONL", 2, 0}, //474   i.e. 9Ly = ONLY
+        {"INIR", "FIR", 4, 0}, //475
+        {"OI9" , "89", 3, 0}, //476
+        {"MEP" , "MEAN", 3, 0}, //477
+        {"B2" , "BUTT", 2, 0}, //478
+        {"GX" , "TNX", 2, 0}, //479
+        {"UTI" , "?", 3, 39}, //480 //skip for 'beautiful'
+        {"NTN" , "NG", 3, 44}, //481
+        {"EMAY" , "WAY", 4, 0}, //482
+        {"ZE3" , "73", 3, 0}, //483
+        {"ENUN" , "RUN", 4, 0}, //484
+        {"NTMAT" , "NOW", 5, 0}, //485
+        {"ATNE" , "AGE", 4, 0}, //486
+        {"ISTE", "IVE", 4, 19}, //487
+        {"WM9", "19", 3, 0}, //488
+        {"AIID", "LID", 4, 0}, //489 soAIID = solid
+        {"INUN", "FUN", 4, 0}, //490
+        {"PNETTY", "PRTTY", 6, 0}, //491
+        {"PFG", "PING", 3, 0}, //492
+        {"OITS", "8TS", 4, 46}, //493
+        {"ANDT", "WAIT", 4, 41}, //494
+        {"OITT", "OUT", 4, 0}, //495
+        {"6TTO", "60", 4, 0}, //496
+        {"VKT", "VY", 3, 0}, //497
+        {"ZST", "MIST", 3, 0}, //498
+        {"5OI", "58", 3, 0}, //499
+        {"TWA", "TAK", 3, 45}, //500
+        {"MASB", "QSB", 4, 0}, //501
+        {"NETVNM", "NAVY", 6, 0}, //502
+        {"RETDITM", "RADIO", 6, 0}, //503
+        {"TTAN", "MAN", 6, 43}, //504
+        {"PRE", "WERE", 3, 17}, //505
+        {"5TOT", "50", 4, 0}, //506
+        {"YECD", "YARD", 4, 17}, //507
+        {"0RE", "MORE", 3, 0}, //508
+        {"S<AS>", "SRI", 5, 0}, //509
+        {"HOG", "HOME", 3, 0}, //510
+        {"TH2B", "THUMB", 4, 0}, //511
+        {"CLDNY", "CLDY", 5, 0}, //512
+        {"MITCH", "MUCH", 5, 0}, //513
+        {"INRAM", "FRAM", 5, 0}, //514
+        {"SITEN", "SUR", 5, 0}, //515
+        {"CAEN", "CAR", 4, 0}, //516
+        {"PO<AS>", "POLE", 6, 0}, //517
+        {"Q<AA>", "QRT", 5, 0}, //518
+        {"CEQ", "CANT", 3, 0}, //519
+        {"SKY", "STAY", 3, 0}, //520
+        {"AGREW", "A GREAT", 5, 0}, //521
+        {"CMTU", "COU", 4, 0}, //522 //couple
+        {"6W", "THAT", 2, 0}, //523
+        {"OAIE", "OLE", 4, 0}, //524 //dipOAIE = DIPOLE
+        {"KKRD", "YARD", 4, 0}, //525
+        {"NO9", "NOON", 3, 0}, //526
     };
     
     bool AllDah;
