@@ -11,7 +11,8 @@
  * 20240206 added StrchdDah property
  * 20240313 added SrchRplc_stuct & SrchRplcDict[]
  * 20240323 expanded SrchRplcDict[] to 212 entries
- * 20240420 expanded SrchRplcDict[] to 472 entries; added auto word break timing 'wrdbrkFtcr'  
+ * 20240420 expanded SrchRplcDict[] to 472 entries; added auto word break timing 'wrdbrkFtcr' 
+ * 20240502 added entries 527 - 586 to  SrchRplcDict[] 
  * */
 #ifndef INC_ADVPARSER_H_
 #define INC_ADVPARSER_H_
@@ -19,7 +20,7 @@
 #include <stdio.h>
 #define IntrvlBufSize 200
 #define MsgbufSize 50
-#define SrchDictSize 530
+#define SrchDictSize 590
 struct Buckt_t
 {
 	uint16_t Intrvl;
@@ -40,7 +41,7 @@ private:
     const SrchRplc_stuct SrchRplcDict[SrchDictSize] ={
         {"PD", "AND", 2, 1}, //0
         {"PY", "ANY", 2, 1}, //1 if(this->StrLength + 1 == this->SrchRplcDict[STptr].ChrCnt){ /*search term & msgbuf size are the same*/
-        {"PT", "ANT", 2, 1}, //2 if(this->StrLength + 1 == this->SrchRplcDict[STptr].ChrCnt){ /*search term & msgbuf size are the same*/
+        {"PT", "ANT", 2, 49}, //2 
         {"CP", "CAN", 2, 3}, //3 if (this->StrLength == 1)
         {"QY", "MAY", 2, 2}, //4 if (NdxPtr == 0 || (NdxPtr > 0 && this->Msgbuf[NdxPtr - 1] != 'C'))
         {"S2", "SUM", 2, 10}, //5
@@ -148,7 +149,7 @@ private:
         {"AIO", "LO", 3, 0}, //107
         {"HPG", "HANG", 3, 0}, //108
         {"TKS", "QS", 3, 8}, //109
-        {"FTS", "FB", 3, 0}, //110
+        {"FTS", "FB", 3, 51}, //110
         {"CP", "CAN", 2, 4}, //111
         {"BTET", "BK", 4, 0}, //112
         {"CEP", "KEEP", 3, 11}, //113
@@ -395,7 +396,7 @@ private:
         {"DIWE", "DIP", 4, 0}, //353 for DIPOLE
         {"MERAS", "GRAS", 5, 0}, //354
         {"ATELL", "WELL", 5, 0}, //355
-        {"AMERE", "AGRE", 5, 0}, //356
+        {"AMERE", "AGRE", 5, 52}, //356
         {"SMT", "SO", 3, 0}, //357
         {"SAKT", "SAY", 4, 0}, //358
         {"HOANE", "HOPE", 5, 0}, //359
@@ -454,7 +455,7 @@ private:
         {"<AR>A" , "CA", 5, 0}, //412
         {"BHT" , "BEST", 3, 0}, //413
         {"LICL" , "LIKEL", 4, 0}, //414
-        {"MERO" , "GRO", 4, 0}, //415
+        {"MERO" , "GRO", 4, 48}, //415
         {"TIONT" , "DONT", 5, 0}, //416
         {"RISB" , "RISTS", 6, 0}, //417
         {"RA6O" , "RADIO", 4, 0}, //418
@@ -496,10 +497,10 @@ private:
         {"AEEARN", "LEARN", 6, 0}, //454
         {"FAEOM", "FROM", 7, 0}, //455
         {"1ON", "19", 3, 0}, //456
-        {"AEND", "PEND", 4, 0}, //457 i.e. AENDUL = PENDUL
+        {"MANNOKS" , "MANY TNKS", 7, 0}, //457
         {"NTEY", "KEY", 4, 0}, //458
         {"0OTT", "00", 4, 0}, //459
-        {"OET", "OA", 4, 0}, //460 i.e. COETX = COAX
+        {"OET", "OA", 4, 53}, //460 i.e. COETX = COAX
         {"I<KN>", "ING", 5, 0}, //461
         {"FLJE", "FLAME", 4, 0}, //462
         {"6RU", "THRU", 3, 0}, //463
@@ -517,8 +518,8 @@ private:
         {"INIR", "FIR", 4, 0}, //475
         {"OI9" , "89", 3, 0}, //476
         {"MEP" , "MEAN", 3, 0}, //477
-        {"B2" , "BUTT", 2, 0}, //478
-        {"GX" , "TNX", 2, 0}, //479
+        {"B2" , "BUTT", 2, 50}, //478
+        {"IUE" , "IF", 3, 0}, //479
         {"UTI" , "?", 3, 39}, //480 //skip for 'beautiful'
         {"NTN" , "NG", 3, 44}, //481
         {"EMAY" , "WAY", 4, 0}, //482
@@ -566,6 +567,66 @@ private:
         {"OAIE", "OLE", 4, 0}, //524 //dipOAIE = DIPOLE
         {"KKRD", "YARD", 4, 0}, //525
         {"NO9", "NOON", 3, 0}, //526
+        {"DJN", "DAMN", 3, 0}, //527
+        {"GX" , "TNX", 2, 0}, //528
+        {"CIOB" , "CUMB", 4, 0}, //529
+        {"KEEWE" , "KEEP", 4, 0}, //530
+        {"RANNE" , "RACE", 5, 0}, //531
+        {"SWEEC" , "SPEC", 5, 0}, //532
+        {"RAD2" , "RADIO", 4, 0}, //533
+        {"BIAIE" , "BILE", 5, 0}, //534
+        {"HEA6" , "HEATH", 4, 0}, //535
+        {"CPS" , "TRANS", 3, 0}, //536
+        {"BRITCE" , "BRUCE", 6, 0}, //537
+        {"OI2" , "82", 3, 0}, //538
+        {"JITST" , "JUST", 5, 0}, //539
+        {"OATN" , "OWN", 4, 0}, //540
+        {"GOT8" , "GOOD", 4, 0}, //541
+        {"FJI" , "FAMI", 3, 0}, //542
+        {"NNAN" , "CAN", 4, 0}, //543
+        {"WILED" , "WILL", 5, 0}, //544
+        {"EDD" , "LD", 3, 0}, //545
+        {"ENET" , "RA", 4, 0}, //546 //i,e, RAdio
+        {"HORMI" , "HORZ", 5, 0}, //547
+        {"CULTS" , "CLUB", 5, 0}, //548
+        {"RRPG" , "RRANG", 4, 0}, //549
+        {"BEETX" , "BOY", 5, 0}, //550 //super sloppy bug
+        {"BEETDT" , "BOY", 6, 0}, //551 //super sloppy bug
+        {"THEET" , "THEM", 5, 0}, //552 //super sloppy bug
+        {"THETT" , "THEM", 5, 0}, //553 //super sloppy bug
+        {"EETAT" , "OW", 5, 0}, //554//super sloppy bug
+        {"EETIT" , "OW", 5, 0}, //555//super sloppy bug
+        {"ETTAT" , "OW", 5, 0}, //556//super sloppy bug
+        {"EET" , "O", 3, 0}, //557//super sloppy bug
+        {"CEMRINS" , "CORPS", 7, 55}, //558 //super sloppy bug
+        {"EM" , "O", 2, 55}, //559 //super sloppy bug
+        {"ENENIN" , "ENGIN", 6, 0}, //560//super sloppy bug
+        {"TNE" , "GE", 3, 54}, //561 //super sloppy bug
+        {"ENE" , "GE", 3, 54}, //562 //super sloppy bug
+        {"UU" , "OO", 2, 0}, //563 //super sloppy bug
+        {"EEX" , "OW", 3, 0}, //564 //super sloppy bug
+        {"ETE" , "ME", 3, 0}, //565 //super sloppy bug
+        {"INEN" , "ING", 4, 0}, //556 //super sloppy bug
+        {"THEX" , "THEY", 4, 0}, //567 //super sloppy bug
+        {"THEDT" , "THEY", 5, 0}, //568 //super sloppy bug
+        {"BODT" , "BOY", 4, 0}, //569 //super sloppy bug
+        {"EDEET" , "LO", 5, 0}, //570 //super sloppy bug
+        {"LOIT" , "LOW", 4, 0}, //571 //super sloppy bug
+        {"FROET" , "FROM", 5, 0}, //572 //super sloppy bug
+        {"FRTTTET" , "FROM", 7, 0}, //573 //super sloppy bug
+        {"EKRET" , "QRM", 5, 0}, //574 //super sloppy bug
+        {"AETP" , "AMP", 4, 0}, //575 //super sloppy bug
+        {"AETIN" , "AMP", 5, 0}, //576 //super sloppy bug
+        {"AEN" , "AG", 3, 0}, //577 //super sloppy bug
+        {"EECS" , "ORS", 4, 0}, //578 //super sloppy bug
+        {"EE/" , "OF", 3, 0}, //579 //super sloppy bug
+        {"KEEIN" , "KEEP", 5, 0}, //580 //super sloppy bug
+        {"KE EIN" , "KEEP", 6, 0}, //581 //super sloppy bug
+        {"FETTR" , "FOR", 5, 0}, //582 //super sloppy bug
+        {"RETTET" , "ROM", 6, 0}, //583 //super sloppy bug
+        {"BKT" , "BY", 3, 0}, //584 //super sloppy bug
+        {"LETTETTK" , "LOOK", 8, 0}, //585 //super sloppy bug
+        {"EGR" , "OF", 3, 0}, //586 //super sloppy bug
     };
     
     bool AllDah;

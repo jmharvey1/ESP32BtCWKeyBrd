@@ -2438,7 +2438,7 @@ void dispMsg(char Msgbuf[50])
 				LtrHoldr[LtrPtr + 1] = 0;
 				LtrPtr++;
 				/*Auto-word break adjustment test*/
-				if (LtrPtr > 6){/*this word is getting long. Shorten the wordBrk interval a bit*/
+				if (LtrPtr > 11){/*this word is getting long. Shorten the wordBrk interval a bit*/
 					wrdbrkFtcr -= 0.025;
 					//printf("wordBrk-: %d; wrdbrkFtcr: %5.3f\n", (uint16_t)wordBrk, wrdbrkFtcr);
 				}

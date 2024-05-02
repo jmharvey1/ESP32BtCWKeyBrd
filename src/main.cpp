@@ -95,6 +95,7 @@
 /*20240414 expanded SrchRplcDict[] to 413 entries*/
 /*20240420 expanded SrchRplcDict[] to 472 entries*/
 /*20240427 expanded SrchRplcDict[] to 526 entries*/
+/*20240502 added entries 527 - 586 to  SrchRplcDict[] (superslopy) */
 
 #include "sdkconfig.h" //added for timer support
 #include "globals.h"
