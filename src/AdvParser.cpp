@@ -2931,16 +2931,23 @@ void AdvParser::FixClassicErrors(void)
     while(NdxPtr < this->StrLength - 1)
     {
         int oldPtrVal = NdxPtr;
-        int STptr =0;
+        int STptr;
         for(STptr =0; STptr < SrchDictSize; STptr++){
             if(this->SrchRplcDict[STptr].srchTerm[0] == this->Msgbuf[NdxPtr]){
                 /*the 1st char in the this search pattern matches the cur character in the MsgBuf
-                So we need more tests*/
+                So we need to do more tests*/
                 bool Test = false;
                 int SrchLen = this->SrchRplcDict[STptr].ChrCnt;
                 if(NdxPtr + SrchLen <= this->StrLength)/*check that search term is smaller than whats left to check in the MsgBuf*/
                 {
-                    switch(this->SrchRplcDict[STptr].Rule)
+                    int curRule = this->SrchRplcDict[STptr].Rule;
+                    if(BugKey == 0 && curRule>=200){
+                        Test = false;
+                    }
+                    else if(curRule>=200){
+                        curRule -= 200;
+                    }
+                    switch(curRule)
                     {
                     case 0: 
                         Test = true;
@@ -3392,6 +3399,11 @@ void AdvParser::FixClassicErrors(void)
                         {
                             Test = false;
                         }
+                        else if (NdxPtr> 0 
+                            && this->Msgbuf[NdxPtr - 1] == 'B')
+                        {
+                            Test = false; //...BANDt...
+                        }
                         else
                         {
                             Test = true;
@@ -3549,8 +3561,36 @@ void AdvParser::FixClassicErrors(void)
                             Test = true; 
                         }
                         break;
-                    case 55: /*Rule(EM/O) - test unles, there is a 'G' preceeding the search point */
-                        if (NdxPtr> 0 && this->Msgbuf[NdxPtr - 1] == 'H')
+                    case 55: /*Rule(EM/O) - test unless, there is a 'H','W', or 'T' preceeding the search point */
+                        if (NdxPtr> 0 && (
+                            this->Msgbuf[NdxPtr - 1] == 'H'
+                            || this->Msgbuf[NdxPtr - 1] == 'W' //wE
+                            || (this->Msgbuf[NdxPtr - 1] == 'T' && this->Msgbuf[NdxPtr + SrchLen] == 'P')))
+                        {
+                            Test = false; // tHEM
+                        }
+                        else if(NdxPtr> 1
+                            && this->Msgbuf[NdxPtr - 2] == 'A'
+                            && this->Msgbuf[NdxPtr - 1] == 'R')
+                        {
+                                Test = false; // arE or could be carE
+                        }
+                        else if(NdxPtr> 1
+                            && this->Msgbuf[NdxPtr - 2] == 'S'
+                            && this->Msgbuf[NdxPtr - 1] == 'E')
+                        {
+                                Test = false; // seEM
+                        }
+                        else
+                        {
+                            Test = true; 
+                        }
+                        break;
+                    case 56: /*Rule(ETE/ME) - test unles, there is a 'G' preceeding the search point */
+                        if (NdxPtr> 0 && (
+                            //this->Msgbuf[NdxPtr - 1] == 'H' || 
+                            (this->Msgbuf[NdxPtr - 1] == 'M' && this->Msgbuf[NdxPtr + SrchLen] == 'R')) //mETEr
+                            )
                         {
                             Test = false; // tHEM
                         }
@@ -3558,31 +3598,72 @@ void AdvParser::FixClassicErrors(void)
                         {
                             Test = true; 
                         }
-                        break;    
-
+                        break;
+                    case 57: /*Rule(EET/O) - test unles, there is a 'G' preceeding the search point */
+                        if (NdxPtr> 0 
+                            && (this->Msgbuf[NdxPtr - 1] == 'F' ) //FEET
+                            )
+                        {
+                            Test = false;
+                        }
+                        else if (NdxPtr> 0 
+                            && (this->Msgbuf[NdxPtr - 1] == 'S' ) //SEEt....
+                            )
+                        {
+                            Test = false;
+                        }
+                        else
+                        {
+                            Test = true; 
+                        }
+                        break;
+                    case 58: /* Rule(BKT/BY) */
+                        if (NdxPtr> 0 
+                            && (this->Msgbuf[NdxPtr - 1] == 'O' ) //TO
+                            )
+                        {
+                            Test = false;
+                        }
+                        else
+                        {
+                            Test = true; 
+                        }
+                        break;        
+                    default:
+                        break;            
                     }
                     
-                    if(Test) NdxPtr = this->SrchEsReplace(NdxPtr, STptr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
+                    if(Test){
+                        
+                        NdxPtr = this->SrchEsReplace(NdxPtr, STptr, this->SrchRplcDict[STptr].srchTerm , this->SrchRplcDict[STptr].NuTerm);
+                        if(oldPtrVal != NdxPtr)// did some kind of an update/change to original string
+                        { // so move to next pointer (character) position
+                            //STptr = 0;
+                            //oldPtrVal = NdxPtr;
+                            break;
+                        } 
+                    } 
                 }
             }
-        } 
+        } //end for Dictionary loop
  
-        if( NdxPtr == oldPtrVal) NdxPtr++;//went completely though this set checks W/o a fix. so move to the next character in the current sequence
-    }
+        //if( NdxPtr >= oldPtrVal) 
+        NdxPtr++;//went completely though the dictionary list, or did a 'fix' . Move to the next character in the current sequence
+    } // end While sequence through the characters in post parsed string
     // Msgbufaddress = this->Msgbuf;
     // printf("MemAddr %#08X; this->Msgbuf: %s \n",  (int)&this->Msgbuf, this->Msgbuf);
     //  printf("%c%c%c\n", this->Msgbuf[lstCharPos - 2],  this->Msgbuf[lstCharPos - 1], this->Msgbuf[lstCharPos] );// for debugging sloppy strings only
-    if (this->Msgbuf[lstCharPos - 1] == '@' && this->Msgbuf[lstCharPos] == 'D')
-    {
-        sprintf(Msgbuf, " (%c%s", this->Msgbuf[lstCharPos - 2], "AC)"); // test for "@" (%c%s", this->Msgbuf[lstCharPos - 2], "AC)"); //"true"; Insert preceeding character plus correction "AC"
-    }
-    if (lstCharPos >= 4)
-    {
-        if (this->Msgbuf[lstCharPos - 4] == '5' && this->Msgbuf[lstCharPos - 3] == 'O' && this->Msgbuf[lstCharPos - 2] == 'N' && this->Msgbuf[lstCharPos - 1] == 'O' && this->Msgbuf[lstCharPos] == 'N')
-        {
-            sprintf(Msgbuf, "5NN");
-        }
-    }
+    // if (this->Msgbuf[lstCharPos - 1] == '@' && this->Msgbuf[lstCharPos] == 'D')
+    // {
+    //     sprintf(Msgbuf, " (%c%s", this->Msgbuf[lstCharPos - 2], "AC)"); // test for "@" (%c%s", this->Msgbuf[lstCharPos - 2], "AC)"); //"true"; Insert preceeding character plus correction "AC"
+    // }
+    // if (lstCharPos >= 4)
+    // {
+    //     if (this->Msgbuf[lstCharPos - 4] == '5' && this->Msgbuf[lstCharPos - 3] == 'O' && this->Msgbuf[lstCharPos - 2] == 'N' && this->Msgbuf[lstCharPos - 1] == 'O' && this->Msgbuf[lstCharPos] == 'N')
+    //     {
+    //         sprintf(Msgbuf, "5NN");
+    //     }
+    // }
 
 };
 
@@ -3670,9 +3751,9 @@ int AdvParser::SrchEsReplace(int MsgBufIndx, int STptr, const char srchTerm[10],
         this->StrLength = MsgBufIndx + RplcLtrCnt + j;
     }
 
-    if (j > 0)
-        MsgBufIndx += RplcLtrCnt;
+    //if (j > 0)
+        MsgBufIndx += (RplcLtrCnt-1);
     //printf("Old: %s;  SrchTerm: %s; New: %s; oldStrLength %d; STptr: %d\n", oldtxt,  srchTerm, this->Msgbuf, oldStrLength, STptr);
-    printf("Old: %s;  SrchTerm: %s; New: %s; STptr: %d\n", oldtxt,  srchTerm, this->Msgbuf, STptr);    
+    printf("Old: %s;  SrchTerm: %s; New: %s; MsgBufIndx: %d; STptr: %d; BugKey: %d\n", oldtxt,  srchTerm, this->Msgbuf, MsgBufIndx, STptr, BugKey);    
     return MsgBufIndx;
 };
