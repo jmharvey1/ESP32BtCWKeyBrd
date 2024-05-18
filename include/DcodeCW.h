@@ -20,6 +20,7 @@ extern float SqlchLvl;
 extern float CurNoise;
 extern float TARGET_FREQUENCYC;
 extern float AvgSmblDedSpc;
+extern float wrdbrkFtcr;
 extern volatile unsigned long avgDit;
 extern volatile unsigned long avgDeadSpace;
 extern float curRatio;

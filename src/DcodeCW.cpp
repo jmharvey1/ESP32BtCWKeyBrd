@@ -35,6 +35,7 @@
 #include "Arduino.h" //For ESP32, may not need this reference, since timr5 count calls are replaced with ESP32 equivalent
 // #include "SerialClass.h"
 #define MaxIntrvlCnt 24
+bool DbgWrdBrkFtcr = true;
 int ShrtBrk[10];
 int charCnt = 0;
 int shwltrBrk = 0;
@@ -111,6 +112,7 @@ int KeyDwnPtr = 0;
 // DeBug Character buffer to compare original Decode Text Vs AdvParser text
 char LtrHoldr[30];
 int LtrPtr = 0;
+int WrdChrCnt = 0;
 //AdvParser advparser; // create/instantuate the AdvParser Object/Class
 
 // char DahMthd[150];//used for diagnostic testing only
@@ -1486,58 +1488,74 @@ bool chkChrCmplt(void)
 		// the contents of the AutoMode detector time buffers
 		if (KeyDwnPtr > 2 && KeyUpPtr > 2 && KeyUpIntrvls[0] > 0 && KeyDwnIntrvls[0] > 0)
 		{
-			//printf("\nWORD BREAK - KeyDwnPtr: %d; KeyUpPtr:%d\n", KeyDwnPtr, KeyUpPtr);
-			if ((LtrPtr >= 1 || KeyDwnPtr >= 9) && ((wpm > 13) ||(LtrPtr > 3)) && (wpm < 36) && (KeyDwnPtr == KeyUpPtr))// don't try to reparse if the key up & down pointers arent equal
-			{ // dont do "post parsing" with just one letter or WPMs <= 13
+			// printf("\nWORD BREAK - KeyDwnPtr: %d; KeyUpPtr:%d\n", KeyDwnPtr, KeyUpPtr);
+			if ((LtrPtr >= 1 || KeyDwnPtr >= 9) && ((wpm > 13) || (LtrPtr > 3)) && (wpm < 36) && (KeyDwnPtr == KeyUpPtr)) // don't try to reparse if the key up & down pointers arent equal
+			{																											  // dont do "post parsing" with just one letter or WPMs <= 13
 				/*Auto-word break adjustment test*/
-				if (LtrPtr == 1) {
+				if (LtrPtr == 1)
+				{
 					/*Only one letter in this word; */
-					oneLtrCntr++;
-					if(oneLtrCntr>=2){ // had 2 entries in a row that were just one character in lenght; shorten the wordbrk interval
-						wrdbrkFtcr += 0.2;
-						//printf("wordBrk+: %d; wrdbrkFtcr: %5.3f\n", (uint16_t)wordBrk, wrdbrkFtcr);
+					if (LtrHoldr[0] != '-' && LtrHoldr[0] != '.' && LtrHoldr[0] != '?'
+						&& LtrHoldr[0] != 'K' && LtrHoldr[0] != 'R'
+						&& (LtrHoldr[0] < '0' || LtrHoldr[0] > '9'  ))
+					{
+						oneLtrCntr++;
+						if (oneLtrCntr >= 2)
+						{ // had 2 entries in a row that were just one character in lenght; shorten the wordbrk interval
+							wrdbrkFtcr += 0.15;// = 2.0
+							// LtrHoldr[LtrPtr] = curChar
+							if(DbgWrdBrkFtcr) printf("wordBrk+: %d; wrdbrkFtcr: %5.3f; CurLtr %C\n", (uint16_t)wordBrk, wrdbrkFtcr, LtrHoldr[0]);
+						}
 					}
-				} else oneLtrCntr = 0;
+				}
+				else
+					oneLtrCntr = 0;
 				/*1st refresh/sync 'advparser.Dbug' */
 				if (DeBug)
 					advparser.Dbug = true;
 				else
 					advparser.Dbug = false;
 				/*Sync advparser.wrdbrkFtcr to current wrdbrkFtcr*/
-				advparser.wrdbrkFtcr = wrdbrkFtcr;	
-				/*Perpare advparser, by 1st copying current decoder symbol sets into local advparser arrays*/	
-				for(int i= 0; i <= KeyDwnPtr; i++){
+				advparser.wrdbrkFtcr = wrdbrkFtcr;
+				/*Perpare advparser, by 1st copying current decoder symbol sets into local advparser arrays*/
+				for (int i = 0; i <= KeyDwnPtr; i++)
+				{
 					advparser.KeyUpIntrvls[i] = KeyUpIntrvls[i];
-					advparser.KeyDwnIntrvls[i] =  KeyDwnIntrvls[i];
+					advparser.KeyDwnIntrvls[i] = KeyDwnIntrvls[i];
 				}
 				advparser.KeyUpPtr = KeyUpPtr;
 				advparser.KeyDwnPtr = KeyDwnPtr;
 				advparser.wpm = wpm;
 				advparser.LtrPtr = LtrPtr;
-				for(int i= 0; i <= LtrPtr; i++){
+				for (int i = 0; i <= LtrPtr; i++)
+				{
 					advparser.LtrHoldr[i] = LtrHoldr[i];
 				}
-				
+
 				/*now we can start/resart the post parsing process */
-				vTaskResume( AdvParserTaskHandle );
-				
-			} else if (wpm >= 36)
+				vTaskResume(AdvParserTaskHandle);
+			}
+			else if (wpm >= 36)
 			{
-				if (LtrPtr == 1) {
+				if (LtrPtr == 1)
+				{
 					/*Only one letter in this word; */
 					oneLtrCntr++;
-					if(oneLtrCntr>=2){ // had 2 entries in a row that were just one character in lenght; shorten the wordbrk interval
+					if (oneLtrCntr >= 2)
+					{ // had 2 entries in a row that were just one character in lenght; shorten the wordbrk interval
 						wrdbrkFtcr += 0.2;
-						//printf("wordBrk+: %d; wrdbrkFtcr: %5.3f\n", (uint16_t)wordBrk, wrdbrkFtcr);
+						if(DbgWrdBrkFtcr) printf("wordBrk+: %d; wrdbrkFtcr: %5.3f\n", (uint16_t)wordBrk, wrdbrkFtcr);
 					}
-				} else oneLtrCntr = 0;	
-			} 
-			
+				}
+				else
+					oneLtrCntr = 0;
+			}
 		}
-		
+
 		for (int i = 0; i < LtrPtr; i++)
 			LtrHoldr[i] = 0;
 		LtrPtr = 0;
+		WrdChrCnt = 0;
 		KeyDwnPtr = KeyUpPtr = 0; // resetbuffer pntrs
 
 		Pstate = 2; // have word
@@ -2437,10 +2455,12 @@ void dispMsg(char Msgbuf[50])
 				LtrHoldr[LtrPtr] = curChar;
 				LtrHoldr[LtrPtr + 1] = 0;
 				LtrPtr++;
+				if (curChar != 'T') WrdChrCnt++;
 				/*Auto-word break adjustment test*/
-				if (LtrPtr > 11){/*this word is getting long. Shorten the wordBrk interval a bit*/
-					wrdbrkFtcr -= 0.025;
-					//printf("wordBrk-: %d; wrdbrkFtcr: %5.3f\n", (uint16_t)wordBrk, wrdbrkFtcr);
+				//if (LtrPtr > 11 && curChar != 'T')
+				if (WrdChrCnt > 11){/*this word is getting long. Shorten the wordBrk interval a bit*/
+					wrdbrkFtcr -= 0.05; //-= 0.025
+					if(DbgWrdBrkFtcr) printf("wordBrk-: %d; wrdbrkFtcr: %5.3f; MsgBuf: %s\n", (uint16_t)wordBrk, wrdbrkFtcr, Msgbuf);
 				}
 				if (LtrPtr > 28)
 					LtrPtr = 28; // limit adding more than 30 characters to the "LtrHoldr" buffer

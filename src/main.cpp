@@ -97,6 +97,7 @@
 /*20240427 expanded SrchRplcDict[] to 526 entries*/
 /*20240502 added entries 527 - 586 to  SrchRplcDict[] (superslopy) */
 /*20240504 expanded SrchRplcDict[] to 634 entries*/
+/*20240518 expanded SrchRplcDict[] to 682 entries*/
 
 #include "sdkconfig.h" //added for timer support
 #include "globals.h"
@@ -154,7 +155,7 @@ DF_t DFault;
 int DeBug = 0; // Debug factory default setting; 0 => Debug "OFF"; 1 => Debug "ON"
 char StrdTxt[20] = {'\0'};
 /*Factory Default Settings*/
-char RevDate[9] = "20240504";
+char RevDate[9] = "20240518";
 char MyCall[10] = "KW4KD";
 char MemF2[80] = "VVV VVV TEST DE KW4KD";
 char MemF3[80] = "CQ CQ CQ DE KW4KD KW4KD";
@@ -208,6 +209,7 @@ adc_continuous_handle_t adc_handle = NULL;
 static TaskHandle_t GoertzelTaskHandle;
 static TaskHandle_t DsplUpDtTaskHandle = NULL;
 static TaskHandle_t CWDecodeTaskHandle = NULL;
+TaskHandle_t AdvParserTaskHandle = NULL;
 static const char *TAG1 = "ADC_Config";
 static const char *TAG2 = "PAIR_EVT";
 uint32_t ret_num = 0;
@@ -658,6 +660,7 @@ void AdvParserTask(void *param)
     /*Scan/compare last word displayed w/ advpaser's version*/
     int NuMsgLen = advparser.GetMsgLen();
     int LtrPtr = advparser.LtrPtr;
+    wrdbrkFtcr = advparser.wrdbrkFtcr ;
     // printf("NuMsgLen = %d; LtrPtr %d\n", NuMsgLen, LtrPtr);
     if (NuMsgLen > LtrPtr)
     { // if the advparser test string is longer, then delete the last word printed

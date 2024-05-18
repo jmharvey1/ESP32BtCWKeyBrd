@@ -13,7 +13,8 @@
  * 20240323 expanded SrchRplcDict[] to 212 entries
  * 20240420 expanded SrchRplcDict[] to 472 entries; added auto word break timing 'wrdbrkFtcr' 
  * 20240502 added entries 527 - 586 to  SrchRplcDict[] 
- * 20240504 expanded SrchRplcDict[] to 634 entries 
+ * 20240504 expanded SrchRplcDict[] to 634 entries
+ * 20240518 expanded SrchRplcDict[] to 682 entries 
  * */
 #ifndef INC_ADVPARSER_H_
 #define INC_ADVPARSER_H_
@@ -21,7 +22,7 @@
 #include <stdio.h>
 #define IntrvlBufSize 200
 #define MsgbufSize 50
-#define SrchDictSize 640
+#define SrchDictSize 690
 struct Buckt_t
 {
 	uint16_t Intrvl;
@@ -35,6 +36,8 @@ struct SrchRplc_stuct
   int ChrCnt;
   int Rule;
 };
+
+extern bool DbgWrdBrkFtcr;
 class AdvParser
 {
 private:
@@ -74,7 +77,7 @@ private:
         {"TNO", "GO", 3, 7}, //31
         {"SOG", "SOME", 3, 18}, //32 /*search term & msgbuf size are the same*/
         {"D9T", "DONT", 3, 0}, //33
-        {"CHW", "CHAT", 3, 0}, //34
+        {"CHW", "CHAT", 3, 69}, //34
         {"WPT", "WANT", 3, 25}, //35
         {"W5N", "WHEN", 3, 38}, //36
         {"PNT", "WENT", 3, 0}, //37
@@ -100,9 +103,9 @@ private:
         {"EZNG", "ETTING", 4, 0}, //57
         {"DTYL", "XYL", 4, 0}, //58
         {"GAEE", "GRE", 4, 0}, //59
-        {"NKEE", "NCE", 4, 0}, //60
+        {"NKEE", "NCE", 4, 70}, //60
         {"ARKT", "ARY", 4, 32}, //61
-        {"SNOAT", "SNOW", 5, 0}, //62
+        {"NOAT", "NOW", 4, 0}, //62
         {"TELAI", "TELL", 5, 0}, //63
         {"TTTAN", "OP", 5, 0}, //64
         {"TTEAE", "GRE", 5, 0}, //65
@@ -155,7 +158,7 @@ private:
         {"BTET", "BK", 4, 0}, //112
         {"CEP", "KEEP", 3, 11}, //113
         {"PDT", "ANDT", 3, 0}, //114
-        {"PDT", "ANDT", 3, 0}, //115
+        {"C9C", "CONC", 3, 0}, //115 //i,e, concert
         {"DOAG", "DOWN", 4, 0}, //116
         {"TOUH", "TO USE", 4, 0}, //117
         {"ANAD", "TO PAD", 4, 9}, //118
@@ -174,7 +177,7 @@ private:
         {"HADMI", "HW?", 5, 0}, //131
         {"7MS", "73", 3, 0}, //132
         {"TSUT", "BUT", 4, 0}, //133
-        {"IBS", "ITS", 3, 0}, //134
+        {"IBS", "ITS", 3, 64}, //134
         {"ADLL", "WILL", 4, 0}, //135
         {"TTTAID", "OLD", 6, 0}, //136
         {"SKRT", "START", 4, 0}, //137
@@ -243,7 +246,7 @@ private:
         {"TNUD", "GUD", 4, 0}, //199
         {"YEAN", "YEP", 4, 0}, //200
         {"MD0", "80", 3, 0}, //201
-        {"SCONG", "STRONG", 5, 0}, //202
+        {"SCONG", "STRONG", 5, 73}, //202
         {"STWION", "STATION", 6, 0}, //203
         {"FMC", "FOR", 3, 0}, //204
         {"M<KN>", "OP", 5, 0}, //205
@@ -311,10 +314,10 @@ private:
         {"QKE", "MAKE", 3, 0}, //267
         {"QSNT", "QSK", 4, 0}, //268
         {"EMID", "WID", 4, 0}, //269
-        {"SUNN", "SIGN", 4, 26}, //270
+        {"SUNN", "SIGN", 4, 226}, //270
         {"GOFG", "GOING", 4, 0}, //271
         {"0ST", "MOST", 4, 0}, //272
-        {"KNOAT", "KNOW", 5, 0}, //273
+        {"PNK", "ACK", 3, 0}, //273
         {"GFS", "GUES", 3, 0}, //274
         {"FTTTR", "FOR", 5, 0}, //275
         {"MOENN", "MORN", 5, 0}, //276
@@ -389,7 +392,7 @@ private:
         {"WI6", "WITH", 3, 0}, //345
         {"ESTEN", "EVEN", 5, 0}, //346
         {"AUIT", "AFT", 4, 0}, //347
-        {"WST", "ABT", 3, 0}, //348
+        {"WST", "ABT", 3, 61}, //348
         {"PEOWE", "PEOP", 5, 0}, //349
         {"MEUD", "GUD", 4, 0}, //350
         {"HASTE", "HAVE", 5, 0}, //351
@@ -453,12 +456,12 @@ private:
         {"ATX" , "WX", 3, 0}, //409
         {"CRTTYES" , "CROPS", 7, 0}, //410
         {"W9T" , "WONT", 3, 0}, //411
-        {"<AR>A" , "CA", 5, 0}, //412
+        {"<AR>A" , "CA", 5, 65}, //412
         {"BHT" , "BEST", 3, 0}, //413
         {"LICL" , "LIKEL", 4, 0}, //414
         {"MERO" , "GRO", 4, 48}, //415
         {"TIONT" , "DONT", 5, 0}, //416
-        {"RISB" , "RISTS", 6, 0}, //417
+        {"RISB" , "RISTS", 6, 72}, //417
         {"RA6O" , "RADIO", 4, 0}, //418
         {"OI0" , "80", 3, 0}, //419
         {"NOVURE" , "NOVICE", 6, 0}, //420
@@ -523,7 +526,7 @@ private:
         {"IUE" , "IF", 3, 0}, //479
         {"UTI" , "?", 3, 39}, //480 //skip for 'beautiful'
         {"NTN" , "NG", 3, 44}, //481
-        {"EMAY" , "WAY", 4, 0}, //482
+        {"EMAY" , "WAY", 4, 67}, //482
         {"ZE3" , "73", 3, 0}, //483
         {"ENUN" , "RUN", 4, 0}, //484
         {"NTMAT" , "NOW", 5, 0}, //485
@@ -560,8 +563,8 @@ private:
         {"CAEN", "CAR", 4, 0}, //516
         {"PO<AS>", "POLE", 6, 0}, //517
         {"Q<AA>", "QRT", 5, 0}, //518
-        {"CEQ", "CANT", 3, 0}, //519
-        {"SKY", "STAY", 3, 0}, //520
+        {"CEQ", "CANT", 3, 66}, //519
+        {"SKY", "SKY(STAY)", 3, 0}, //520
         {"AGREW", "A GREAT", 5, 0}, //521
         {"CMTU", "COU", 4, 0}, //522 //couple
         {"6W", "THAT", 2, 0}, //523
@@ -589,7 +592,9 @@ private:
         {"EDD" , "LD", 3, 0}, //545
         {"ENET" , "GET", 4, 217}, //546 //i,e, RAdio
         {"HORMI" , "HORZ", 5, 0}, //547
-        {"CULTS" , "CLUB", 5, 0}, //548NETTloppy bug
+        {"CULTS" , "CLUB", 5, 0}, //548 //super sloppy bug
+        {"EBEEDIEET" , "781", 9, 200}, //549//super sloppy bug
+        {"STRETTNEN" , "STRONG", 9, 200}, //550//super sloppy bug
         {"BEETDT" , "BOY", 6, 200}, //551 //super sloppy bug
         {"THEET" , "THEM", 5, 200}, //552 //super sloppy bug
         {"THETT" , "THEM", 5, 200}, //553 //super sloppy bug
@@ -598,9 +603,9 @@ private:
         {"ETTAT" , "OW", 5, 200}, //556//super sloppy bug
         {"EBEEEET" , "70", 7, 200}, //557//super sloppy bug
         {"CEMRINS" , "CORPS", 7, 255}, //558 //super sloppy bug
-        {"EM" , "O", 2, 255}, //559 //super sloppy bug
+        {"TEMWES" , "TEMPS", 6, 0}, //559 //super sloppy bug
         {"ENEN" , "GG", 4, 217}, //560//super sloppy bug
-        {"TNE" , "GE", 3, 254}, //561 //super sloppy bug
+        {"TNE" , "GE", 3, 260}, //561 //super sloppy bug
         {"ENE" , "GE", 3, 254}, //562 //super sloppy bug
         {"UU" , "OO", 2, 200}, //563 //super sloppy bug
         {"EEX" , "OW", 3, 200}, //564 //super sloppy bug
@@ -625,16 +630,16 @@ private:
         {"RETTET" , "ROM", 6, 200}, //583 //super sloppy bug
         {"BKT" , "BY", 3, 258}, //584 //super sloppy bug
         {"LETTETTK" , "LOOK", 8, 200}, //585 //super sloppy bug
-        {"EGR" , "OF", 3, 200}, //586 //super sloppy bug
+        {"EGR" , "OF", 3, 268}, //586 //super sloppy bug
         {"BUMES" , "BUGS", 5, 0}, //587
-        {"GRPD" , "GRAND", 4, 0}, //588
+        {"RPD" , "RAND", 3, 0}, //588
         {"NDDS" , "KIDS", 4, 0}, //589
         {"NETT" , "NO", 4, 200}, //590
         {"NMT" , "NO", 3, 200}, //591
         {"SEET" , "SO", 4, 200}, //592
         {"EKSETT" , "QSO", 4, 200}, //593
         {"NNK", "CK", 3, 0}, //594
-        {"RIEN", "RIG", 4, 200}, //595
+        {"RIEN", "RIG", 4, 262}, //595
         {"IENH", "IGH", 4, 200}, //596
         {"EBEEO", "70", 5, 200}, //597
         {"EBETD", "78", 5, 200}, //598
@@ -642,10 +647,10 @@ private:
         {"EEEN", "9", 4, 200}, //600
         {"TTTRK", "ORK", 5, 200}, //601
         {"MTOP", "OOP", 4, 200}, //602
-        {"EB6", "76", 3, 200}, //63
+        {"EB6", "76", 3, 200}, //603
         {"HAET", "HAM", 4, 200}, //604
         {"TTETT", "MO", 5, 200}, //605
-        {"ETU", "MU", 3, 200}, //606
+        {"SETUWE", "SETUP", 6, 0}, //606
         {"CHEAT", "CHEW", 5, 200}, //607
         {"GEN", "GG", 4, 217}, //608
         {"TETTDADT", "TODAY", 8, 200}, //609
@@ -653,7 +658,7 @@ private:
         {"ICOET", "ICOM", 5, 200}, //611
         {"TETTMETT", "TOMO", 8, 200}, //612
         {"BOKT", "BOY", 4, 200}, //613
-        {"RETT", "RO", 4, 200}, //614
+        {"RETT", "RO", 4, 271}, //614
         {"ANATH", "PATH", 5, 200}, //615
         {"LOOIN", "LOOP", 5, 200}, //616
         {"ATHILE", "WHILE", 6, 200}, //617
@@ -672,8 +677,57 @@ private:
         {"STRTTTNEN" , "STRONG", 9, 200}, //630//super sloppy bug
         {"ET ETTST LKT" , "MOSTLY", 12, 200}, //631//super sloppy bug
         {"L MTMTP" , "LOOP", 7, 200}, //632//super sloppy bug
-        {"EBEEDIEET" , "781", 9, 200}, //633//super sloppy bug
-        {"STRETTNEN" , "STRONG", 9, 200}, //634//super sloppy bug
+        {"XSEMEU" , "XIEGU", 6, 200}, //633//super sloppy bug
+        {"2MO" , "20", 3, 200}, //634//super sloppy bug
+        {"EKUIET" , "QUIET", 6, 200}, //635//super sloppy bug
+        {"WEMRK" , "WORK", 5, 200}, //636//super sloppy bug
+        {"UIN" , "UP", 3, 200}, //637//super sloppy bug
+        {"TETT" , "UP", 4, 217}, //638//super sloppy bug
+        {"TMEAR" , "YEAR", 5, 200}, //639//super sloppy bug
+        {"ANLAKTINTN" , "YEAR", 10, 200}, //640//super sloppy bug
+        {"ST9" , "STON", 3, 0}, //641
+        {"9MME" , "99", 4, 0}, //642
+        {"MME0" , "90", 4, 0}, //643
+        {"CETTN" , "CON", 5, 200}, //644
+        {"CHKT" , "CHY", 4, 200}, //645
+        {"CYING" , "TRYING", 5, 200}, //646
+        {"ENUD" , "GUD", 4, 200}, //647
+        {"BREEMIY" , "BREEZY", 6, 200}, //648
+        {"ATT" , "AM", 3, 217}, //649
+        {"WTP" , "BREEZY", 3, 217}, //650
+        {"H4KT" , "HVY", 4, 200}, //651
+        {"ATID" , "WID", 4, 200}, //652
+        {"WMT" , "WO", 3, 200}, //653 //wood
+        {"SM0" , "30", 3, 200}, //654
+        {"OSTER" , "OVER", 3, 200}, //655
+        {"UWEL" , "UPL", 4, 200}, //656 //couple
+        {"INRI" , "FRI", 4, 200}, //657 //friend
+        {"STERY" , "VERY", 5, 200}, //658 
+        {"AIIKE" , "LIKE", 5, 200}, //659
+        {"ATAS" , "WAS", 4, 0}, //660
+        {"7MS" , "77", 3, 0}, //661
+        {"VT5" , "35", 3, 0}, //662
+        {"MEREAT" , "GREAT", 6, 0}, //663
+        {"EM" , "O", 2, 255}, //664 //super sloppy bug
+        {"ETU", "MU", 3, 263}, //665 //super sloppy bug
+        {"PH9E" , "PHONE", 4, 0}, //666
+        {"ATANT" , "WANT", 5, 0}, //667
+        {"ATANT" , "WANT", 5, 0}, //668
+        {"RPG" , "RANG", 3, 0}, //669
+        {"LONTN" , "LONG", 5, 0}, //670
+        {"MXR" , "OUR", 3, 0}, //671
+        {"5ON9" , "599", 4, 0}, //672
+        {"AMEE" , "AGE", 4, 0}, //673
+        {"ANM" , "PM", 3, 17}, //674
+        {"TITESDAY" , "TUESDAY", 8, 0}, //675
+        {"9NCE" , "ONCE", 4, 0}, //676
+        {"WPB" , "WANTS", 3, 0}, //677
+        {"SYI" , "STATI", 3, 0}, //678
+        {"PMTT" , "ANOT", 4, 0}, //679
+        {"TTC" , "MC", 3, 0}, //680
+        {"P9SER" , "ANOTHER", 5, 0}, //681
+        {"NJE" , "NAME", 5, 0}, //682
+
     };
     
     bool AllDah;
