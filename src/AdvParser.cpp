@@ -43,6 +43,7 @@
  * 20240317 reworked SetSpltPt() method to better handle cootie type keying, & converted the SrchRplcDict to "const"
  * 20240420 added auto word break timing 'wrdbrkFtcr'
  * 20240502 added rules 48 - 55 to  FixClassicErrors()
+ * 20240519 Added glitch detection
  * */
 // #include "freertos/task.h"
 // #include "freertos/semphr.h"
@@ -176,6 +177,134 @@ void AdvParser::EvalTimeData(void)
             printf("%d\n", 1 + KeyUpBucktPtr);
         }
         SetSpltPt(KeyDwnBuckts, KeyDwnBucktPtr);
+        if (Dbug)
+        {
+            printf("\nSplitPoint:%3d\tBg1SplitPt:%d\tDitIntrvlVal:%d\t", DitDahSplitVal, Bg1SplitPt, DitIntrvlVal);
+            printf("AvgDedSpc:%0.1f\tUnitIntvrlx2r5:%d\tWrdBrkVal:%d\n", AvgSmblDedSpc, UnitIntvrlx2r5, WrdBrkVal);
+            printf("\nKeyDwnBuckt Cnt: %d\n", KeyDwnBucktPtr + 1);
+        }
+        /*now rescan the "Keydwn data set and delete those intervals that are less than 0.75 * DitIntrvlVal*/
+        int rScanPtr = 0;
+        bool GLitchFlg = false;
+        while (rScanPtr < TmpUpIntrvlsPtr) // ''n' initially is 0
+        {
+            if (TmpDwnIntrvls[rScanPtr] < 0.80 * DitIntrvlVal)
+            { // we have a glitch, so add this 'key down' time. & its 'key up' time, to the previous keyup time
+                if (Dbug) printf("Deleted 'GLITCH' Entry: TmpDwnIntrvls[%d] %d\n", rScanPtr, TmpDwnIntrvls[rScanPtr]);
+                GLitchFlg = true;
+                if (rScanPtr > 0)
+                {
+                    TmpUpIntrvls[rScanPtr - 1] += TmpDwnIntrvls[rScanPtr];
+                    TmpUpIntrvls[rScanPtr - 1] += TmpUpIntrvls[rScanPtr];
+                }
+                /*now delete this entry by moving all the following entries forward by one position*/
+                int strtmv = rScanPtr;
+                while (strtmv < TmpUpIntrvlsPtr - 1)
+                {
+                    // printf("Moving Entry: TmpDwnIntrvls[%d] %d\n", strtmv, TmpDwnIntrvls[strtmv]);
+                    TmpDwnIntrvls[strtmv] = TmpDwnIntrvls[strtmv + 1];
+                    TmpUpIntrvls[strtmv] = TmpUpIntrvls[strtmv + 1];
+                    strtmv++;
+                }
+                TmpUpIntrvlsPtr--;
+                rScanPtr--;
+            }
+            rScanPtr++;
+        }
+        if (GLitchFlg) // rinse & repeat
+        {
+
+            /*Copy the 2 referenced timing arrays to local arrays*/
+            // KeyDwnPtr = TmpUpIntrvlsPtr;
+            for (int i = 0; i < TmpUpIntrvlsPtr; i++)
+            {
+                this->KeyDwnIntrvls[i] = TmpDwnIntrvls[i];
+                this->KeyUpIntrvls[i] = TmpUpIntrvls[i];
+            }
+            /*Now sort the referenced timing arrays*/
+            insertionSort(this->KeyDwnIntrvls, TmpUpIntrvlsPtr);
+            insertionSort(this->KeyUpIntrvls, TmpUpIntrvlsPtr);
+            KeyDwnBucktPtr = KeyUpBucktPtr = 0; // reset bucket pointers
+            /*ReBuild the Key down Bucket table*/
+            KeyDwnBuckts[KeyDwnBucktPtr].Intrvl = this->KeyDwnIntrvls[0]; // At this point KeyDwnBucktPtr = 0
+            KeyDwnBuckts[KeyDwnBucktPtr].Cnt = 1;
+            BucktAvg = this->KeyDwnIntrvls[0]; // reset 'BucktAvg'
+            for (int i = 1; i < TmpUpIntrvlsPtr; i++)
+            {
+                bool match = false;
+                // if ((float)KeyDwnIntrvls[i] <= (4 + (1.2 * KeyDwnBuckts[KeyDwnBucktPtr].Intrvl)))
+                if ((float)this->KeyDwnIntrvls[i] <= (16 + KeyDwnBuckts[KeyDwnBucktPtr].Intrvl)) // 20240220 step buckets by timing error
+                {
+                    BucktAvg += this->KeyDwnIntrvls[i];
+                    KeyDwnBuckts[KeyDwnBucktPtr].Cnt++;
+                    match = true;
+                }
+                else
+                {
+                    /*time to calc this bucket's average*/
+                    KeyDwnBuckts[KeyDwnBucktPtr].Intrvl = BucktAvg / KeyDwnBuckts[KeyDwnBucktPtr].Cnt;
+                }
+                if (!match) // if not a match, then time to create a new bucket group
+                {
+                    KeyDwnBucktPtr++;
+                    if (KeyDwnBucktPtr >= 15)
+                    {
+                        KeyDwnBucktPtr = 14;
+                        break;
+                    }
+                    /*start a new average*/
+                    BucktAvg = this->KeyDwnIntrvls[i];
+                    KeyDwnBuckts[KeyDwnBucktPtr].Intrvl = BucktAvg;
+                    KeyDwnBuckts[KeyDwnBucktPtr].Cnt = 1;
+                }
+            }
+            /*cleanup by finding the average of the last group*/
+            KeyDwnBuckts[KeyDwnBucktPtr].Intrvl = BucktAvg / KeyDwnBuckts[KeyDwnBucktPtr].Cnt;
+            /*ReBuild the Key Up Bucket table*/
+            KeyUpBuckts[KeyUpBucktPtr].Intrvl = this->KeyUpIntrvls[0]; // At this point KeyUpBucktPtr = 0
+            KeyUpBuckts[KeyUpBucktPtr].Cnt = 1;
+            for (int i = 1; i < TmpUpIntrvlsPtr; i++)
+            {
+                bool match = false;
+                if ((float)this->KeyUpIntrvls[i] <= (4 + (1.2 * KeyUpBuckts[KeyUpBucktPtr].Intrvl)))
+                {
+                    KeyUpBuckts[KeyUpBucktPtr].Cnt++;
+                    match = true;
+                }
+                if (!match)
+                {
+                    KeyUpBucktPtr++;
+                    if (KeyUpBucktPtr >= 15)
+                    {
+                        KeyUpBucktPtr = 14;
+                        break;
+                    }
+                    KeyUpBuckts[KeyUpBucktPtr].Intrvl = this->KeyUpIntrvls[i];
+                    KeyUpBuckts[KeyUpBucktPtr].Cnt = 1;
+                }
+            }
+            if (Dbug)
+            {
+                for (int i = 0; i <= KeyDwnBucktPtr; i++)
+                {
+                    printf(" KeyDwn: %3d; Cnt:%d\t", KeyDwnBuckts[i].Intrvl, KeyDwnBuckts[i].Cnt);
+                }
+                printf("%d\n", 1 + KeyDwnBucktPtr);
+                for (int i = 0; i <= KeyUpBucktPtr; i++)
+                {
+                    printf(" KeyUp : %3d/%3d; Cnt:%d\t", KeyUpBuckts[i].Intrvl, (int)(4 + (1.2 * KeyUpBuckts[i].Intrvl)), KeyUpBuckts[i].Cnt);
+                }
+                printf("%d\n", 1 + KeyUpBucktPtr);
+            }
+            SetSpltPt(KeyDwnBuckts, KeyDwnBucktPtr);
+            if (Dbug)
+            {
+                printf("\nSplitPoint:%3d\tBg1SplitPt:%d\tDitIntrvlVal:%d\t", DitDahSplitVal, Bg1SplitPt, DitIntrvlVal);
+                printf("AvgDedSpc:%0.1f\tUnitIntvrlx2r5:%d\tWrdBrkVal:%d\n", AvgSmblDedSpc, UnitIntvrlx2r5, WrdBrkVal);
+                printf("\nKeyDwnBuckt Cnt: %d\n", KeyDwnBucktPtr + 1);
+            }
+
+        } // end rinse & repeat
         NewSpltVal = true;
     }
     /*Set the "MaxCntKyUpBcktPtr" property with Key Up Bucket index with the most intervals*/
@@ -412,12 +541,12 @@ void AdvParser::EvalTimeData(void)
         }
     }
     /*End of select Key type (BugKey) code*/
-    if (Dbug)
-    {
-        printf("\nSplitPoint:%3d\tBg1SplitPt:%d\tDitIntrvlVal:%d\t", DitDahSplitVal, Bg1SplitPt, DitIntrvlVal);
-        printf("AvgDedSpc:%0.1f\tUnitIntvrlx2r5:%d\tWrdBrkVal:%d\n", AvgSmblDedSpc, UnitIntvrlx2r5, WrdBrkVal);
-        printf("\nKeyDwnBuckt Cnt: %d\n", KeyDwnBucktPtr + 1);
-    }
+    // if (Dbug)
+    // {
+    //     printf("\nSplitPoint:%3d\tBg1SplitPt:%d\tDitIntrvlVal:%d\t", DitDahSplitVal, Bg1SplitPt, DitIntrvlVal);
+    //     printf("AvgDedSpc:%0.1f\tUnitIntvrlx2r5:%d\tWrdBrkVal:%d\n", AvgSmblDedSpc, UnitIntvrlx2r5, WrdBrkVal);
+    //     printf("\nKeyDwnBuckt Cnt: %d\n", KeyDwnBucktPtr + 1);
+    // }
     /*Now for bug key type (1), test which bug style (rule set to use)
     But if bgPdlCd = 82 or 83 (found stretched dahs) stick with bug1 rule set*/
     if (BugKey == 1 && bgPdlCd != 99)
@@ -512,6 +641,7 @@ void AdvParser::EvalTimeData(void)
 
     /*Now have everything needed to rebuild/parse this group of Key Down/Up times*/
     this->LstLtrBrkCnt = 0;
+    bool WrdBrkAdjFlg = false;
     while (n < TmpUpIntrvlsPtr) // ''n' initially is 0
     {
         if (Dbug)
@@ -631,7 +761,8 @@ void AdvParser::EvalTimeData(void)
                
                 {
                     this->wrdbrkFtcr += 0.15;
-                    if(DbgWrdBrkFtcr) printf("Parser wordBrk+: %d; wrdbrkFtcr: %5.3f; CurParseWord: %s\n", (uint16_t)this->WrdBrkVal, this->wrdbrkFtcr, this->Msgbuf);
+                    WrdBrkAdjFlg = true;
+                    //if(DbgWrdBrkFtcr) printf("Parser wordBrk+: %d; wrdbrkFtcr: %5.3f; CurParseWord: %s\n", (uint16_t)this->WrdBrkVal, this->wrdbrkFtcr, this->Msgbuf);
                 }
             }
             this->LstLtrBrkCnt = 0;
@@ -676,6 +807,12 @@ void AdvParser::EvalTimeData(void)
             SymbSet = 1; // reset the symbolset for the next character
         }
         n++;
+        /*Move this degug print to here so that the above DBug print is in play, it can complete before this print executes */
+        if(DbgWrdBrkFtcr && WrdBrkAdjFlg)
+        {
+            WrdBrkAdjFlg = false;
+            printf("Parser wordBrk+: %d; wrdbrkFtcr: %5.3f; CurParseWord: %s\n", (uint16_t)this->WrdBrkVal, this->wrdbrkFtcr, this->Msgbuf);
+        }
         // printf("n:%d; LstLtrBrkCnt: %d \n", n, this->LstLtrBrkCnt);
     }
     /*Text string Analysis complete*/
@@ -761,10 +898,6 @@ void AdvParser::SetSpltPt(Buckt_t arr[], int n)
                         this->DitIntrvlVal = (uint16_t)((5 * (float)this->DitIntrvlVal) + (float)arr[i].Intrvl) / 6.0;
                         LpCntr++;
                     }
-                    // if(arr[i].Cnt <=6){
-                    //     this->DitIntrvlVal =(uint16_t) (((6-arr[i].Cnt)*(float)DitIntrvlVal) + (arr[i].Cnt * 1.1 * (float)arr[i].Intrvl))/6.0;//20240129 build a running average of the last 6 dits
-                    // }
-                    // else this->DitIntrvlVal = arr[i].Intrvl;
                 }
                 if (arr[i + 1].Intrvl > 1.5 * arr[i].Intrvl && (arr[i].Cnt > 2))
                 { // 1.7 * arr[i].Intrvl
@@ -773,7 +906,7 @@ void AdvParser::SetSpltPt(Buckt_t arr[], int n)
                 }
             }
             /*Collect data for an alternative derivation of NuSpltVal, by identifying the bucket with the most dits*/
-            if (arr[i].Cnt > MaxDitCnt)
+            if (arr[i].Cnt > MaxDitCnt &&(arr[i].Intrvl <this->NuSpltVal))
             {
                 MaxDitPtr = i;
                 MaxDitCnt = arr[i].Cnt;
