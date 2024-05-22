@@ -23,6 +23,7 @@
  * 20240117 Added AdvParser detected keymode to dispaly status line
  * 20240124 added requirement that Key up & down arrays match in length before attempting to do a post reparse of the las word captured
  * 20240420 added auto word break timing 'wrdbrkFtcr' ; added auto word break timing 'wrdbrkFtcr' (AdvParser/DcodeCW)
+ * 20240522 added auto glitch detection to support post parser (AdvParser.cpp) 
  *   */
  
 

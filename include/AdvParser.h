@@ -22,7 +22,7 @@
 #include <stdio.h>
 #define IntrvlBufSize 200
 #define MsgbufSize 50
-#define SrchDictSize 690
+#define SrchDictSize 710
 struct Buckt_t
 {
 	uint16_t Intrvl;
@@ -68,7 +68,7 @@ private:
         {"THP", "THAN", 3, 0}, //22
         {"TMN", "ON", 3, 0}, //23
         {"PLL", "WELL", 3, 0}, //24
-        {"SJE", "SAME", 3, 0}, //25
+        {"SJE", "SAME", 3, 75}, //25
         {"CPT", "CANT", 3, 0}, //26
         {"0VE", "MOVE", 3, 0}, //27
         {"RLN", "RAIN", 3, 0}, //28
@@ -530,7 +530,7 @@ private:
         {"ZE3" , "73", 3, 0}, //483
         {"ENUN" , "RUN", 4, 0}, //484
         {"NTMAT" , "NOW", 5, 0}, //485
-        {"ATNE" , "AGE", 4, 0}, //486
+        {"ATNE" , "AGE", 4, 76}, //486
         {"ISTE", "IVE", 4, 19}, //487
         {"WM9", "19", 3, 0}, //488
         {"AIID", "LID", 4, 0}, //489 soAIID = solid
@@ -635,7 +635,7 @@ private:
         {"RPD" , "RAND", 3, 0}, //588
         {"NDDS" , "KIDS", 4, 0}, //589
         {"NETT" , "NO", 4, 200}, //590
-        {"NMT" , "NO", 3, 200}, //591
+        {"MT7NDY" , "MOSTLY", 6, 0}, //591 
         {"SEET" , "SO", 4, 200}, //592
         {"EKSETT" , "QSO", 4, 200}, //593
         {"NNK", "CK", 3, 0}, //594
@@ -681,7 +681,7 @@ private:
         {"2MO" , "20", 3, 200}, //634//super sloppy bug
         {"EKUIET" , "QUIET", 6, 200}, //635//super sloppy bug
         {"WEMRK" , "WORK", 5, 200}, //636//super sloppy bug
-        {"UIN" , "UP", 3, 200}, //637//super sloppy bug
+        {"AUIN" , "RAIN", 3, 0}, //637//super sloppy bug
         {"TETT" , "UP", 4, 217}, //638//super sloppy bug
         {"TMEAR" , "YEAR", 5, 200}, //639//super sloppy bug
         {"ANLAKTINTN" , "YEAR", 10, 200}, //640//super sloppy bug
@@ -728,6 +728,31 @@ private:
         {"P9SER" , "ANOTHER", 5, 0}, //681
         {"NJE" , "NAME", 5, 0}, //682
         {"G8NG" , "GOING", 4, 0}, //683
+        {"ATIFE" , "WIFE", 5, 0}, //684
+        {"BUME" , "BUG", 4, 0}, //685
+        {"NMM" , "9", 3, 0}, //686
+        {"II" , "ES", 2, 0}, //687
+        {"FRTT" , "FRM", 4, 0}, //688
+        {"WEOST" , "POST", 5, 0}, //689
+        {"TTIKE" , "MIKE", 2, 0}, //690
+        {"SUTTTTER" , "SUMMER", 8, 0}, //691
+        {"TDIN" , "ZIN", 4, 0}, //692 //BLAtdinG = BLAZING
+        {"LAMIY" , "LAZY", 5, 0}, //693
+        {"UIN" , "UP", 3, 274}, //694//super sloppy bug
+        {"IEO" , "SO", 3, 0}, //695
+        {"WXP" , "JU", 3, 0}, //696 //JuPiter, FL
+        {"1TY" , "1TT W", 3, 0}, //697
+        {"OK9" , "OK ON", 3, 0}, //698
+        {"ACDVITY" , "ACTIVITY", 7, 0}, //699
+        {"REZIO" , "RADIO", 5, 0}, //700
+        {"NMT" , "NO", 3, 200}, //701
+        {"C2ING" , "CUMING", 5, 0}, //702
+        {"CANKT" , "CPY", 5, 0}, //703
+        {"LOOTA" , "LOOK", 5, 0}, //704
+        {"ARTMUND" , "AROUND", 7, 0}, //705
+        {"KFG" , "KING", 3, 0}, //706
+        {"6IER" , "THIER", 4, 0}, //707
+        {"SEPCAN" , "SEPARATE", 6, 0}, //708
 
     };
     
@@ -753,7 +778,7 @@ private:
     uint16_t TmpDwnIntrvls[IntrvlBufSize];
     uint16_t DitDahSplitVal;
     uint16_t NuSpltVal = 0;
-    uint16_t DitIntrvlVal; //used as sanity test/check in 'bug' letterbrk rule set; 20240129 running average of the last 6 dits
+    //uint16_t DitIntrvlVal; //used as sanity test/check in 'bug' letterbrk rule set; 20240129 running average of the last 6 dits
     uint16_t WrdBrkVal; // serves in post parser as the value to insert a space in the reconstructed character string
     unsigned int SymbSet;
     unsigned int LstLtrBrkCnt = 0;//track the number of keyevents since last letterbreak.
@@ -796,6 +821,8 @@ public:
     float AvgSmblDedSpc;
     float wrdbrkFtcr;
     int GetMsgLen(void);
+    unsigned long LstGltchEvnt; //time stamp of last detected glitch (detected in/by Geoertzel.cpp)
+    uint16_t DitIntrvlVal;//20240521 moved this from privat to public so Goertzel.cpp could see it
     uint16_t KeyUpIntrvls[IntrvlBufSize];
     uint16_t KeyDwnIntrvls[IntrvlBufSize];
     uint16_t UnitIntvrlx2r5; //basic universal symbol interval; i.e. a standard dit X 2.4; used in b1 rule set to find letter breaks

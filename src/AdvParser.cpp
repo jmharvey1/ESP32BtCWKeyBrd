@@ -64,6 +64,7 @@ AdvParser::AdvParser(void) // TFT_eSPI *tft_ptr, char *StrdTxt
     this->DitIntrvlVal = 50;
     this->BugKey = 0; // paddle rules
     this->AllDit = false;
+    this->LstGltchEvnt = 0;
     // xTaskCreate(AdvParserTask, "AdvParserTask Task", 8192, NULL, 2, &AdvParserTaskHandle);
 
     // ptft = tft_ptr;
@@ -81,6 +82,26 @@ void AdvParser::EvalTimeData(void)
     NewSpltVal = false;
     StrLength = 0;
     this->AllDit = false;
+    bool DoGlitchChk = false;
+    Dbug = false; //enable for special testing
+    if (this->LstGltchEvnt != 0)
+    {
+        //printf("LstGltchEvnt != 0\n");
+        unsigned long LstGltchIntrvl = pdTICKS_TO_MS(xTaskGetTickCount()) - this->LstGltchEvnt;
+        //if (LstGltchIntrvl > 30000)
+        if(this->LstGltchEvnt< pdTICKS_TO_MS(xTaskGetTickCount()))
+        {
+            this->LstGltchEvnt = 0;//stop 'glitch' test
+            printf("\n'GLITCH Check' OFF\n");
+        }
+        else
+        {
+            DoGlitchChk = true;
+            Dbug = true; //enable for special testing
+            if (Dbug)
+                printf("'GLITCH Check' ENABLED\n");
+        }
+    }
     if (KeyDwnPtr != KeyUpPtr) // this now should never happen
     {
         /*Houston, We Have a Problem*/
@@ -186,30 +207,47 @@ void AdvParser::EvalTimeData(void)
         /*now rescan the "Keydwn data set and delete those intervals that are less than 0.75 * DitIntrvlVal*/
         int rScanPtr = 0;
         bool GLitchFlg = false;
-        while (rScanPtr < TmpUpIntrvlsPtr) // ''n' initially is 0
+        // bool DoGlitchChk = false;
+        // if(this->LstGltchEvnt != 0)
+        // {
+        //     unsigned long LstGltchIntrvl = pdTICKS_TO_MS(xTaskGetTickCount()) - this->LstGltchEvnt;
+        //     if(LstGltchIntrvl > 20000) this->LstGltchEvnt = 0;
+        //     else
+        //     {
+        //         DoGlitchChk = true;
+        //         if (Dbug)
+        //                 printf("'GLITCH Check' ENABLED\n");
+        //     }   
+        // }
+        if (DoGlitchChk)
         {
-            if (TmpDwnIntrvls[rScanPtr] < 0.80 * DitIntrvlVal)
-            { // we have a glitch, so add this 'key down' time. & its 'key up' time, to the previous keyup time
-                if (Dbug) printf("Deleted 'GLITCH' Entry: TmpDwnIntrvls[%d] %d\n", rScanPtr, TmpDwnIntrvls[rScanPtr]);
-                GLitchFlg = true;
-                if (rScanPtr > 0)
-                {
-                    TmpUpIntrvls[rScanPtr - 1] += TmpDwnIntrvls[rScanPtr];
-                    TmpUpIntrvls[rScanPtr - 1] += TmpUpIntrvls[rScanPtr];
+            while (rScanPtr < TmpUpIntrvlsPtr) // ''n' initially is 0
+            {
+                if (TmpDwnIntrvls[rScanPtr] < 0.80 * DitIntrvlVal)
+                // if (TmpDwnIntrvls[rScanPtr] < 0.68 * DitIntrvlVal)
+                { // we have a glitch, so add this 'key down' time. & its 'key up' time, to the previous keyup time
+                    if (Dbug)
+                        printf("\tDeleted 'GLITCH' Entry: TmpDwnIntrvls[%d] %d\n", rScanPtr, TmpDwnIntrvls[rScanPtr]);
+                    GLitchFlg = true;
+                    if (rScanPtr > 0)
+                    {
+                        TmpUpIntrvls[rScanPtr - 1] += TmpDwnIntrvls[rScanPtr];
+                        TmpUpIntrvls[rScanPtr - 1] += TmpUpIntrvls[rScanPtr];
+                    }
+                    /*now delete this entry by moving all the following entries forward by one position*/
+                    int strtmv = rScanPtr;
+                    while (strtmv < TmpUpIntrvlsPtr - 1)
+                    {
+                        // printf("Moving Entry: TmpDwnIntrvls[%d] %d\n", strtmv, TmpDwnIntrvls[strtmv]);
+                        TmpDwnIntrvls[strtmv] = TmpDwnIntrvls[strtmv + 1];
+                        TmpUpIntrvls[strtmv] = TmpUpIntrvls[strtmv + 1];
+                        strtmv++;
+                    }
+                    TmpUpIntrvlsPtr--;
+                    rScanPtr--;
                 }
-                /*now delete this entry by moving all the following entries forward by one position*/
-                int strtmv = rScanPtr;
-                while (strtmv < TmpUpIntrvlsPtr - 1)
-                {
-                    // printf("Moving Entry: TmpDwnIntrvls[%d] %d\n", strtmv, TmpDwnIntrvls[strtmv]);
-                    TmpDwnIntrvls[strtmv] = TmpDwnIntrvls[strtmv + 1];
-                    TmpUpIntrvls[strtmv] = TmpUpIntrvls[strtmv + 1];
-                    strtmv++;
-                }
-                TmpUpIntrvlsPtr--;
-                rScanPtr--;
+                rScanPtr++;
             }
-            rScanPtr++;
         }
         if (GLitchFlg) // rinse & repeat
         {
@@ -3381,7 +3419,12 @@ void AdvParser::FixClassicErrors(void)
                         }
                         break;
                     case 31: /*Rule(KTU/QU) - this is the 1st in the string or there is at least one character ahead & its NOT an 'B' */
-                        if (NdxPtr> 0 && this->Msgbuf[NdxPtr - 1] != 'B')
+                        if (NdxPtr> 0 
+                            && this->Msgbuf[NdxPtr - 1] == 'O') // OK TU
+                        {
+                            Test = false;
+                        } 
+                        else if (NdxPtr> 0 && this->Msgbuf[NdxPtr - 1] != 'B')
                         {
                             Test = true;
                         } else  if (NdxPtr == 0 )
@@ -3440,8 +3483,12 @@ void AdvParser::FixClassicErrors(void)
                         else Test = true;
                         break;
                     case 36:/* RULE(G9", "GON) -  1st & 2nd characters following the search term is NOT 'YL' */
-                        //printf("NdxPtr: %d; MsgBuf %s; StrLength: %d; SrchRplcDict[%d].ChrCnt: %d\n", NdxPtr, this->Msgbuf, StrLength, STptr, SrchRplcDict[STptr].ChrCnt);
-                        if (this->Msgbuf[NdxPtr + SrchLen] >= '0'
+                        if (NdxPtr> 0 
+                            && this->Msgbuf[NdxPtr - 1] == 'K')
+                        {
+                            Test = false;
+                        }
+                        else if (this->Msgbuf[NdxPtr + SrchLen] >= '0'
                             && this->Msgbuf[NdxPtr + SrchLen] <= '9')
                         { 
                             Test = false;
@@ -3641,6 +3688,7 @@ void AdvParser::FixClassicErrors(void)
                         if (NdxPtr> 0 
                             && ( this->Msgbuf[NdxPtr - 1] == 'W'
                             ||  this->Msgbuf[NdxPtr - 1] == 'K'
+                            ||  this->Msgbuf[NdxPtr - 1] == 'S' //SB2nn heathkit
                             ||  this->Msgbuf[NdxPtr - 1] == 'A' )) 
                         { 
                             Test = false;
@@ -3684,6 +3732,10 @@ void AdvParser::FixClassicErrors(void)
                         break;
                     case 54: /*Rule(ENE/GE) - test unles, there is a 'G' preceeding the search point */
                         if (NdxPtr> 0 && this->Msgbuf[NdxPtr - 1] == 'G')
+                        {
+                            Test = false;
+                        }
+                        else if (NdxPtr> 0 && this->Msgbuf[NdxPtr - 1] == 'P')
                         {
                             Test = false;
                         }
@@ -3737,8 +3789,8 @@ void AdvParser::FixClassicErrors(void)
                         }
                         break;
                     case 56: /*Rule(ETE/ME) - test unles, there is a 'G' preceeding the search point */
-                        if (NdxPtr> 0 && (
-                            //this->Msgbuf[NdxPtr - 1] == 'H' || 
+                        if (NdxPtr> 0 
+                            && (this->Msgbuf[NdxPtr - 1] == 'P' || //pETE
                             (this->Msgbuf[NdxPtr - 1] == 'M' && this->Msgbuf[NdxPtr + SrchLen] == 'R')) //mETEr
                             )
                         {
@@ -3834,7 +3886,13 @@ void AdvParser::FixClassicErrors(void)
                         }
                         break;
                     case 63: /*Rule(ETU", "MU) - test unles, there is a 'G' preceeding the search point */
-                        if (NdxPtr> 0 && (
+                        if (NdxPtr> 0 
+                            && this->Msgbuf[NdxPtr - 1] == 'L'  //mETEr
+                            )
+                        {
+                            Test = false; // sETUp
+                        }
+                        else if (NdxPtr> 0 && (
                             (this->Msgbuf[NdxPtr - 1] == 'S' && this->Msgbuf[NdxPtr + SrchLen] == 'P')) //mETEr
                             )
                         {
@@ -3923,6 +3981,12 @@ void AdvParser::FixClassicErrors(void)
                         {
                             Test = false;
                         }
+                        else if (NdxPtr> 1 
+                            && this->Msgbuf[NdxPtr - 2] == 'Y'
+                            && this->Msgbuf[NdxPtr - 1] == 'A') //yaNKEE
+                        {
+                            Test = false;
+                        }    
                         else
                         {
                             Test = true; 
@@ -3963,7 +4027,43 @@ void AdvParser::FixClassicErrors(void)
                         {
                             Test = true; 
                         }
-                        break;                                                    
+                        break;
+                     case 74: /* RULE(UIN/UP) - this is the 1st in the string or there is at least one character ahead & its NOT an 'E' */
+                        if (this->StrLength > SrchLen 
+                            && this->Msgbuf[NdxPtr + SrchLen] == 'O'
+                            )  //i.e. UINo ARDUINO
+                        {
+                            Test = false;
+                        }
+                        else
+                        {
+                            Test = true; 
+                        }
+                        break;
+                    case 75: /* RULE(SJE/SAME) - this is the 1st in the string or there is at least one character ahead & its NOT an 'E' */
+                        if (this->StrLength > SrchLen 
+                            && this->Msgbuf[NdxPtr + SrchLen] == 'R'
+                            )  //i.e. SJER esjerry                        
+                        {
+                            Test = false;
+                        }
+                        else
+                        {
+                            Test = true; 
+                        }
+                        break;
+                    case 76: /* RULE("ATNE/AGE) - this is the 1st in the string or there is at least one character ahead & its NOT an 'E' */
+                        if (this->StrLength > SrchLen 
+                            && this->Msgbuf[NdxPtr + SrchLen] == 'W'
+                            )  //i.e. AT NEWport                       
+                        {
+                            Test = false;
+                        }
+                        else
+                        {
+                            Test = true; 
+                        }
+                        break;                                                                
                     default:
                         break;            
                     }

@@ -459,7 +459,7 @@ void Chk4KeyDwn(float NowLvl)
 	//float ToneLvl = magB; // tone level delayed by six samples
 	bool GudTone = true;
 	unsigned long FltrPrd = 0;
-	
+	//printf("Chk4KeyDwn\n");
 	if (avgDit <= 1200 / 35) // WPM is the denominator here
 	{						 /*High speed code keying process*/
 		if (SigDect  > AdjSqlch)
@@ -540,15 +540,14 @@ void Chk4KeyDwn(float NowLvl)
 		// char Smpl[10];
 		// sprintf( Smpl,"%d\n", 1200/(int)avgDit);
 		// printf( Smpl);
+		//if((avgDit > 1200 / 35)) avgDit = (unsigned long)advparser.DitIntrvlVal;//20240521 added this becauxe now believe this is a more reliable value
 		if((avgDit < 1200 / 30)){//20231031 changed from 1200/30 to 1200/35
 			TmpSlwFlg = false; //we'll determine the flagstate here but wont engage it until we have a letter complete state
         }else if(avgDit > 1200 / 28){//20231031 added else if()to auto swap both ways
 			TmpSlwFlg = true;//we'll determine the flagstate here but wont engage it until we have a letter complete state
 		}
-		
 		if(!GltchFlg && (avgDit >= 1200 / 30)){ // don't use "glitch" detect/correction for speeds greater than 30 wpm
-			//FltrPrd = (unsigned long)(avgKeyDwn/4.0);//20230912 going back to this timing; after implementing kill gliching under strong sig conditions avgKeyDwn as measured above seems to be abt twice that of the avgDit //4.0
-			//unsigned long FltrPrd = (unsigned long)(avgKeyDwn/6.0); ///4.0, was on one sender bridging some spaces that shouldn't have been brigged
+			
 			/*Some straight keys & Bug senders have unusually small dead space between their dits (and Dahs). 
 			When thats the case, use the DcodeCW's avgDeadspace to set the duration of the glitch period */
 			//if(FltrPrd > AvgSmblDedSpc/2) FltrPrd = (unsigned long)((AvgSmblDedSpc)/3.0);
@@ -560,6 +559,7 @@ void Chk4KeyDwn(float NowLvl)
 			OldKeyState = KeyState;
 			GltchFlg = true;
 			EvntTime = TmpEvntTime;//capture/remember when this state change occured
+			//printf("SET NoisePrd %d\n", (int)NoisePrd);
 			
 		} else {//
 			NoisePrd = Now2;
@@ -569,31 +569,20 @@ void Chk4KeyDwn(float NowLvl)
 			
 		}
 	}
-	/** 20231231 commented the following out for testing */
-	// if(GltchFlg && ((KeyState == -400) && (NoiseFlr >3*CurNoise))){// KeyDown; looks like we're rxing a strong signal, so cancel glitch detection; 20231103: NoiseFlr >15500
-	// 	NoisePrd = Now2;
-	// 	OldKeyState = KeyState;
-	// 	//GltchFlg = false; //20231230 added
-		
-	// }else 
 	if(GltchFlg && !state){
 		//20231230  just got a keydown condition but its noisy, so add glitch delay to letter complete interval
 		if(FltrPrd > 0 && ModeVal == 1) StrechLtrcmplt(1.25*FltrPrd);
-		//if(FltrPrd > 0) StrechLtrcmplt(FltrPrd);
-		//20240102 took the above out; seems to be not needed, when sender is using a "dit & 1/2" pause for letter breaks
 	}
-
-
-	//if(GltchFlg && ((KeyState != -400) && (NoiseFlr < CurNoise/2))){//KeyUp; looks like we're receiving a strong signal, so cancel glitch detection; 20231103: NoiseFlr < 1000
-	/** 20231231 commented the following out for testing */
-	// if(GltchFlg && state && (NoiseFlr < CurNoise/2)){// 20231230 Same but simpler test 
-	// 	NoisePrd = Now2;
-	// 	OldKeyState = KeyState;
-	// }
+	if ((Now2 <= NoisePrd) && (Sentstate == state))
+	{ /*We just had a 'glitch event, load/reset advparser watchdog timer, to enable 'glitch check'*/
+		printf("\nRESET LstGltchEvnt: %d \n", (int)TmpEvntTime);
+		advparser.LstGltchEvnt = 10000 + TmpEvntTime; // used by advParser.cpp to know if it needs to appply glitch detection
+	}
 
 	if (OldKeyState != KeyState)
 	{	
-		//if(FltrPrd > 0 && !state && GltchFlg) StrechLtrcmplt(1.25*FltrPrd);//20231230  just got a possible keydown condition but its noisy, so add glitch delay to letter complete interval
+		/*the following never happens*/
+		//printf("OldKeyState != KeyState\n");
 		if ( Now2 <= NoisePrd) {
 			if( GltchFlg){
 				/*We had keystate change but it returned back to its earlier state before the glitch interval expired*/
@@ -609,7 +598,7 @@ void Chk4KeyDwn(float NowLvl)
 		}
 	} else{
 		if (Now2 >= NoisePrd){ 
-			if(Sentstate != state)//if( GltchFlg ||(Sentstate != state))
+			if(Sentstate != state)
 			{/*We had keystate change ("tone" on, or "tone" off)  & passed the glitch interval; Go evaluate the key change*/
 				GltchFlg = false;
 				Sentstate = state;//'Sentstate' is what gets plotted
@@ -620,7 +609,7 @@ void Chk4KeyDwn(float NowLvl)
 				//else  printf("^\n");
 				KeyEvntSR(Sentstate, TmpEvntTime);
 			}
-		}
+		} 
 	}
 	if(Sentstate){ // 1 = Keyup, or "no tone" state; 0 = Keydown
 		if(chkChrCmplt() && SlwFlg != TmpSlwFlg){//key is up
@@ -629,7 +618,6 @@ void Chk4KeyDwn(float NowLvl)
 		if(CalGtxlParamFlg){
 			CalGtxlParamFlg = false;
           	CalcFrqParams((float)DemodFreq); // recalculate Goertzel parameters, for the newly selected target grequency
-			//showSpeed();
 		}
 	}
 	else SetLtrBrk();//key is down; so reset/recalculate new letter-brake clock value
