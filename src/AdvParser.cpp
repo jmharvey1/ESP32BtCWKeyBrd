@@ -226,25 +226,45 @@ void AdvParser::EvalTimeData(void)
                 if (TmpDwnIntrvls[rScanPtr] < 0.80 * DitIntrvlVal)
                 // if (TmpDwnIntrvls[rScanPtr] < 0.68 * DitIntrvlVal)
                 { // we have a glitch, so add this 'key down' time. & its 'key up' time, to the previous keyup time
-                    if (Dbug)
-                        printf("\tDeleted 'GLITCH' Entry: TmpDwnIntrvls[%d] %d\n", rScanPtr, TmpDwnIntrvls[rScanPtr]);
-                    GLitchFlg = true;
-                    if (rScanPtr > 0)
+                    float AvgElmntIntrvl = (float)DitIntrvlVal + AvgSmblDedSpc;
+                    float ThisElmntIntrvl = (float)TmpDwnIntrvls[rScanPtr] + (float)TmpUpIntrvls[rScanPtr];
+                    if (rScanPtr>0 && ((float)TmpUpIntrvls[rScanPtr-1] > 0.7 * AvgSmblDedSpc) && ((float)TmpUpIntrvls[rScanPtr-1] < 1.5 * AvgSmblDedSpc))
                     {
-                        TmpUpIntrvls[rScanPtr - 1] += TmpDwnIntrvls[rScanPtr];
-                        TmpUpIntrvls[rScanPtr - 1] += TmpUpIntrvls[rScanPtr];
+                        if (Dbug)
+                            printf("\t'GLITCH' Entry(Skipped1): TmpDwnIntrvls[%d] %d;  TmpUpIntrvls[%d] %d\n", rScanPtr, TmpDwnIntrvls[rScanPtr], rScanPtr, TmpUpIntrvls[rScanPtr]);
                     }
-                    /*now delete this entry by moving all the following entries forward by one position*/
-                    int strtmv = rScanPtr;
-                    while (strtmv < TmpUpIntrvlsPtr - 1)
+                    else if (rScanPtr>0 && (((float)(TmpUpIntrvls[rScanPtr-1]-TmpDwnIntrvls[rScanPtr]))> (0.72 * AvgSmblDedSpc)) && ((float)(TmpUpIntrvls[rScanPtr-1]-TmpDwnIntrvls[rScanPtr])< (1.18 * AvgSmblDedSpc)))
                     {
-                        // printf("Moving Entry: TmpDwnIntrvls[%d] %d\n", strtmv, TmpDwnIntrvls[strtmv]);
-                        TmpDwnIntrvls[strtmv] = TmpDwnIntrvls[strtmv + 1];
-                        TmpUpIntrvls[strtmv] = TmpUpIntrvls[strtmv + 1];
-                        strtmv++;
+                        if (Dbug)
+                            printf("\t'GLITCH' Entry(Skipped2): TmpDwnIntrvls[%d] %d;  TmpUpIntrvls[%d] %d\n", rScanPtr, TmpDwnIntrvls[rScanPtr], rScanPtr, TmpUpIntrvls[rScanPtr]);
                     }
-                    TmpUpIntrvlsPtr--;
-                    rScanPtr--;
+                    else if ((ThisElmntIntrvl < 0.72 * AvgElmntIntrvl) || (ThisElmntIntrvl > 1.20 * AvgElmntIntrvl))
+                    {/*this looks like 'glitch' because its combined time interval is either to big or too small to be part of this data set */
+                        if (Dbug)
+                            printf("\t'GLITCH' Entry(Deleted): TmpDwnIntrvls[%d] %d;  TmpUpIntrvls[%d] %d\n", rScanPtr, TmpDwnIntrvls[rScanPtr], rScanPtr, TmpUpIntrvls[rScanPtr]);
+                        GLitchFlg = true;
+                        if (rScanPtr > 0)
+                        {
+                            TmpUpIntrvls[rScanPtr - 1] += TmpDwnIntrvls[rScanPtr];
+                            TmpUpIntrvls[rScanPtr - 1] += TmpUpIntrvls[rScanPtr];
+                        }
+                        /*now delete this entry by moving all the following entries forward by one position*/
+                        int strtmv = rScanPtr;
+                        while (strtmv < TmpUpIntrvlsPtr - 1)
+                        {
+                            // printf("Moving Entry: TmpDwnIntrvls[%d] %d\n", strtmv, TmpDwnIntrvls[strtmv]);
+                            TmpDwnIntrvls[strtmv] = TmpDwnIntrvls[strtmv + 1];
+                            TmpUpIntrvls[strtmv] = TmpUpIntrvls[strtmv + 1];
+                            strtmv++;
+                        }
+                        TmpUpIntrvlsPtr--;
+                        rScanPtr--;
+                    }
+                    else
+                    {
+                        if (Dbug)
+                            printf("\t'GLITCH' Entry(Skipped3): TmpDwnIntrvls[%d] %d;  TmpUpIntrvls[%d] %d\n", rScanPtr, TmpDwnIntrvls[rScanPtr], rScanPtr, TmpUpIntrvls[rScanPtr]);
+                    }
                 }
                 rScanPtr++;
             }
@@ -962,11 +982,16 @@ void AdvParser::SetSpltPt(Buckt_t arr[], int n)
             break; // make absolutey certian that the dits dont cross over the dahs
         /*check if the interval is a dit at less than 35wpm*/
         if ((arr[i].Intrvl > 34) && (arr[i + 1].Intrvl > (1.45 * arr[i].Intrvl)) && arr[i].Cnt > 3)
-        {
+        {   
+            if((arr[i + 1].Intrvl < (1.6 * arr[i].Intrvl)) && (arr[i + 1].Cnt >= arr[i].Cnt))
+            {
+                //keep going, because the next bucket has even more (or just as many) dits than the current
+                if (Dbug) printf("Keep Looking. More Dits Ahead. Cur IndxPtr %d\n", i);        
+            }
             // if (Dbug) printf("BREAK\n");
-            break; // since we are working our way up the interval sequence, its appears that we have a cluster of dits & the next step up (because the gap is 1.45 x this cluster) should be treated as a 'dah'. So its safe to quit looking
+            else break; // since we are working our way up the interval sequence, its appears that we have a cluster of dits & the next step up (because the gap is > 1.45 x this cluster) should be treated as a 'dah'. So its safe to quit looking
         }
-    }
+    } // END 'for (i = 0; i < n; i++)' loop
     if(n>1 && this->BugKey == 1)
     {
         if (arr[FrstNtryPtr].Intrvl < DitDahSplitVal && ((DitDahSplitVal < arr[n].Intrvl && arr[n].Cnt > 1) || ((DitDahSplitVal < arr[n - 1].Intrvl))))
@@ -2837,11 +2862,12 @@ int AdvParser::DitDahBugTst(void)
     {
         // printf("\tMindahInterval: %d\tMaxdahInterval: %d;\tDitDahSplitVal %d\n", MindahInterval, MaxdahInterval, this->DitDahSplitVal);
         DahVariance = MaxdahInterval - MindahInterval;
-        this->DahVarPrcnt = (float)DahVariance / (float)MindahInterval; // used later to determine if sender is using strected dahs as a way of signaling letter breaks
+        this->DahVarPrcnt = (float)DahVariance / (float)MindahInterval; // used later to determine if sender is using streched dahs as a way of signaling letter breaks
+        this->MaxDt2DhRatio = (float)MaxdahInterval / (float)this->DitIntrvlVal; // used later
     }
-    // if(Longdahcnt > 0) this->StrchdDah = true;
-
-    if (this->DahVarPrcnt > 0.8)
+    /*the last keydwn bucket holds the 'streched' dahs. If there are more than 3 in this bucket, its unlikely we're dealing with a bug.
+    so ignore the ratio between the longest an shortest of the 'dahs' */
+    if (this->DahVarPrcnt > 0.8 && KeyDwnBuckts[KeyDwnBucktPtr].Cnt<4)
         this->StrchdDah = true;
     if (Dbug)
     {
@@ -2922,14 +2948,14 @@ int AdvParser::DitDahBugTst(void)
                 return RetrnCD;
         }
         /*  A very simple test for paddle keyboard sent code */
-        if ((dahDwncnt > 1) && (this->DahVarPrcnt < 0.10))
+        if ((dahDwncnt > 1) && ((this->DahVarPrcnt < 0.10)|| (MaxDt2DhRatio < 3.4 && DahVarPrcnt < 0.4)))
         {
             // its a paddle or keyboard
             return 0; // paddle/krybrd (70)
         }else if(WrdBkCnt > 1) //20240407 added WrdBkCnt qualifier(Has streched KeyUps)
         {
             if (Dbug)
-                printf("\nSLOPPY EXIT C\n");
+                printf("\nSLOPPY EXIT C dahDwncnt %d; DahVarPrcnt %4.2f\n", dahDwncnt, this->DahVarPrcnt);
             return 10; // Sloppy Bug (40)  
         }
 
@@ -3080,6 +3106,10 @@ void AdvParser::FixClassicErrors(void)
                         { /*New approach - Srch term appears at the begining of the msgbuf*/
                             Test = true;
                         }
+                        else if(NdxPtr > 0 && this->Msgbuf[NdxPtr - 1] == ' ')
+                        { /*New approach - Srch term appears at the begining of a word*/
+                            Test = true;
+                        }
                         break;
                     case 2:
                         if (NdxPtr == 0 || (NdxPtr > 0 && this->Msgbuf[NdxPtr - 1] != 'C'))
@@ -3191,7 +3221,12 @@ void AdvParser::FixClassicErrors(void)
                         }
                         break;
                     case 13: /* QN/MAN - this is the 1st in the string or there is at least one character ahead & its NOT an 'E' */
-                        if (this->StrLength > 2 && this->Msgbuf[NdxPtr + 2] != 'I')
+                        if (NdxPtr> 0 
+                            && (this->Msgbuf[NdxPtr - 1] == 'C'))
+                        {
+                            Test = false;
+                        }
+                        else if (this->StrLength > 2 && this->Msgbuf[NdxPtr + 2] != 'I')
                         {
                             Test = true;
                         }else if (this->StrLength == 2)

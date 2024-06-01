@@ -22,7 +22,7 @@
 #include <stdio.h>
 #define IntrvlBufSize 200
 #define MsgbufSize 50
-#define SrchDictSize 710
+#define SrchDictSize 730
 struct Buckt_t
 {
 	uint16_t Intrvl;
@@ -570,7 +570,7 @@ private:
         {"6W", "THAT", 2, 0}, //523
         {"OAIE", "OLE", 4, 0}, //524 //dipOAIE = DIPOLE
         {"KKRD", "YARD", 4, 0}, //525
-        {"NO9", "NOON", 3, 0}, //526
+        {"QAEN", "QRN", 4, 0}, //526
         {"DJN", "DAMN", 3, 0}, //527
         {"GX" , "TNX", 2, 0}, //528
         {"CIOB" , "CUMB", 4, 0}, //529
@@ -753,7 +753,18 @@ private:
         {"KFG" , "KING", 3, 0}, //706
         {"6IER" , "THIER", 4, 0}, //707
         {"SEPCAN" , "SEPARATE", 6, 0}, //708
-
+        {"UN2" , "UNUM", 3, 0}, //709
+        {"TH5" , "THIS", 3, 0}, //710
+        {"NO9", "NOON", 3, 0}, //711
+        {"HETD", "HAD", 3, 0}, //712
+        {"NZR", "NGER", 3, 0}, //713
+        {"MIC", "MIKE", 3, 17}, //714
+        {"ORIME", "ORIG", 5, 0}, //715
+        {"THETK", "THEY", 5, 0}, //716
+        {"SIMAN", "SIMP", 5, 0}, //717
+        {"STERKT", "VERY", 6, 0}, //718
+        {"SOECCE", "SOURCE", 6, 0}, //719
+        {"AMEO", "AGO", 4, 0}, //720
     };
     
     bool AllDah;
@@ -774,6 +785,7 @@ private:
     int StrLength = 0; //MsgBuf indx pointer to character printed as Debug output
     //int wpm =0; //upated from DcodeCW.cpp through this class method EvalTimeData()
     float DahVarPrcnt;
+    float MaxDt2DhRatio;
     uint16_t TmpUpIntrvls[IntrvlBufSize];
     uint16_t TmpDwnIntrvls[IntrvlBufSize];
     uint16_t DitDahSplitVal;
