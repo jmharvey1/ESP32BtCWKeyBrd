@@ -101,6 +101,7 @@
 /*20240519 AdvParser.cp Added glitch detection*/
 /*20240522 Goertzel.cpp, added auto glitch detection,to support post parser (AdvParser.cpp)*/
 /*20240601 Minor tweaks to AdvParser.cpp to improve rule set selection & adds SrchRplcDict[]*/
+/*20240601 Expanded SrchRplcDict[] to 731 entries*/
 
 #include "sdkconfig.h" //added for timer support
 #include "globals.h"
@@ -158,7 +159,7 @@ DF_t DFault;
 int DeBug = 0; // Debug factory default setting; 0 => Debug "OFF"; 1 => Debug "ON"
 char StrdTxt[20] = {'\0'};
 /*Factory Default Settings*/
-char RevDate[9] = "20240601";
+char RevDate[9] = "20240609";
 char MyCall[10] = "KW4KD";
 char MemF2[80] = "VVV VVV TEST DE KW4KD";
 char MemF3[80] = "CQ CQ CQ DE KW4KD KW4KD";

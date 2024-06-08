@@ -14,7 +14,8 @@
  * 20240420 expanded SrchRplcDict[] to 472 entries; added auto word break timing 'wrdbrkFtcr' 
  * 20240502 added entries 527 - 586 to  SrchRplcDict[] 
  * 20240504 expanded SrchRplcDict[] to 634 entries
- * 20240518 expanded SrchRplcDict[] to 682 entries 
+ * 20240518 expanded SrchRplcDict[] to 682 entries
+ * 20240608 expanded SrchRplcDict[] to 731 entries 
  * */
 #ifndef INC_ADVPARSER_H_
 #define INC_ADVPARSER_H_
@@ -22,7 +23,7 @@
 #include <stdio.h>
 #define IntrvlBufSize 200
 #define MsgbufSize 50
-#define SrchDictSize 730
+#define SrchDictSize 740
 struct Buckt_t
 {
 	uint16_t Intrvl;
@@ -765,6 +766,17 @@ private:
         {"STERKT", "VERY", 6, 0}, //718
         {"SOECCE", "SOURCE", 6, 0}, //719
         {"AMEO", "AGO", 4, 0}, //720
+        {"KMME", "K9", 4, 0}, //721
+        {"NITNS", "NICS", 5, 0}, //722
+        {"ALSETT", "ALSO", 6, 200}, //723
+        {"MSVT", "73", 4, 200}, //724
+        {"KOTE", "K9", 4, 200}, //725
+        {"KON", "K9", 3, 200}, //726
+        {"KTOE", "K9", 4, 200}, //727
+        {"MOW", "K9", 5, 200}, //728
+        {"TTSVT", "73", 5, 0}, //729
+        {"NMY", "NOW", 3, 200}, //730
+        {"N9EY", "MONEY", 4, 0}, //731
     };
     
     bool AllDah;

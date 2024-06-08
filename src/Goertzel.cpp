@@ -575,7 +575,7 @@ void Chk4KeyDwn(float NowLvl)
 	}
 	if ((Now2 <= NoisePrd) && (Sentstate == state))
 	{ /*We just had a 'glitch event, load/reset advparser watchdog timer, to enable 'glitch check'*/
-		printf("\nRESET LstGltchEvnt: %d \n", (int)TmpEvntTime);
+		//printf("\nRESET LstGltchEvnt: %d \n", (int)TmpEvntTime);
 		advparser.LstGltchEvnt = 10000 + TmpEvntTime; // used by advParser.cpp to know if it needs to appply glitch detection
 	}
 

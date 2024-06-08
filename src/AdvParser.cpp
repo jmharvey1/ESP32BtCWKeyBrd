@@ -2800,7 +2800,8 @@ int AdvParser::DitDahBugTst(void)
     int ditcnt;
     int dahDwncnt;
     int Longdahcnt;
-    int dahcnt = ditcnt = dahDwncnt = Longdahcnt = 0;
+    int DahMaxcnt;
+    int dahcnt = ditcnt = dahDwncnt = Longdahcnt = DahMaxcnt = 0;
     uint16_t dahInterval;
     uint16_t MindahInterval;
     uint16_t DahVariance = 0;
@@ -2860,6 +2861,13 @@ int AdvParser::DitDahBugTst(void)
     }
     if (dahDwncnt > 1)
     {
+        /*find keydwnbkt with the most dahs*/
+        for (int ptr = 0; ptr <= KeyDwnBucktPtr; ptr++){
+            if(KeyDwnBuckts[ptr].Intrvl>this->DitDahSplitVal && KeyDwnBuckts[ptr].Cnt > DahMaxcnt)
+            {
+                DahMaxcnt = KeyDwnBuckts[ptr].Cnt;  // used later to determine fist/key type
+            }
+        }
         // printf("\tMindahInterval: %d\tMaxdahInterval: %d;\tDitDahSplitVal %d\n", MindahInterval, MaxdahInterval, this->DitDahSplitVal);
         DahVariance = MaxdahInterval - MindahInterval;
         this->DahVarPrcnt = (float)DahVariance / (float)MindahInterval; // used later to determine if sender is using streched dahs as a way of signaling letter breaks
@@ -2877,12 +2885,23 @@ int AdvParser::DitDahBugTst(void)
             printf("StrchdDah = false");
         printf("\tWrdBkCnt:%d\n",WrdBkCnt);    
     }
-
+    
     if (ditDwncnt == 0 || dahDwncnt == 0) // we have all dits or all dahs -
     {
         if (Dbug)
             printf("code 99; ditDwncnt: %d; dahDwncnt: %d\n", ditDwncnt, dahDwncnt);
         return 6; // unknown (99) - Stick with whatever bug type was in play w/ last symbol set
+    }
+
+    /*Assume paddle/keyboard if a large cluster of dahs fall in one bucket*/
+    if(dahDwncnt > 0)
+    {
+        if(DahMaxcnt/dahDwncnt >= 0.75)
+        {
+            if (Dbug)
+                printf("\nPADDLE EXIT A\n");
+            return 0; // paddle/krybrd (70)  
+        }
     }
     /*20240309 Moved straight key test ahead of sloppy test; used to be after it & found long straight key runs
     were getting 'typed' as sloppy bugs & the wrong rule set would be applied */

@@ -36,7 +36,7 @@
 #include "Arduino.h" //For ESP32, may not need this reference, since timr5 count calls are replaced with ESP32 equivalent
 // #include "SerialClass.h"
 #define MaxIntrvlCnt 24
-bool DbgWrdBrkFtcr = true;
+bool DbgWrdBrkFtcr = false;//when 'true', reports "WrdBrkFtcr" to usb serial port/monitor
 int ShrtBrk[10];
 int charCnt = 0;
 int shwltrBrk = 0;
