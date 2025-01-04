@@ -23,7 +23,7 @@
 #include <stdio.h>
 #define IntrvlBufSize 200
 #define MsgbufSize 50
-#define SrchDictSize 740
+#define SrchDictSize 760
 struct Buckt_t
 {
 	uint16_t Intrvl;
@@ -484,7 +484,7 @@ private:
         {"WAKT", "WAY", 4, 0}, //436
         {"ITRE", "ICE", 4, 0}, //437
         {"ETST", "AST", 4, 0}, //438
-        {"0V", "MOV", 2, 0}, //439
+        {"0V", "MOV", 2, 77}, //439
         {"6IN", "THIN", 2, 0}, //440
         {"EDONG", "LONG", 5, 0}, //441
         {"6IN", "THIN", 2, 0}, //442
@@ -635,7 +635,7 @@ private:
         {"BUMES" , "BUGS", 5, 0}, //587
         {"RPD" , "RAND", 3, 0}, //588
         {"NDDS" , "KIDS", 4, 0}, //589
-        {"NETT" , "NO", 4, 200}, //590
+        {"NETT" , "NO", 4, 278}, //590
         {"MT7NDY" , "MOSTLY", 6, 0}, //591 
         {"SEET" , "SO", 4, 200}, //592
         {"EKSETT" , "QSO", 4, 200}, //593
@@ -777,6 +777,28 @@ private:
         {"TTSVT", "73", 5, 0}, //729
         {"NMY", "NOW", 3, 200}, //730
         {"N9EY", "MONEY", 4, 0}, //731
+        {"HEJ", "HEAT", 3, 0}, //732
+        {"T9ITE", "TONITE", 5, 0}, //733
+        {"THEKT", "THEY", 5, 0}, //734
+        {"6OSE", "THOSE", 4, 0}, //735
+        {"CHPCE", "CHANCE", 5, 0}, //736
+        {"5RE", "HERE", 3, 0}, //737
+        {"GRPITE", "GRANITE", 5, 0}, //738
+        {"KEEAN", "KEEP", 5, 0}, //739
+        {"CEE", "TREE", 3, 0}, //740
+        {"CTK", "CQ", 3, 0}, //741
+        {"BEFTMRE", "BEFORE", 7, 0}, //742
+        {"CIP", "TRIP", 3, 17}, //743
+        {"RITN", "RIG", 4, 0}, //744
+        {"CHLR", "CHAIR", 4, 0}, //745
+        {"NDND", "KIND", 4, 0}, //746
+        {"DME", "TIME", 3, 200}, //747
+        {"DG", "TIME", 2, 17}, //748
+        {"P8NT", "POINT", 4, 0}, //749
+        {"TGR", "OF", 2, 0}, //750
+        {"XKKI", "XYL", 2, 200}, //751
+        {"ATHAT", "WHAT", 5, 0}, //752
+        {"EQIL", "EMAIL", 4, 0}, //753
     };
     
     bool AllDah;
@@ -801,6 +823,7 @@ private:
     uint16_t TmpUpIntrvls[IntrvlBufSize];
     uint16_t TmpDwnIntrvls[IntrvlBufSize];
     uint16_t DitDahSplitVal;
+    uint16_t AvgDahVal;
     uint16_t NuSpltVal = 0;
     //uint16_t DitIntrvlVal; //used as sanity test/check in 'bug' letterbrk rule set; 20240129 running average of the last 6 dits
     uint16_t WrdBrkVal; // serves in post parser as the value to insert a space in the reconstructed character string

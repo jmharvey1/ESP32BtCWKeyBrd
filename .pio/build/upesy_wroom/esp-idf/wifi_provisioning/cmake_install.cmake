@@ -1,4 +1,4 @@
-# Install script for directory: /home/jim/.platformio/packages/framework-espidf/components/wifi_provisioning
+# Install script for directory: /home/jim/.platformio/packages/framework-espidf@3.50100.0/components/wifi_provisioning
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)

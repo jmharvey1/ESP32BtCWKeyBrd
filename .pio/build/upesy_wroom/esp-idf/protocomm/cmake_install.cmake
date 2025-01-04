@@ -1,4 +1,4 @@
-# Install script for directory: /home/jim/.platformio/packages/framework-espidf/components/protocomm
+# Install script for directory: /home/jim/.platformio/packages/framework-espidf@3.50100.0/components/protocomm
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)

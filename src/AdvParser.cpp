@@ -51,8 +51,8 @@
 #include "DcodeCW.h"
 #include "Goertzel.h"
 #include "main.h"
-
-//TaskHandle_t AdvParserTaskHandle = NULL;
+//#define GLITCHDBG // uncomment to enable "post parsing" when running in "glicth" mode {Hi qrn conditions}
+#define DBugSrchEsRplace // uncomment to enable posting classic error fixes to serial port for debugging 
 
 AdvParser::AdvParser(void) // TFT_eSPI *tft_ptr, char *StrdTxt
 {
@@ -86,20 +86,22 @@ void AdvParser::EvalTimeData(void)
     Dbug = false; //enable for special testing
     if (this->LstGltchEvnt != 0)
     {
-        //printf("LstGltchEvnt != 0\n");
         unsigned long LstGltchIntrvl = pdTICKS_TO_MS(xTaskGetTickCount()) - this->LstGltchEvnt;
-        //if (LstGltchIntrvl > 30000)
-        if(this->LstGltchEvnt< pdTICKS_TO_MS(xTaskGetTickCount()))
+        if (this->LstGltchEvnt < pdTICKS_TO_MS(xTaskGetTickCount()))
         {
-            this->LstGltchEvnt = 0;//stop 'glitch' test
+            this->LstGltchEvnt = 0; // stop 'glitch' test
+#ifdef GLITCHDBG
             printf("\n'GLITCH Check' OFF\n");
+#endif
         }
         else
         {
             DoGlitchChk = true;
-            Dbug = true; //enable for special testing
+#ifdef GLITCHDBG
+            Dbug = true; // enable for special testing
             if (Dbug)
                 printf("'GLITCH Check' ENABLED\n");
+#endif
         }
     }
     if (KeyDwnPtr != KeyUpPtr) // this now should never happen
@@ -200,7 +202,7 @@ void AdvParser::EvalTimeData(void)
         SetSpltPt(KeyDwnBuckts, KeyDwnBucktPtr);
         if (Dbug)
         {
-            printf("\nSplitPoint:%3d\tBg1SplitPt:%d\tDitIntrvlVal:%d\t", DitDahSplitVal, Bg1SplitPt, DitIntrvlVal);
+            printf("\nSplitPoint:%3d\tBg1SplitPt:%d\tDitIntrvlVal:%d\t  AvgDahVal:%d\t", DitDahSplitVal, Bg1SplitPt, DitIntrvlVal, AvgDahVal);
             printf("AvgDedSpc:%0.1f\tUnitIntvrlx2r5:%d\tWrdBrkVal:%d\n", AvgSmblDedSpc, UnitIntvrlx2r5, WrdBrkVal);
             printf("\nKeyDwnBuckt Cnt: %d\n", KeyDwnBucktPtr + 1);
         }
@@ -376,9 +378,25 @@ void AdvParser::EvalTimeData(void)
         }
     }
     /*Update/recalculate avg inter symbol key up time*/
-    for (int i = 0; i < KeyUpBuckts[0].Cnt; i++)
+    // for (int i = 0; i < KeyUpBuckts[0].Cnt; i++)
+    // {
+    //     AvgSmblDedSpc = (4 * AvgSmblDedSpc + KeyUpBuckts[0].Intrvl) / 5;
+    // }
+    /*20240609 new method to Calc AvgSmblDedSpc interval for this data set*/
+    int EvntCnt = 0;
+    int RuningTotal = 0; 
+    for (int i = 0; i < this->KeyUpBucktPtr; i++)
     {
-        AvgSmblDedSpc = (4 * AvgSmblDedSpc + KeyUpBuckts[0].Intrvl) / 5;
+        
+        if (KeyUpBuckts[i].Intrvl < this->DitDahSplitVal)
+        {
+            EvntCnt += KeyUpBuckts[i].Cnt;
+            RuningTotal += KeyUpBuckts[i].Cnt * KeyUpBuckts[i].Intrvl;
+        }
+    }
+    if(EvntCnt > 0)
+    {
+        this->AvgSmblDedSpc = (uint16_t)RuningTotal/EvntCnt;
     }
     uint16_t OldIntvrlx2r5 = UnitIntvrlx2r5;
     UnitIntvrlx2r5 = (uint16_t)(2.4 * ((AvgSmblDedSpc + DitIntrvlVal) / 2));
@@ -1101,6 +1119,22 @@ void AdvParser::SetSpltPt(Buckt_t arr[], int n)
             this->DitDahSplitVal = OldSpltVal;
         this->NuSpltVal = DitDahSplitVal; // make sure that NuSpltVal !=0
     }
+    /*20240609 Calc avg dah interval for this data set*/
+    DahCnt = 0;
+    int RuningTotal = 0; 
+    for (i = 0; i < n; i++)
+    {
+        
+        if (arr[i].Intrvl > this->DitDahSplitVal)
+        {
+            DahCnt += arr[i].Cnt;
+            RuningTotal += arr[i].Cnt * arr[i].Intrvl;
+        }
+    }
+    if(DahCnt > 0)
+    {
+        this->AvgDahVal = (uint16_t)RuningTotal/DahCnt;
+    }
 };
 
 /*for this group of keydown intervals(TmpDwnIntrvls[]) & the selected keyUp interval (TmpDwnIntrvls[n]),
@@ -1173,13 +1207,16 @@ bool AdvParser::SloppyBgRules(int &n)
             { /*We have 3 consectutive dahs*/
                 /*Now make sure the last dah is the best letter break*/
                 uint16_t ThrdCombo = TmpDwnIntrvls[n + 2] + TmpUpIntrvls[n + 2];
-                if (ThrdCombo >= 2.5 * this->UnitIntvrlx2r5 && (ThrdCombo) > (TmpDwnIntrvls[n + 1] + TmpUpIntrvls[n + 1]) && (ThrdCombo) > (TmpDwnIntrvls[n] + TmpUpIntrvls[n]))
+                if (ThrdCombo >= 2.5 * this->UnitIntvrlx2r5 
+                    && (ThrdCombo) > (TmpDwnIntrvls[n + 1] + TmpUpIntrvls[n + 1]) 
+                    && (ThrdCombo) > (TmpDwnIntrvls[n] + TmpUpIntrvls[n])
+                    && (TmpUpIntrvls[n + 2] > 1.5* this->AvgSmblDedSpc)) //make sure that the last dah in this series is terminated with something close to a letter break
                 {
-                    /*We have a clear letterbreak*/
+                    /*We have a clear letterbreak; So advance 'n' pointer & build/pack the symbol set with dahs*/
                     int STOP = n + 2;
                     while (n < STOP)
                     {
-                        n++;
+                        n++; 
                         SymbSet = SymbSet << 1; // append a new bit to the symbolset & default it to a 'Dit'
                         SymbSet += 1;
                     }
@@ -1232,7 +1269,10 @@ bool AdvParser::SloppyBgRules(int &n)
                 if (i > n)
                 {
                     /*20240301 removed the middle term based & raised >UnitIntvrlx2r5 multpilier from 2.3 to 4*/
-                    if ((TmpDwnIntrvls[i] + TmpUpIntrvls[i] >= 2.4 * this->UnitIntvrlx2r5) && RunCnt != 3) // && ((float)TmpUpIntrvls[i] > (1.2 * (float)this->DitIntrvlVal))
+                    /*20240609 Added 2nd check to ensure that there is some indication of a letter break*/
+                    if ((TmpDwnIntrvls[i] + TmpUpIntrvls[i] >= 2.4 * this->UnitIntvrlx2r5)
+                        &&  TmpUpIntrvls[i] > 1.1* this->AvgSmblDedSpc 
+                        && RunCnt != 3) 
                     /*don't consider this out on 3rd time, because we have already done "O" checks*/
                     {
                         if (this->Dbug)
@@ -1244,11 +1284,14 @@ bool AdvParser::SloppyBgRules(int &n)
                     }
                     if (RunCnt == 3)
                     { /* we have 3 dahs; & it didn't pass the earlier "o" checks, but it might be part of a 'J' */
-                        if ((TmpDwnIntrvls[i] >= 1.25 * TmpDwnIntrvls[i - 1]) && (TmpDwnIntrvls[i] >= TmpDwnIntrvls[i - 2]) && (TmpDwnIntrvls[i] >= TmpDwnIntrvls[i + 1]))
+                        if ((TmpDwnIntrvls[i] >= 1.25 * TmpDwnIntrvls[i - 1] 
+                            && (TmpUpIntrvls[i] > 1.5* this->AvgSmblDedSpc)) // make sure there's some indication of a letter break
+                            && (TmpDwnIntrvls[i] >= TmpDwnIntrvls[i - 2]) 
+                            && (TmpDwnIntrvls[i] >= TmpDwnIntrvls[i + 1]))
                         { /*the 3rd dah was the longest in this serries of 3 & its longer than the next keydown interval*/
                             if (this->Dbug)
                             {
-                                printf("EXIT H %d\t", RunCnt);
+                                printf("EXIT H; %d;  %d", RunCnt, i);
                             }
                             ExtSmbl = '#';
                             break; // quit now this Dah looks significantly stretched compared to its predecessor
@@ -1357,8 +1400,8 @@ bool AdvParser::SloppyBgRules(int &n)
         // }
         if (RunCnt > 1 && ExtSmbl == '#')
         {
-            /*we have a run of dahs, so build/grow the SymbSet to match the found run of dahs; remember since the 1st dah has already been added,
-            we can skip that one*/
+            /*we have a run of dahs, so build/grow the SymbSet to match the found run of dahs; 
+            remember since the 1st dah has already been added, we can skip that one*/
             int STOP = n + (RunCnt - 1);
             while (n < STOP)
             {
@@ -2217,26 +2260,6 @@ bool AdvParser::Bug2Rules(int &n)
 
     if (ExtSmbl != '@')
     {
-        // if (RunCnt > 1 && maxdahIndx > 0 && (maxdah > 1.3 * mindah) && (TmpUpIntrvls[maxdahIndx] > (DitIntrvlVal + 8)))
-        // {
-        //     // if(maxdahIndx > 0 && (maxdah > 1.3*mindah) && (TmpUpIntrvls[maxdahIndx] > (0.8* DitDahSplitVal))){
-        //     /*we have a run of dahs, so build/grow the SymbSet to mach the found run of dahs*/
-        //     while (n < maxdahIndx)
-        //     {
-        //         n++;
-        //         SymbSet = SymbSet << 1; // append a new bit to the symbolset & default it to a 'Dit'
-        //         SymbSet += 1;
-        //     }
-        //     ExitPath[n] = 2; //note for this rule set there are two ExitPath[n] = 2's; this is the 1st one
-        //     BrkFlg = '+';
-        //     return true;
-        // }
-        // else if (RunCnt > 1 && maxdah > 0 && (mindahIndx == maxdahIndx) && (TmpUpIntrvls[maxdahIndx] > TmpDwnIntrvls[maxdahIndx]))
-        // { // the 1st dah seems to be a letter break
-        //     ExitPath[n] = 21;
-        //     BrkFlg = '+';
-        //     return true;
-        // }
         if (RunCnt > 1 && ExtSmbl == '$')
         {
             // printf("ExtSmbl: %c; RunCnt: %d\n", ExtSmbl, RunCnt);
@@ -2522,7 +2545,8 @@ bool AdvParser::SKRules(int &n)
     }
     /*Middle keyup test to see this keyup is twice the length of the one following it,
     If it is then call this one a letter break*/
-    if ((n < TmpUpIntrvlsPtr - 1) && (TmpUpIntrvls[n] > (2.0 * TmpUpIntrvls[n + 1]) + 8))
+    //if ((n < TmpUpIntrvlsPtr - 1) && (TmpUpIntrvls[n] > (2.0 * TmpUpIntrvls[n + 1]) + 8))
+    if ((n < TmpUpIntrvlsPtr - 1) && (TmpUpIntrvls[n] > (2.0 * this->AvgSmblDedSpc)))//20240609 new check for middle letter brk
     {
         ExitPath[n] = 101;
         BrkFlg = '+';
@@ -3804,6 +3828,7 @@ void AdvParser::FixClassicErrors(void)
                             || this->Msgbuf[NdxPtr - 1] == 'W' //wE
                             || this->Msgbuf[NdxPtr - 1] == 'M' //mEM
                             || this->Msgbuf[NdxPtr - 1] == 'R' //rEM
+                            || this->Msgbuf[NdxPtr - 1] == 'D' //dEM
                             || (this->Msgbuf[NdxPtr - 1] == 'T' && this->Msgbuf[NdxPtr + SrchLen] == 'P')))
                         {
                             Test = false; // tHEM
@@ -4117,7 +4142,47 @@ void AdvParser::FixClassicErrors(void)
                         {
                             Test = true; 
                         }
-                        break;                                                                
+                        break;
+                    case 77: /* RULE(0V/MOV) - Don't apply this fix, if the word is a "call-sign" */
+                        if (NdxPtr> 0 
+                            && this->Msgbuf[NdxPtr - 1] == 'W')
+                        {
+                            Test = false;
+                        }
+                        else if (NdxPtr> 0 
+                            && this->Msgbuf[NdxPtr - 1] == 'K')
+                        {
+                            Test = false;
+                        }
+                        else if (NdxPtr> 1 
+                            && this->Msgbuf[NdxPtr - 2] == 'W'
+                            && this->Msgbuf[NdxPtr - 1] == 'A')
+                        {
+                            Test = false;
+                        }
+                        else if (NdxPtr> 1 
+                            && this->Msgbuf[NdxPtr - 2] == 'K'
+                            && (this->Msgbuf[NdxPtr - 1] == 'A' || this->Msgbuf[NdxPtr - 1] == 'C' || this->Msgbuf[NdxPtr - 1] == 'D' || this->Msgbuf[NdxPtr - 1] == 'W' ))
+                        {
+                            Test = false;
+                        } 
+                        else
+                        {
+                            Test = true; 
+                        }
+                        break;
+                    case 78: /*Rule(NETT/NO) - */
+                        if (this->StrLength > SrchLen 
+                            && this->Msgbuf[NdxPtr + SrchLen] == 'I' 
+                            && this->Msgbuf[NdxPtr + SrchLen + 1] == 'N') // and != 'NETTing'
+                        { 
+                            Test = false;
+                        }
+                        else
+                        {
+                            Test = true; 
+                        }
+                        break;                                                                        
                     default:
                         break;            
                     }
@@ -4161,23 +4226,23 @@ void AdvParser::FixClassicErrors(void)
  & if found, replaces the srchTerm sequence with sequence contained in NuTerm */
 int AdvParser::SrchEsReplace(int MsgBufIndx, int STptr, const char srchTerm[10], const char NuTerm[10])
 {
-    bool DBugSrchEsRplace = true;
+    // bool DBugSrchEsRplace = true;
     bool match = true;
     int i = 0;
     int RplcLtrCnt = 0;
-    
+
     /*1st if possible look back last 3 characters & screen for call sign suffix & skip if it is*/
     int lookBkPtr = 1;
-    while (MsgBufIndx - lookBkPtr>= 0 && lookBkPtr <= 3)
-    {    
-        /*if not preceeded by a number, then continue */  
-        if ( this->Msgbuf[MsgBufIndx - lookBkPtr] >= '0' && this->Msgbuf[MsgBufIndx - lookBkPtr] <= '9')
+    while (MsgBufIndx - lookBkPtr >= 0 && lookBkPtr <= 3)
+    {
+        /*if not preceeded by a number, then continue */
+        if (this->Msgbuf[MsgBufIndx - lookBkPtr] >= '0' && this->Msgbuf[MsgBufIndx - lookBkPtr] <= '9')
         {
-            //printf("   SrchEsReplace abort\n");
-            return MsgBufIndx;// abort, Looks to be a call sign suffix
+            // printf("   SrchEsReplace abort\n");
+            return MsgBufIndx; // abort, Looks to be a call sign suffix
         }
         lookBkPtr++;
-    }        
+    }
     // printf("%s\n", srchTerm);
     while (srchTerm[i] != 0)
     {
@@ -4190,15 +4255,15 @@ int AdvParser::SrchEsReplace(int MsgBufIndx, int STptr, const char srchTerm[10],
     }
     if (!match)
     {
-        //printf("    srchTerm: %s; Msgbuf %s\n", srchTerm, this->Msgbuf);
+        // printf("    srchTerm: %s; Msgbuf %s\n", srchTerm, this->Msgbuf);
         return MsgBufIndx; // No match found
     }
     /*if here, we have a match & now need to replace with NuTerm letter sequence*/
     /*But 1st, copy everything past the search term, in the Msgbuf, to a 2nd temp buffer */
-    char oldtxt[MsgbufSize];// just used for debugging
-    sprintf(oldtxt,"%s", this->Msgbuf);
-    //int OldInxPtr = MsgBufIndx;
-    //printf("    srchTerm: %s; Msgbuf %s\n", srchTerm, this->Msgbuf);
+    char oldtxt[MsgbufSize]; // just used for debugging
+    sprintf(oldtxt, "%s", this->Msgbuf);
+    // int OldInxPtr = MsgBufIndx;
+    // printf("    srchTerm: %s; Msgbuf %s\n", srchTerm, this->Msgbuf);
     int j;
     // i++;
     for (j = 0; j < sizeof(this->TmpBufA) - 1; j++)
@@ -4216,8 +4281,9 @@ int AdvParser::SrchEsReplace(int MsgBufIndx, int STptr, const char srchTerm[10],
         RplcLtrCnt++;
     }
     /*now if TmpBufA not emtpy insert a space in our re-constructed character string/sequence */
-    if(this->TmpBufA[j] != 0){
-        this->Msgbuf[MsgBufIndx + RplcLtrCnt] = (uint8_t)0x20;//ascii hex 'space' value
+    if (this->TmpBufA[j] != 0)
+    {
+        this->Msgbuf[MsgBufIndx + RplcLtrCnt] = (uint8_t)0x20; // ascii hex 'space' value
         RplcLtrCnt++;
     }
     /*finish off by adding back/appending the contents fo the temp buffer (TmpBufA) */
@@ -4234,17 +4300,19 @@ int AdvParser::SrchEsReplace(int MsgBufIndx, int STptr, const char srchTerm[10],
     }
     /*make sure the character sequence is NULL terminated
      and update StrLength */
-    uint16_t oldStrLength = this->StrLength; 
+    uint16_t oldStrLength = this->StrLength;
     if ((MsgBufIndx + RplcLtrCnt + j) < MsgbufSize)
     {
         this->Msgbuf[MsgBufIndx + RplcLtrCnt + j] = 0;
         this->StrLength = MsgBufIndx + RplcLtrCnt + j;
     }
 
-    //if (j > 0)
-        MsgBufIndx += (RplcLtrCnt-1);
-    //printf("Old: %s;  SrchTerm: %s; New: %s; oldStrLength %d; STptr: %d\n", oldtxt,  srchTerm, this->Msgbuf, oldStrLength, STptr);
-    //printf("Old: %s;  SrchTerm: %s; New: %s; MsgBufIndx: %d; STptr: %d; BugKey: %d\n", oldtxt,  srchTerm, this->Msgbuf, MsgBufIndx, STptr, BugKey);
-    if(DBugSrchEsRplace) printf("Old: %s;  SrchTerm: %s; New: %s; STptr: %d; BugKey: %d\n", oldtxt,  srchTerm, this->Msgbuf, STptr, BugKey);    
+    // if (j > 0)
+    MsgBufIndx += (RplcLtrCnt - 1);
+// printf("Old: %s;  SrchTerm: %s; New: %s; oldStrLength %d; STptr: %d\n", oldtxt,  srchTerm, this->Msgbuf, oldStrLength, STptr);
+// printf("Old: %s;  SrchTerm: %s; New: %s; MsgBufIndx: %d; STptr: %d; BugKey: %d\n", oldtxt,  srchTerm, this->Msgbuf, MsgBufIndx, STptr, BugKey);
+#ifdef DBugSrchEsRplace
+    printf("Old: %s;  SrchTerm: %s; New: %s; STptr: %d; BugKey: %d\n", oldtxt, srchTerm, this->Msgbuf, STptr, BugKey);
+#endif
     return MsgBufIndx;
 };
