@@ -1,4 +1,4 @@
-# Install script for directory: /home/jim/.platformio/packages/framework-espidf@3.50100.0/components/esp_gdbstub
+# Install script for directory: /home/jim/.platformio/packages/framework-espidf@3.50202.0/components/esp_gdbstub
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)

@@ -1,4 +1,4 @@
-# Install script for directory: /home/jim/.platformio/packages/framework-espidf@3.50100.0/components/bootloader/subproject/main
+# Install script for directory: /home/jim/.platformio/packages/framework-espidf@3.50202.0/components/bootloader/subproject/main
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)

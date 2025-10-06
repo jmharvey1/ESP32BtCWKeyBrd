@@ -1,4 +1,4 @@
-# Install script for directory: /home/jim/.platformio/packages/framework-espidf@3.50100.0/components/mbedtls/mbedtls
+# Install script for directory: /home/jim/.platformio/packages/framework-espidf@3.50202.0/components/mbedtls/mbedtls
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -37,6 +37,7 @@ if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   include("/home/jim/ESP_Projects/ESP32BtCWKeyBrd/.pio/build/upesy_wroom/esp-idf/mbedtls/mbedtls/include/cmake_install.cmake")
   include("/home/jim/ESP_Projects/ESP32BtCWKeyBrd/.pio/build/upesy_wroom/esp-idf/mbedtls/mbedtls/3rdparty/cmake_install.cmake")
   include("/home/jim/ESP_Projects/ESP32BtCWKeyBrd/.pio/build/upesy_wroom/esp-idf/mbedtls/mbedtls/library/cmake_install.cmake")
+  include("/home/jim/ESP_Projects/ESP32BtCWKeyBrd/.pio/build/upesy_wroom/esp-idf/mbedtls/mbedtls/pkgconfig/cmake_install.cmake")
 
 endif()
 

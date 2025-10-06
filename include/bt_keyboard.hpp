@@ -68,7 +68,10 @@ class BTKeyboard
     bool PairFlg;   //used during pairing event to start/stop Display SPI calls
     bool inPrgsFlg;   //used during pairing event to start/stop Display SPI calls
     bool OpnEvntFlg;
+    bool ReConectFlg;
     int  Adc_Sw;
+    esp_bd_addr_t bd_addr = {0, 0, 0, 0, 0, 0};
+    esp_bt_io_cap_t iocap = ESP_BT_IO_CAP_IO;
 
   private:
 
@@ -78,6 +81,7 @@ class BTKeyboard
     static const esp_bt_mode_t HIDH_BLE_MODE  = (esp_bt_mode_t) 0x01;
     static const esp_bt_mode_t HIDH_BT_MODE   = (esp_bt_mode_t) 0x02;
     static const esp_bt_mode_t HIDH_BTDM_MODE = (esp_bt_mode_t) 0x03;
+    //esp_bt_io_cap_t iocap = ESP_BT_IO_CAP_IO;
 
     #if CONFIG_BT_HID_HOST_ENABLED
       #if CONFIG_BT_BLE_ENABLED
@@ -123,6 +127,7 @@ class BTKeyboard
     TFTMsgBox *pmsgbx;//JMH added To support TFT display logging.
     DF_t *pDFault;//JMH added To support user settings; mainly to know 'DeBug' setting (on/off; i.e., 1/0).
 
+    void TFTmsg(const char *msg, uint16_t color);
     static void hidh_callback(void * handler_args, esp_event_base_t base, int32_t id, void * event_data);
 
     static void bt_gap_event_handler( esp_bt_gap_cb_event_t event,  esp_bt_gap_cb_param_t * param);
@@ -177,8 +182,6 @@ class BTKeyboard
     TickType_t    repeat_period;
     pid_handler * pairing_handler;
     bool          caps_lock;
-    
-
   public:
 
     BTKeyboard( TFTMsgBox *msgbx_ptr, DF_t *Dft_ptr) : 
@@ -193,6 +196,8 @@ class BTKeyboard
       pDFault = Dft_ptr;
       trapFlg = false;
       PairFlg = false; //used during pairing event to start/stop Display SPI calls
+      ReConectFlg = false;
+      //bd_addr = {0, 0, 0, 0, 0, 0};
       Adc_Sw = 0;
       OpnEvntFlg = false;
     }

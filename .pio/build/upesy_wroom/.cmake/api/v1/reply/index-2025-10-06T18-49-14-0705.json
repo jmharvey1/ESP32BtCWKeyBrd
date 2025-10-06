@@ -1,0 +1,50 @@
+{
+	"cmake" : 
+	{
+		"generator" : 
+		{
+			"name" : "Ninja"
+		},
+		"paths" : 
+		{
+			"cmake" : "/home/jim/.platformio/packages/tool-cmake@3.16.4/bin/cmake",
+			"cpack" : "/home/jim/.platformio/packages/tool-cmake@3.16.4/bin/cpack",
+			"ctest" : "/home/jim/.platformio/packages/tool-cmake@3.16.4/bin/ctest",
+			"root" : "/home/jim/.platformio/packages/tool-cmake@3.16.4/share/cmake-3.16"
+		},
+		"version" : 
+		{
+			"isDirty" : false,
+			"major" : 3,
+			"minor" : 16,
+			"patch" : 4,
+			"string" : "3.16.4",
+			"suffix" : ""
+		}
+	},
+	"objects" : 
+	[
+		{
+			"jsonFile" : "codemodel-v2-6fa2ffa7a35fabf8bf43.json",
+			"kind" : "codemodel",
+			"version" : 
+			{
+				"major" : 2,
+				"minor" : 0
+			}
+		}
+	],
+	"reply" : 
+	{
+		"codemodel-v2" : 
+		{
+			"jsonFile" : "codemodel-v2-6fa2ffa7a35fabf8bf43.json",
+			"kind" : "codemodel",
+			"version" : 
+			{
+				"major" : 2,
+				"minor" : 0
+			}
+		}
+	}
+}

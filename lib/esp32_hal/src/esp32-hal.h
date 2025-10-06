@@ -81,7 +81,8 @@ void yield(void);
 #include "esp32-hal-dac.h"
 #include "esp32-hal-adc.h"
 #include "esp32-hal-spi.h"
-#include "esp32-hal-i2c.h"
+//#include "esp32-hal-i2c.h"
+#include "i2c.h" // Jmh 20250930 use local copy of esp32-hal-i2c.h
 #include "esp32-hal-ledc.h"
 #include "esp32-hal-rmt.h"
 #include "esp32-hal-sigmadelta.h"

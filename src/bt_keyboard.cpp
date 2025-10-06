@@ -24,7 +24,7 @@
 /*20230721 Fixed Crash issue related to BT Keyboard sending corrupted keystroke data; fix mostly containg bt_keyboard.hid callback code*/
 /*20230810 beta fix for crash linked to 1st time connection to previously 'paired keyboard. Requires stopping ADC sampling during the 'open' Keyboard event*/
 /*20230811 added bt_keyboard->Adc_Sw & bt_keyboard->OpnEvntFlg params to manage ADC sampling during connecting to a previously 'paired' keyboard*/
-
+/*20251006 reworked keyboard pairing & reconnect */
 #define __BT_KEYBOARD__ 1
 #include "bt_keyboard.hpp"
 
@@ -32,6 +32,7 @@
 #include <iostream> //JMH added
 #include <stdio.h>  //JMH added
 #include <string.h> //JMH added
+#include "esp_hidh_api.h"  //JMH added 20251005
 #define SCAN 1
 
 // uncomment to print all devices that were seen during a scan
@@ -50,8 +51,112 @@ SemaphoreHandle_t BTKeyboard::bt_hidh_cb_semaphore = nullptr;
 SemaphoreHandle_t BTKeyboard::ble_hidh_cb_semaphore = nullptr;
 
 const char *BTKeyboard::gap_bt_prop_type_names[] = {"", "BDNAME", "COD", "RSSI", "EIR"};
-const char *BTKeyboard::ble_gap_evt_names[] = {"ADV_DATA_SET_COMPLETE", "SCAN_RSP_DATA_SET_COMPLETE", "SCAN_PARAM_SET_COMPLETE", "SCAN_RESULT", "ADV_DATA_RAW_SET_COMPLETE", "SCAN_RSP_DATA_RAW_SET_COMPLETE", "ADV_START_COMPLETE", "SCAN_START_COMPLETE", "AUTH_CMPL", "KEY", "SEC_REQ", "PASSKEY_NOTIF", "PASSKEY_REQ", "OOB_REQ", "LOCAL_IR", "LOCAL_ER", "NC_REQ", "ADV_STOP_COMPLETE", "SCAN_STOP_COMPLETE", "SET_STATIC_RAND_ADDR", "UPDATE_CONN_PARAMS", "SET_PKT_LENGTH_COMPLETE", "SET_LOCAL_PRIVACY_COMPLETE", "REMOVE_BOND_DEV_COMPLETE", "CLEAR_BOND_DEV_COMPLETE", "GET_BOND_DEV_COMPLETE", "READ_RSSI_COMPLETE", "UPDATE_WHITELIST_COMPLETE"};
-const char *BTKeyboard::bt_gap_evt_names[] = {"DISC_RES", "DISC_STATE_CHANGED", "RMT_SRVCS", "RMT_SRVC_REC", "AUTH_CMPL", "PIN_REQ", "CFM_REQ", "KEY_NOTIF", "KEY_REQ", "READ_RSSI_DELTA"};
+//const char *BTKeyboard::ble_gap_evt_names[] = {"ADV_DATA_SET_COMPLETE", "SCAN_RSP_DATA_SET_COMPLETE", "SCAN_PARAM_SET_COMPLETE", "SCAN_RESULT", "ADV_DATA_RAW_SET_COMPLETE", "SCAN_RSP_DATA_RAW_SET_COMPLETE", "ADV_START_COMPLETE", "SCAN_START_COMPLETE", "AUTH_CMPL", "KEY", "SEC_REQ", "PASSKEY_NOTIF", "PASSKEY_REQ", "OOB_REQ", "LOCAL_IR", "LOCAL_ER", "NC_REQ", "ADV_STOP_COMPLETE", "SCAN_STOP_COMPLETE", "SET_STATIC_RAND_ADDR", "UPDATE_CONN_PARAMS", "SET_PKT_LENGTH_COMPLETE", "SET_LOCAL_PRIVACY_COMPLETE", "REMOVE_BOND_DEV_COMPLETE", "CLEAR_BOND_DEV_COMPLETE", "GET_BOND_DEV_COMPLETE", "READ_RSSI_COMPLETE", "UPDATE_WHITELIST_COMPLETE"};
+//const char *BTKeyboard::bt_gap_evt_names[] = {"DISC_RES", "DISC_STATE_CHANGED", "RMT_SRVCS", "RMT_SRVC_REC", "AUTH_CMPL", "PIN_REQ", "CFM_REQ", "KEY_NOTIF", "KEY_REQ", "READ_RSSI_DELTA"};
+/*20251002 JMH Revised lists */
+const char *BTKeyboard::bt_gap_evt_names[] = {"BT_DISC_RES",
+"BT_DISC_STATE_CHANGED",
+"BT_RMT_SRVCS",
+"BT_RMT_SRVC_REC",
+"BT_AUTH_CMPL",
+"BT_PIN_REQ",
+"BT_CFM_REQ",
+"BT_KEY_NOTIF",
+"BT_KEY_REQ",
+"BT_READ_RSSI_DELTA",
+"BT_CONFIG_EIR_DATA",
+"BT_SET_AFH_CHANNELS",
+"BT_READ_REMOTE_NAME",
+"BT_MODE_CHG",
+"BT_REMOVE_BOND_DEV_COMPLETE",
+"BT_QOS_CMPL",
+"BT_ACL_CONN_CMPL_STAT",
+"BT_ACL_DISCONN_CMPL_STAT",
+"BT_SET_PAGE_TO",
+"BT_GET_PAGE_TO",
+"BT_ACL_PKT_TYPE_CHANGED",
+"BT_ENC_CHG",
+"BT_GET_DEV_NAME_CMPL",
+"BT_EVT_MAX"};
+
+const char *BTKeyboard::ble_gap_evt_names[] = {"BT_DISC_RES",
+"BLE_ADV_DATA_SET_COMPLETE",
+"BLE_SCAN_RSP_DATA_SET_COMPLETE",
+"BLE_SCAN_PARAM_SET_COMPLETE",
+"BLE_SCAN_RESULT",
+"BLE_ADV_DATA_RAW_SET_COMPLETE",
+"BLE_SCAN_RSP_DATA_RAW_SET_COMPLETE",
+"BLE_ADV_START_COMPLETE",
+"BLE_SCAN_START_COMPLETE",
+"BLE_AUTH_CMPL",
+"BLE_KEY",
+"BLE_SEC_REQ",
+"BLE_PASSKEY_NOTIF",
+"BLE_PASSKEY_REQ",
+"BLE_OOB_REQ",
+"BLE_LOCAL_IR",
+"BLE_LOCAL_ER",
+"BLE_NC_REQ",
+"BLE_ADV_STOP_COMPLETE",
+"BLE_SCAN_STOP_COMPLETE",
+"BLE_SET_STATIC_RAND_ADDR",
+"BLE_UPDATE_CONN_PARAMS",
+"BLE_SET_PKT_LENGTH_COMPLETE",
+"BLE_SET_LOCAL_PRIVACY_COMPLETE",
+"BLE_REMOVE_BOND_DEV_COMPLETE",
+"BLE_CLEAR_BOND_DEV_COMPLETE",
+"BLE_GET_BOND_DEV_COMPLETE",
+"BLE_READ_RSSI_COMPLETE",
+"BLE_UPDATE_WHITELIST_COMPLETE",
+"BLE_UPDATE_DUPLICATE_EXCEPTIONAL_LIST_COMPLETE",
+"BLE_SET_CHANNELS",
+"BLE_READ_PHY_COMPLETE",
+"BLE_SET_PREFERRED_DEFAULT_PHY_COMPLETE",
+"BLE_SET_PREFERRED_PHY_COMPLETE",
+"BLE_EXT_ADV_SET_RAND_ADDR_COMPLETE",
+"BLE_EXT_ADV_SET_PARAMS_COMPLETE",
+"BLE_EXT_ADV_DATA_SET_COMPLETE",
+"BLE_EXT_SCAN_RSP_DATA_SET_COMPLETE",
+"BLE_EXT_ADV_START_COMPLETE",
+"BLE_EXT_ADV_STOP_COMPLETE",
+"BLE_EXT_ADV_SET_REMOVE_COMPLETE",
+"BLE_EXT_ADV_SET_CLEAR_COMPLETE",
+"BLE_PERIODIC_ADV_SET_PARAMS_COMPLETE",
+"BLE_PERIODIC_ADV_DATA_SET_COMPLETE",
+"BLE_PERIODIC_ADV_START_COMPLETE",
+"BLE_PERIODIC_ADV_STOP_COMPLETE",
+"BLE_PERIODIC_ADV_CREATE_SYNC_COMPLETE",
+"BLE_PERIODIC_ADV_SYNC_CANCEL_COMPLETE",
+"BLE_PERIODIC_ADV_SYNC_TERMINATE_COMPLETE",
+"BLE_PERIODIC_ADV_ADD_DEV_COMPLETE",
+"BLE_PERIODIC_ADV_REMOVE_DEV_COMPLETE",
+"BLE_PERIODIC_ADV_CLEAR_DEV_COMPLETE",
+"BLE_SET_EXT_SCAN_PARAMS_COMPLETE",
+"BLE_EXT_SCAN_START_COMPLETE",
+"BLE_EXT_SCAN_STOP_COMPLETE",
+"BLE_PREFER_EXT_CONN_PARAMS_SET_COMPLETE",
+"BLE_PHY_UPDATE_COMPLETE",
+"BLE_EXT_ADV_REPORT",
+"BLE_SCAN_TIMEOUT",
+"BLE_ADV_TERMINATED",
+"BLE_SCAN_REQ_RECEIVED",
+"BLE_CHANNEL_SELECT_ALGORITHM",
+"BLE_PERIODIC_ADV_REPORT",
+"BLE_PERIODIC_ADV_SYNC_LOST",
+"BLE_PERIODIC_ADV_SYNC_ESTAB",
+"BLE_SC_OOB_REQ",
+"BLE_SC_CR_LOC_OOB",
+"BLE_GET_DEV_NAME_COMPLETE",
+"BLE_PERIODIC_ADV_RECV_ENABLE_COMPLETE",
+"BLE_PERIODIC_ADV_SYNC_TRANS_COMPLETE",
+"BLE_PERIODIC_ADV_SET_INFO_TRANS_COMPLETE",
+"BLE_SET_PAST_PARAMS_COMPLETE",
+"BLE_PERIODIC_ADV_SYNC_TRANS_RECV",
+"BLE_DTM_TEST_UPDATE",
+"BLE_ADV_CLEAR_COMPLETE",
+"BLE_VENDOR_CMD_COMPLETE",
+"BLE_EVT_MAX"};
+
 const char *BTKeyboard::ble_addr_type_names[] = {"PUBLIC", "RANDOM", "RPA_PUBLIC", "RPA_RANDOM"};
 
 const char BTKeyboard::shift_trans_dict[] =
@@ -65,10 +170,17 @@ const char BTKeyboard::shift_trans_dict[] =
     "\223\223\224\224\225\225\226\226\227\227\230\230"; // End PageDown Right Left Dow Up
 
 static BTKeyboard *bt_keyboard = nullptr;
+static esp_hidh_dev_t *dev = nullptr;
 
 char msgbuf[256];
 
-
+void BTKeyboard::TFTmsg(const char *msg, uint16_t color)
+{
+  if (bt_keyboard != nullptr)
+  {
+    pmsgbx->dispMsg((char *)msg, color);
+  }
+}
 const char *
 BTKeyboard::ble_addr_type_str(esp_ble_addr_type_t ble_addr_type)
 {
@@ -238,6 +350,7 @@ void BTKeyboard::add_bt_scan_result(esp_bd_addr_t bda,
       memcpy(name_s, name, name_len);
       name_s[name_len] = 0;
       r->name = (const char *)name_s;
+      printf("BT New name: %s\n", r->name); //JMH Diagnostic testing
     }
     if (r->bt.uuid.len == 0 && uuid->len)
     {
@@ -354,6 +467,7 @@ void BTKeyboard::add_ble_scan_result(esp_bd_addr_t bda,
     memcpy(name_s, name, name_len);
     name_s[name_len] = 0;
     r->name = (const char *)name_s;
+    printf("BLE New name: %s\n", r->name); //JMH Diagnostic testing
   }
 
   r->next = ble_scan_results;
@@ -451,20 +565,16 @@ bool BTKeyboard::setup(pid_handler *handler)
   // Classic Bluetooth GAP
 
   esp_bt_sp_param_t param_type = ESP_BT_SP_IOCAP_MODE;
-  esp_bt_io_cap_t iocap = ESP_BT_IO_CAP_IO;
+  //esp_bt_io_cap_t iocap = ESP_BT_IO_CAP_IO;
   esp_bt_gap_set_security_param(param_type, &iocap, sizeof(uint8_t));
 
   /*
    * Set default parameters for Legacy Pairing
-   * Use fixed pin code
+   * Use variable pin, input pin code when pairing
    */
-  esp_bt_pin_type_t pin_type = ESP_BT_PIN_TYPE_FIXED;
+  esp_bt_pin_type_t pin_type = ESP_BT_PIN_TYPE_VARIABLE;
   esp_bt_pin_code_t pin_code;
-  pin_code[0] = '1';
-  pin_code[1] = '2';
-  pin_code[2] = '3';
-  pin_code[3] = '4';
-  esp_bt_gap_set_pin(pin_type, 4, pin_code);
+  esp_bt_gap_set_pin(pin_type, 0, pin_code);
 
   if ((ret = esp_bt_gap_register_callback(bt_gap_event_handler)))
   {
@@ -505,7 +615,6 @@ bool BTKeyboard::setup(pid_handler *handler)
   {
     key_avail[i] = true;
   }
-
   last_ch = 0;
   battery_level = -1;
   return true;
@@ -675,9 +784,10 @@ void BTKeyboard::handle_bt_device_result(esp_bt_gap_cb_param_t *param)
 void BTKeyboard::bt_gap_event_handler(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *param)
 {
   static const char *TAG1 = "bt_gap_event_handler";
-  //printf("bt_gap_event_handler Start\n"); //JMH Diagnosstic testing
+  GAP_DBG_PRINTF("\tBT GAP EVT: (%d) %s\n", event, bt_gap_evt_str(event));
   switch (event)
   {
+    
   case ESP_BT_GAP_DISC_STATE_CHANGED_EVT:
   {
     ESP_LOGV(TAG, "BT GAP DISC_STATE %s", (param->disc_st_chg.state == ESP_BT_GAP_DISCOVERY_STARTED) ? "START" : "STOP");
@@ -696,16 +806,96 @@ void BTKeyboard::bt_gap_event_handler(esp_bt_gap_cb_event_t event, esp_bt_gap_cb
     bt_keyboard->handle_bt_device_result(param);
     break;
   }
-  case ESP_BT_GAP_KEY_NOTIF_EVT:
+  case ESP_BT_GAP_AUTH_CMPL_EVT:                         /*!< Authentication complete indication */
+  {
+    if (param->auth_cmpl.stat == ESP_BT_STATUS_SUCCESS)
+    {
+      ESP_LOGI(TAG, "BT GAP AUTH_CMPL name:%s", param->auth_cmpl.device_name);
+      // if(pDFault->DeBug){
+      // sprintf(msgbuf, "BT GAP AUTH_CMPL name:%s", param->auth_cmpl.device_name); //JMH Diagnosstic testing
+      // printf("bt_gap_event_handler: %s \n",msgbuf); //JMH Diagnosstic testing
+      //   pmsgbx->dispMsg(msgbuf,TFT_WHITE);
+      // }
+      ESP_LOGI(TAG, "BT GAP AUTH_CMPL address:%02x:%02x:%02x:%02x:%02x:%02x",
+               param->auth_cmpl.bda[0], param->auth_cmpl.bda[1], param->auth_cmpl.bda[2],
+               param->auth_cmpl.bda[3], param->auth_cmpl.bda[4], param->auth_cmpl.bda[5]);
+      // if(pDFault->DeBug){
+      sprintf(msgbuf, "BT GAP AUTH_CMPL address:%02x:%02x:%02x:%02x:%02x:%02x",
+              param->auth_cmpl.bda[0], param->auth_cmpl.bda[1], param->auth_cmpl.bda[2],
+              param->auth_cmpl.bda[3], param->auth_cmpl.bda[4], param->auth_cmpl.bda[5]); //JMH Diagnosstic testing
+      printf("bt_gap_event_handler: %s \n",msgbuf); //JMH Diagnosstic testing
+      //   pmsgbx->dispMsg(msgbuf,TFT_WHITE);
+      // }
+    }
+    else
+    {
+      ESP_LOGE(TAG, "BT GAP AUTH_CMPL failed, status:%d", param->auth_cmpl.stat);
+      // if(pDFault->DeBug){
+      sprintf(msgbuf, "BT GAP AUTH_CMPL failed, status:%d", param->auth_cmpl.stat); //JMH Diagnosstic testing
+      printf("bt_gap_event_handler: %s \n",msgbuf); //JMH Diagnosstic testing
+      //   pmsgbx->dispMsg(msgbuf,TFT_RED);
+    }
+    break;
+  }
+  case ESP_BT_GAP_PIN_REQ_EVT:                            /*!< Legacy Pairing Pin code request */
+  {
+    ESP_LOGI(TAG, "BT GAP PIN_REQ_EVT min_16_digit:%d", param->pin_req.min_16_digit);
+    if (param->pin_req.min_16_digit)
+    {
+      ESP_LOGI(TAG, "Input pin code: 0000 0000 0000 0000");
+      sprintf(msgbuf, "Input pin code: 0000 0000 0000 0000\n");
+      bt_keyboard->TFTmsg(msgbuf, TFT_WHITE);
+      esp_bt_pin_code_t pin_code = {0};
+      esp_bt_gap_pin_reply(param->pin_req.bda, true, 16, pin_code);
+    }
+    else
+    {
+      ESP_LOGI(TAG, "Input pin code: 1234");
+      esp_bt_pin_code_t pin_code;
+      pin_code[0] = '1';
+      pin_code[1] = '2';
+      pin_code[2] = '3';
+      pin_code[3] = '4';
+      if (esp_bt_gap_pin_reply(param->pin_req.bda, true, 4, pin_code))
+      // if (esp_bt_gap_set_pin(pin_type, 4, pin_code))
+      {
+        ESP_LOGE(TAG, "esp_bt_gap_set_pin failed");
+        sprintf(msgbuf, "esp_bt_gap_set_pin failed\n");
+        bt_keyboard->TFTmsg(msgbuf, TFT_YELLOW);
+        // pmsgbx->dispStat(msgbuf, TFT_YELLOW);
+      }
+      else
+      {
+        sprintf(msgbuf, "ENTER pairing code: 1234\n");
+        // pmsgbx->dispMsg(msgbuf, TFT_WHITE);
+        bt_keyboard->TFTmsg(msgbuf, TFT_WHITE);
+      }
+    }
+    break;
+  }
+  case ESP_BT_GAP_CFM_REQ_EVT:                         /*!< Security Simple Pairing User Confirmation request. */
+  {
+    sprintf(msgbuf, "BT GAP CFM_REQ numeric_value:%lu", param->cfm_req.num_val); //JMH Diagnosstic testing
+    printf("bt_gap_event_handler: %s \n",msgbuf); //JMH Diagnosstic testing
+    break;
+  }
+  case ESP_BT_GAP_KEY_NOTIF_EVT:  /*!< Security Simple Pairing Passkey Notification */
     //ESP_LOGV(TAG, "BT GAP KEY_NOTIF passkey:%d", param->key_notif.passkey); // JMH changed %lu to %d 
     ESP_LOGV(TAG, "BT GAP KEY_NOTIF passkey:%lu", param->key_notif.passkey); // JMH changed for WINDOWS 10 version
     //   if(pDFault->DeBug){
-    //sprintf(msgbuf, "BT GAP KEY_NOTIF passkey:%lu", param->key_notif.passkey); //JMH Diagnosstic testing
-    //   pmsgbx->dispMsg(msgbuf,TFT_WHITE);
+          sprintf(msgbuf, "BT GAP KEY_NOTIF passkey:%lu", param->key_notif.passkey); //JMH Diagnosstic testing
+          printf("bt_gap_event_handler: %s \n",msgbuf); //JMH Diagnosstic testing
+          //pmsgbx->dispMsg(msgbuf,TFT_WHITE);
     // }
     if (bt_keyboard->pairing_handler != nullptr)
       (*bt_keyboard->pairing_handler)(param->key_notif.passkey);
     break;
+  case ESP_BT_GAP_KEY_REQ_EVT:                         /*!< Security Simple Pairing Passkey request */
+  {
+    sprintf(msgbuf, "BT GAP KEY_REQ"); //JMH Diagnosstic testing
+    printf("bt_gap_event_handler: %s \n",msgbuf); //JMH Diagnosstic testing
+    break;
+  }
   case ESP_BT_GAP_MODE_CHG_EVT:
     ESP_LOGV(TAG, "BT GAP MODE_CHG_EVT mode:%d", param->mode_chg.mode);
     // if(pDFault->DeBug){
@@ -719,12 +909,62 @@ void BTKeyboard::bt_gap_event_handler(esp_bt_gap_cb_event_t event, esp_bt_gap_cb
       vTaskDelay(20);
     }
     break;
+  case ESP_BT_GAP_ACL_CONN_CMPL_STAT_EVT:
+    if (param->acl_conn_cmpl_stat.stat == ESP_BT_STATUS_SUCCESS)
+    {
+      ESP_LOGI(TAG, "ACL connection successful");
+      // The HID host API must now be called to start the SDP process.
+      // An internal Bluedroid state machine usually manages this
+      // based on the successful ACL connection. The callback
+      // function registered via `esp_bt_hid_host_register_callback`
+      // will handle the next HID-specific events (like OPEN_EVT).
+      // Attempt to open a secure paired HID connection
+      if (bt_keyboard->ReConectFlg)
+      {
+        bt_keyboard->ReConectFlg = false;
+        ESP_LOGI(TAG, "Pairing in progress, skipping re-pairing.");
+      }
+      else
+      { // Not paired yet, try to open a secure connection
+        memcpy(&bt_keyboard->bd_addr, param->acl_conn_cmpl_stat.bda, sizeof(esp_bd_addr_t)); //param->acl_conn_cmpl_stat.bda;
+        ESP_LOGI(TAG, "starting HID service discovery (ADC_SW = %d)", bt_keyboard->Adc_Sw );
+        dev = esp_hidh_dev_open(bt_keyboard->bd_addr, ESP_HID_TRANSPORT_BT, 9536);
+        if (dev != NULL)
+        {
+          vTaskDelay(400); // Wait a bit
+          if (esp_bt_gap_set_security_param(ESP_BT_SP_IOCAP_MODE, &bt_keyboard->iocap, sizeof(esp_bt_io_cap_t)) != ESP_OK)
+          {
+            ESP_LOGE(TAG, "Failed to set security parameters for pairing");
+          }
+          else
+          {
+            //vTaskDelay(400); // Wait a bit for the disconnection to complete
+            ESP_LOGI(TAG, "Successfully Re-opened secure HID connection to " ESP_BD_ADDR_STR, ESP_BD_ADDR_HEX(bt_keyboard->bd_addr));
+          }
+        }
+        else
+        {
+          ESP_LOGE(TAG, "Failed to open secure HID connection to " ESP_BD_ADDR_STR, ESP_BD_ADDR_HEX(bt_keyboard->bd_addr));
+          sprintf(msgbuf, "Failed to open secure HID connection to " ESP_BD_ADDR_STR "\n", ESP_BD_ADDR_HEX(bt_keyboard->bd_addr));
+          bt_keyboard->TFTmsg(msgbuf, TFT_YELLOW);
+        }
+      }
+    }
+    else
+    {
+      ESP_LOGE(TAG, "ACL connection failed");
+    }
+    break;
+  case ESP_BT_GAP_ACL_DISCONN_CMPL_STAT_EVT:
+  {
+    bt_keyboard->OpnEvntFlg = false;
+    ESP_LOGI(TAG, "ACL disconnected");
+    //sprintf(msgbuf, "ACL disconnected\n");
+    //bt_keyboard->TFTmsg(msgbuf, TFT_WHITE);
+    break;
+  }
   default:
-    ESP_LOGV(TAG, "BT GAP EVENT %s", bt_gap_evt_str(event));
-    // if(pDFault->DeBug){
-    sprintf(msgbuf, "BT GAP EVENT %s", bt_gap_evt_str(event));
-    //   pmsgbx->dispMsg(msgbuf,TFT_WHITE);
-    // }
+    ESP_LOGW(TAG, "BT GAP EVENT %s", bt_gap_evt_str(event));
     break;
   }
   //printf("bt_gap_event_handler: %s EXIT\n",msgbuf); //JMH Diagnosstic testing
@@ -821,7 +1061,10 @@ void BTKeyboard::handle_ble_device_result(esp_ble_gap_cb_param_t *param)
 
 void BTKeyboard::ble_gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param)
 {
-  //printf("ble_gap_event_handler\n"); //JMH Diagnosstic testing
+  static const char *TAG1 = "ble_gap_event_handler";
+  //sprintf(msgbuf, "ble_gap_event_handler: %d", event); //JMH Diagnostic testing
+  //printf("ble_gap_event_handler: %s \n",msgbuf); //JMH Diagnostic testing
+  GAP_DBG_PRINTF("BLE GAP EVT: (%d) %s\n", event, ble_gap_evt_str(event));
   switch (event)
   {
 
@@ -1087,7 +1330,7 @@ void BTKeyboard::devices_scan(int seconds_wait_time)
   esp_hid_scan_result_t *results = NULL;
  // bt_keyboard->OpnEvntFlg = false;
   ESP_LOGV(TAG, "SCAN...");
-  sprintf(msgbuf, "LOOKing for New Keyboard...\n");
+  sprintf(msgbuf, "Looking for Keyboard...\n");
   pmsgbx->dispMsg(msgbuf, TFT_YELLOW);
 
   // start scan for HID devices
@@ -1137,13 +1380,21 @@ void BTKeyboard::devices_scan(int seconds_wait_time)
         bt_keyboard->inPrgsFlg = true;
       }
       vTaskDelay(50/portTICK_PERIOD_MS);//pause long enough for flag change to take effect
-      sprintf(msgbuf, "Enter PAIRING code for %s\n", cr->name);
-      pmsgbx->dispMsg(msgbuf, TFT_GREEN);
-      ESP_LOGI(TAG, "cr->ble.addr_type: %d\n", (int)cr->ble.addr_type);
-      esp_hidh_dev_open(cr->bda, cr->transport, cr->ble.addr_type);// Returns immediately w/ BT classic device; But waits for pairing code w/ BLE device
-      ESP_LOGI(TAG, "hidh_dev_open complete");
+      //sprintf(msgbuf, "Enter PAIRING code for %s\n", cr->name);
       //pmsgbx->dispMsg(msgbuf, TFT_GREEN);
-    }
+      ESP_LOGI(TAG, "cr->ble.addr_type: %u\n", cr->ble.addr_type);
+      bt_keyboard->ReConectFlg = true;
+      dev = esp_hidh_dev_open(cr->bda, cr->transport, cr->ble.addr_type);// Returns immediately w/ BT classic device; But waits for pairing code w/ BLE device
+      if (dev != NULL)
+      {
+        printf("esp_hidh_dev_open " ESP_BD_ADDR_STR " \n", ESP_BD_ADDR_HEX(cr->bda));
+      }
+      else{
+        sprintf(msgbuf, "esp_hidh_dev_open failed\n");
+        pmsgbx->dispMsg(msgbuf, TFT_YELLOW);
+      }
+      vTaskDelay(100/portTICK_PERIOD_MS);//pause long enough for flag change to take effect
+      bt_keyboard->inPrgsFlg = false;}
     else
     {
       sprintf(msgbuf, "KeyBroard NOT found...\n");
@@ -1192,7 +1443,9 @@ void BTKeyboard::hidh_callback(void *handler_args, esp_event_base_t base, int32_
         if (param->open.status == ESP_OK)
         {
           const uint8_t *bda = esp_hidh_dev_bda_get(param->open.dev);
+          //ESP_LOGI(TAG, ESP_BD_ADDR_STR " OPEN: %s", ESP_BD_ADDR_HEX(bda), esp_hidh_dev_name_get(param->open.dev));
           ESP_LOGI(TAG, ESP_BD_ADDR_STR " OPEN: %s", ESP_BD_ADDR_HEX(bda), esp_hidh_dev_name_get(param->open.dev));
+            esp_hidh_dev_dump(param->open.dev, stdout);
           /*Now go query the reports for this device/keyboard, & See if the Logictech 'F-Key' config report can be found*/
           /*JMH added the following to ferrit out Logitech keyboards*/
           /*Query the keyboard for reports*/
@@ -1341,6 +1594,7 @@ void BTKeyboard::hidh_callback(void *handler_args, esp_event_base_t base, int32_
             bt_keyboard->Adc_Sw = 2;
           }
           bt_keyboard->OpnEvntFlg = true;
+          //bt_keyboard->pmsgbx->dispMsg("KEYBOARD READY\n", TFT_GREEN);
           
         }
         else

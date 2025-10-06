@@ -1,3 +1,59 @@
+/**
+ * @file main.cpp
+ * @brief ESP32 CW Decoder & Bluetooth Keyboard Main Application
+ *
+ * This file implements the main application logic for an ESP32-based CW (Morse code) decoder and Bluetooth keyboard interface.
+ * It supports both Linux and Windows 10 environments and is designed to work with a TFT display (ILI9341 driver) and various
+ * peripherals including ADC, Bluetooth HID keyboards, and FreeRTOS tasks.
+ *
+ * ## Features:
+ * - Bluetooth keyboard pairing, scan, and event handling (supports Logitech K380 and others)
+ * - Real-time CW decoding using Goertzel algorithm on ADC audio input
+ * - Adjustable WPM (words per minute), auto-tune, and gain settings
+ * - TFT display management for decoded text, status, and user interaction
+ * - User-configurable memory messages (F2-F5), callsign, and settings stored in NVS
+ * - Advanced Morse code parsing and error correction (AdvParser class)
+ * - Multi-tasking using FreeRTOS for ADC processing, display updates, CW decoding, and post-processing
+ * - Mutex and semaphore protection for shared resources
+ * - Support for diagnostic and debug output
+ * - Persistent user settings via NVS (Non-Volatile Storage)
+ *
+ * ## Main Components:
+ * - **GoertzelHandler**: Processes ADC samples for tone detection and frequency measurement.
+ * - **DisplayUpDt**: Updates the TFT display with decoded messages and status.
+ * - **CWDecodeTask**: Main loop for CW decoding and error correction.
+ * - **AdvParserTask**: Post-processing and advanced parsing of decoded Morse code.
+ * - **ProcsKeyEntry**: Handles keyboard input, including special function keys and message sending.
+ * - **NVS Read/Write Functions**: Manage persistent storage of user preferences and settings.
+ * - **Timer ISRs**: Handle periodic display refresh and dot clock for outgoing Morse (CW) timing.
+ *
+ * ## Usage:
+ * - On startup, initializes hardware, peripherals, and tasks.
+ * - Pairs with a Bluetooth keyboard and waits for user input.
+ * - Decodes incoming CW signals from ADC and displays results.
+ * - Allows sending of pre-configured or custom messages via keyboard.
+ * - User can access settings screen to configure preferences.
+ *
+ * ## Notable Definitions:
+ * - `DF_t DFault`: Structure holding factory/user default settings.
+ * - `TFTMsgBox tftmsgbx`: Handles display messaging.
+ * - `CWSNDENGN CWsndengn`: Manages CW sending engine.
+ * - `BTKeyboard bt_keyboard`: Bluetooth keyboard handler.
+ * - `TxtNtryBox txtntrybox`: Text entry box for user input.
+ *
+ * ## Task Priorities:
+ * - Goertzel Task: 5 (highest, for real-time ADC processing)
+ * - CW Decode Task: 4
+ * - Display Update Task: 3
+ * - AdvParser Task: 2
+ *
+ * ## History:
+ * - Extensive changelog documents ongoing improvements, bug fixes, and feature additions from 2020 through 2025.
+ *
+ * @author Jim (CW Decoder, ESP32 integration, enhancements)
+ * @author Guy Turcotte (original BT-Keyboard code)
+ * @copyright MIT License
+ */
 /* BT-Keyboard code (bt_keyboard.cpp) based on source code with the same file name &
    Copyright (c) 2020 by Guy Turcotte
    MIT License. Look at file licenses.txt for details.
@@ -102,6 +158,8 @@
 /*20240522 Goertzel.cpp, added auto glitch detection,to support post parser (AdvParser.cpp)*/
 /*20240601 Minor tweaks to AdvParser.cpp to improve rule set selection & adds SrchRplcDict[]*/
 /*20240608 Expanded SrchRplcDict[] to 731 entries*/
+/*20250930 restructed to work with framework-espidf@~3.50202.0 */
+/*20251006 bt_keyboard.cpp reworked keyboard pairing & reconnect */
 
 #include "sdkconfig.h" //added for timer support
 #include "globals.h"
@@ -132,6 +190,7 @@
 /**blackpill tftmsgbox spport*/
 #include "TFTMsgBox.h"
 #include "CWSndEngn.h"
+#include "esp_hid_host_exmpl.h"
 /* the following defines were taken from "hal/adc_hal.h" 
  and are here for help in finding the true ADC sample rate based on a given declared sample frequency*/
 #define ADC_LL_CLKM_DIV_NUM_DEFAULT       15
@@ -159,7 +218,7 @@ DF_t DFault;
 int DeBug = 0; // Debug factory default setting; 0 => Debug "OFF"; 1 => Debug "ON"
 char StrdTxt[20] = {'\0'};
 /*Factory Default Settings*/
-char RevDate[9] = "20240608";
+char RevDate[9] = "20250930";
 char MyCall[10] = "KW4KD";
 char MemF2[80] = "VVV VVV TEST DE KW4KD";
 char MemF3[80] = "CQ CQ CQ DE KW4KD KW4KD";
@@ -321,6 +380,7 @@ static bool check_valid_data(const adc_digi_output_data_t *data)
   return true;
 }
 ////////////////////////////////////////////
+/* Add a new ADC sample to the Goertzel processing chain */
 void addSmpl(int k, int i, int *pCntrA)
 {
   /*The following is for diagnostic testing; it generates a psuesdo tone input of known freq & magnitude */
@@ -402,7 +462,7 @@ void addSmpl(int k, int i, int *pCntrA)
     }
     Oldk = k;
   }
-
+// 
   ProcessSample(k, i);
   /* uncomment for diagnostic testing; graph raw ADC samples*/
   // if ((*pCntrA < (6 * Goertzel_SAMPLE_CNT)) && UrTurn)
@@ -427,6 +487,7 @@ void addSmpl(int k, int i, int *pCntrA)
 
 /////////////////////////////////////////////
 /* Goertzel Task; Process ADC buffer*/
+
 void GoertzelHandler(void *param)
 {
   static uint32_t thread_notification;
@@ -784,7 +845,11 @@ void pairing_handler(uint32_t pid)
 
 void app_main()
 {
-
+  /*uncomment the following for diagnostic testing of host HID connection/pairing to keyboard*/
+  // Exmpl_main();
+  // while(1){
+  //   vTaskDelay(1000 / portTICK_PERIOD_MS);
+  // }
   ModeCnt = 0;
   static const char *TAG = "TASK Config";
   // Configure pin
@@ -1041,7 +1106,6 @@ intr_matrix_set(xPortGetCoreID(), ETS_TG0_T1_LEVEL_INTR_SOURCE, 26); // display
         vTaskDelay(20);
       }
     }
-
     /*Added this to support 'open' paired BT keyboard event*/
     switch (bt_keyboard.Adc_Sw)
     {
@@ -1084,7 +1148,7 @@ intr_matrix_set(xPortGetCoreID(), ETS_TG0_T1_LEVEL_INTR_SOURCE, 26); // display
       default:
         break;
       }
-    }  //end switch
+    } // end switch
     if (bt_keyboard.PairFlg && !bt_keyboard.inPrgsFlg)
     {
       xTimerStop(DisplayTmr, portMAX_DELAY);

@@ -1,7 +1,7 @@
-set(CMAKE_CXX_COMPILER "/home/jim/.platformio/packages/toolchain-xtensa-esp32/bin/xtensa-esp32-elf-g++")
+set(CMAKE_CXX_COMPILER "/home/jim/.platformio/packages/toolchain-xtensa-esp-elf@13.2.0+20230928/bin/xtensa-esp32-elf-g++")
 set(CMAKE_CXX_COMPILER_ARG1 "")
 set(CMAKE_CXX_COMPILER_ID "GNU")
-set(CMAKE_CXX_COMPILER_VERSION "12.2.0")
+set(CMAKE_CXX_COMPILER_VERSION "13.2.0")
 set(CMAKE_CXX_COMPILER_VERSION_INTERNAL "")
 set(CMAKE_CXX_COMPILER_WRAPPER "")
 set(CMAKE_CXX_STANDARD_COMPUTED_DEFAULT "17")
@@ -19,11 +19,11 @@ set(CMAKE_CXX_SIMULATE_VERSION "")
 
 
 
-set(CMAKE_AR "/home/jim/.platformio/packages/toolchain-xtensa-esp32/bin/xtensa-esp32-elf-ar")
-set(CMAKE_CXX_COMPILER_AR "/home/jim/.platformio/packages/toolchain-xtensa-esp32/bin/xtensa-esp32-elf-gcc-ar")
-set(CMAKE_RANLIB "/home/jim/.platformio/packages/toolchain-xtensa-esp32/bin/xtensa-esp32-elf-ranlib")
-set(CMAKE_CXX_COMPILER_RANLIB "/home/jim/.platformio/packages/toolchain-xtensa-esp32/bin/xtensa-esp32-elf-gcc-ranlib")
-set(CMAKE_LINKER "/home/jim/.platformio/packages/toolchain-xtensa-esp32/bin/xtensa-esp32-elf-ld")
+set(CMAKE_AR "/home/jim/.platformio/packages/toolchain-xtensa-esp-elf@13.2.0+20230928/bin/xtensa-esp32-elf-ar")
+set(CMAKE_CXX_COMPILER_AR "/home/jim/.platformio/packages/toolchain-xtensa-esp-elf@13.2.0+20230928/bin/xtensa-esp32-elf-gcc-ar")
+set(CMAKE_RANLIB "/home/jim/.platformio/packages/toolchain-xtensa-esp-elf@13.2.0+20230928/bin/xtensa-esp32-elf-ranlib")
+set(CMAKE_CXX_COMPILER_RANLIB "/home/jim/.platformio/packages/toolchain-xtensa-esp-elf@13.2.0+20230928/bin/xtensa-esp32-elf-gcc-ranlib")
+set(CMAKE_LINKER "/home/jim/.platformio/packages/toolchain-xtensa-esp-elf@13.2.0+20230928/bin/xtensa-esp32-elf-ld")
 set(CMAKE_MT "")
 set(CMAKE_COMPILER_IS_GNUCXX 1)
 set(CMAKE_CXX_COMPILER_LOADED 1)
@@ -82,7 +82,7 @@ endif()
 
 
 
-set(CMAKE_CXX_IMPLICIT_INCLUDE_DIRECTORIES "/home/jim/.platformio/packages/toolchain-xtensa-esp32/xtensa-esp32-elf/include/c++/12.2.0;/home/jim/.platformio/packages/toolchain-xtensa-esp32/xtensa-esp32-elf/include/c++/12.2.0/xtensa-esp32-elf;/home/jim/.platformio/packages/toolchain-xtensa-esp32/xtensa-esp32-elf/include/c++/12.2.0/backward;/home/jim/.platformio/packages/toolchain-xtensa-esp32/lib/gcc/xtensa-esp32-elf/12.2.0/include;/home/jim/.platformio/packages/toolchain-xtensa-esp32/lib/gcc/xtensa-esp32-elf/12.2.0/include-fixed;/home/jim/.platformio/packages/toolchain-xtensa-esp32/xtensa-esp32-elf/sys-include;/home/jim/.platformio/packages/toolchain-xtensa-esp32/xtensa-esp32-elf/include")
+set(CMAKE_CXX_IMPLICIT_INCLUDE_DIRECTORIES "/home/jim/.platformio/packages/toolchain-xtensa-esp-elf@13.2.0+20230928/xtensa-esp-elf/include/c++/13.2.0;/home/jim/.platformio/packages/toolchain-xtensa-esp-elf@13.2.0+20230928/xtensa-esp-elf/include/c++/13.2.0/xtensa-esp-elf/esp32;/home/jim/.platformio/packages/toolchain-xtensa-esp-elf@13.2.0+20230928/xtensa-esp-elf/include/c++/13.2.0/backward;/home/jim/.platformio/packages/toolchain-xtensa-esp-elf@13.2.0+20230928/lib/gcc/xtensa-esp-elf/13.2.0/include;/home/jim/.platformio/packages/toolchain-xtensa-esp-elf@13.2.0+20230928/lib/gcc/xtensa-esp-elf/13.2.0/include-fixed;/home/jim/.platformio/packages/toolchain-xtensa-esp-elf@13.2.0+20230928/xtensa-esp-elf/sys-include;/home/jim/.platformio/packages/toolchain-xtensa-esp-elf@13.2.0+20230928/xtensa-esp-elf/include")
 set(CMAKE_CXX_IMPLICIT_LINK_LIBRARIES "stdc++;m;gcc;c;nosys;c;gcc")
-set(CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES "/home/jim/.platformio/packages/toolchain-xtensa-esp32/lib/gcc/xtensa-esp32-elf/12.2.0;/home/jim/.platformio/packages/toolchain-xtensa-esp32/lib/gcc;/home/jim/.platformio/packages/toolchain-xtensa-esp32/xtensa-esp32-elf/lib")
+set(CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES "/home/jim/.platformio/packages/toolchain-xtensa-esp-elf@13.2.0+20230928/lib/gcc/xtensa-esp-elf/13.2.0/esp32;/home/jim/.platformio/packages/toolchain-xtensa-esp-elf@13.2.0+20230928/xtensa-esp-elf/lib/esp32;/home/jim/.platformio/packages/toolchain-xtensa-esp-elf@13.2.0+20230928/lib/gcc/xtensa-esp-elf/13.2.0;/home/jim/.platformio/packages/toolchain-xtensa-esp-elf@13.2.0+20230928/lib/gcc;/home/jim/.platformio/packages/toolchain-xtensa-esp-elf@13.2.0+20230928/xtensa-esp-elf/lib")
 set(CMAKE_CXX_IMPLICIT_LINK_FRAMEWORK_DIRECTORIES "")

@@ -14,7 +14,7 @@
             "name": "PIO Debug",
             "executable": "/home/jim/ESP_Projects/ESP32BtCWKeyBrd/.pio/build/upesy_wroom/firmware.elf",
             "projectEnvName": "upesy_wroom",
-            "toolchainBinDir": "/home/jim/.platformio/packages/toolchain-xtensa-esp32/bin",
+            "toolchainBinDir": "/home/jim/.platformio/packages/toolchain-xtensa-esp-elf@13.2.0+20230928/bin",
             "internalConsoleOptions": "openOnSessionStart",
             "preLaunchTask": {
                 "type": "PlatformIO",
@@ -27,7 +27,7 @@
             "name": "PIO Debug (skip Pre-Debug)",
             "executable": "/home/jim/ESP_Projects/ESP32BtCWKeyBrd/.pio/build/upesy_wroom/firmware.elf",
             "projectEnvName": "upesy_wroom",
-            "toolchainBinDir": "/home/jim/.platformio/packages/toolchain-xtensa-esp32/bin",
+            "toolchainBinDir": "/home/jim/.platformio/packages/toolchain-xtensa-esp-elf@13.2.0+20230928/bin",
             "internalConsoleOptions": "openOnSessionStart"
         },
         {
@@ -36,7 +36,7 @@
             "name": "PIO Debug (without uploading)",
             "executable": "/home/jim/ESP_Projects/ESP32BtCWKeyBrd/.pio/build/upesy_wroom/firmware.elf",
             "projectEnvName": "upesy_wroom",
-            "toolchainBinDir": "/home/jim/.platformio/packages/toolchain-xtensa-esp32/bin",
+            "toolchainBinDir": "/home/jim/.platformio/packages/toolchain-xtensa-esp-elf@13.2.0+20230928/bin",
             "internalConsoleOptions": "openOnSessionStart",
             "loadMode": "manual"
         }
